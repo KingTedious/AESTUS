@@ -1,0 +1,14 @@
+{
+    "name": "gabrielsassati/jovemconnect",
+    "description": "Plataforma de conexão entre jovens talentos e empresas.",
+    "type": "project",
+    "require": {
+        "php": ">=8.0"
+    },
+    "authors": [
+        {
+            "name": "Gabriel Sassati",
+            "email": "gabriel.sassati@gmail.com"
+        }
+    ]
+}

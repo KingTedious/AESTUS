@@ -21,6 +21,16 @@
 }
 
 
+.profile-button:hover {
+    background-color: var(--border) !important;
+    border-color: var(--primary) !important;
+    transform: translateY(-2px);
+}
+
+header nav a:hover {
+    color: var(--primary) !important;
+}
+
 /* Reset e Fonte */
 
 * {

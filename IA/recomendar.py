@@ -16,14 +16,25 @@ def avaliar():
     cidade_jovem = data.get("cidade_jovem", "").lower()
     descricao = data.get("descricao", "").lower()
     cidade_vaga = data.get("cidade_vaga", "").lower()
+    
+     # Extração dos novos campos que criamos no SQL
+    tipo_ensino = data.get("escolaridade_tipo", "").lower()
+    curso = data.get("escolaridade_curso", "").lower()
+    status = data.get("escolaridade_status", "").lower()
+
 
     score = 0
     motivos = []
 
-    # Verificação de Formação vs Descrição da Vaga
-    if formacao and formacao in descricao:
-        score += 40
-        motivos.append("Sua formação combina com os requisitos da vaga")
+    # Bonus por Ensino Técnico na área
+    if tipo_ensino == "tecnico" and curso in descricao:
+        score += 50  # Peso maior por ser formação técnica específica
+        motivos.append(f"Seu curso técnico em {curso.upper()} é um diferencial para esta vaga")
+
+    # Penalidade ou Alerta se a vaga for para quem já concluiu e o jovem ainda está cursando
+    if "concluído" in descricao and status == "cursando":
+        score -= 10
+        motivos.append("Atenção: A vaga prefere candidatos que já concluíram o ensino médio")
 
     # Verificação de Proximidade (Cidades identificadas no banco de dados)
     if cidade_jovem == cidade_vaga and cidade_jovem != "":
