@@ -31,6 +31,15 @@ if($result->num_rows > 0){
 
 while($vaga = $result->fetch_assoc()){
 
+$jovem_id = $_SESSION['jovem_id'];
+
+$sql_fav = "SELECT * FROM favoritos 
+WHERE jovem_id='$jovem_id' AND vaga_id='".$row['id']."'";
+
+$res_fav = $conn->query($sql_fav);
+
+$ja_favoritou = $res_fav->num_rows > 0;
+
 echo "<hr>";
 
 echo "<h2>".$vaga['titulo']."</h2>";
@@ -48,7 +57,11 @@ echo "<b>Descrição:</b><br>".$vaga['descricao']."<br>";
 echo "<br>";
 echo "<a href='candidatar.php?vaga=".$vaga['id']."'>Candidatar-se</a>";
 
-echo "<a href='favoritar.php?vaga_id=".$row['id']."'>❤️ Favoritar</a><br><br>";
+if($ja_favoritou){
+echo "<a href='favoritar.php?vaga_id=".$row['id']."'>💔 Remover dos favoritos</a><br>";
+}else{
+echo "<a href='favoritar.php?vaga_id=".$row['id']."'>❤️ Favoritar</a><br>";
+}
 
 }
 
