@@ -1,3 +1,7 @@
+<?php include("../includes/header.php"); ?>
+
+<link rel="stylesheet" href="../assets/css/style.css">
+
 <?php
 include("../includes/config.php");
 session_start();
@@ -19,7 +23,7 @@ if(password_verify($senha,$user['senha'])){
 $_SESSION['jovem_id'] = $user['id'];
 $_SESSION['jovem_nome'] = $user['nome'];
 
-header("Location: ../dashboard/index.php");
+header("Location: ../dashboard/jovem.php");
 exit;
 
 }else{
@@ -48,3 +52,5 @@ Senha:<br>
 <button type="submit">Entrar</button>
 
 </form>
+
+<?php include("../includes/footer.php"); ?>

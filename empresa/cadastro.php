@@ -1,3 +1,7 @@
+<?php include("../includes/header.php"); ?>
+
+<link rel="stylesheet" href="../assets/css/style.css">
+
 <?php
 include("../includes/config.php");
 
@@ -69,3 +73,5 @@ Telefone:<br>
 <button type="submit">Cadastrar Empresa</button>
 
 </form>
+
+<?php include("../includes/footer.php"); ?>

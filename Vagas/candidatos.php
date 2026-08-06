@@ -1,3 +1,7 @@
+<?php include("../includes/header.php"); ?>
+
+<link rel="stylesheet" href="../assets/css/style.css">
+
 <?php
 include("../includes/config.php");
 session_start();
@@ -41,3 +45,5 @@ echo "Nenhum candidato ainda.";
 
 }
 ?>
+
+<?php include("../includes/footer.php"); ?>

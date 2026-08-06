@@ -1,3 +1,7 @@
+<?php include("../includes/header.php"); ?>
+
+<link rel="stylesheet" href="../assets/css/style.css">
+
 <?php
 include("../includes/config.php");
 
@@ -10,6 +14,16 @@ $result = $conn->query($sql);
 ?>
 
 <h1>Vagas disponíveis</h1>
+
+<form method="GET">
+
+<input type="text" name="busca" placeholder="Buscar vaga...">
+
+<button type="submit">Buscar</button>
+
+</form>
+
+<hr>
 
 <?php
 
@@ -44,3 +58,5 @@ echo "Nenhuma vaga disponível.";
 }
 
 ?>
+
+<?php include("../includes/footer.php"); ?>

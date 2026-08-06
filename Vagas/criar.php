@@ -1,3 +1,7 @@
+<?php include("../includes/header.php"); ?>
+
+<link rel="stylesheet" href="../assets/css/style.css">
+
 <?php
 include("../includes/config.php");
 session_start();
@@ -64,3 +68,5 @@ Tipo de contrato:<br>
 <button type="submit">Publicar vaga</button>
 
 </form>
+
+<?php include("../includes/footer.php"); ?>

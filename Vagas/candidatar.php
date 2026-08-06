@@ -1,3 +1,7 @@
+<?php include("../includes/header.php"); ?>
+
+<link rel="stylesheet" href="../assets/css/style.css">
+
 <?php
 include("../includes/config.php");
 session_start();
@@ -19,3 +23,5 @@ echo "Candidatura realizada com sucesso!";
 echo "Você já se candidatou a essa vaga.";
 }
 ?>
+
+<?php include("../includes/footer.php"); ?>

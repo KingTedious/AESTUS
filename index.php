@@ -1,3 +1,5 @@
+<?php include("../includes/header.php"); ?>
+
 <h1>JovemConnect</h1>
 
 <p>Escolha como deseja entrar:</p>
@@ -17,3 +19,6 @@
 <br>
 
 <a href="empresa/cadastro.php">Cadastrar como Empresa</a>
+
+
+<?php include("../includes/footer.php"); ?>

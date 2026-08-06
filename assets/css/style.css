@@ -1,0 +1,44 @@
+body {
+    font-family: Arial, sans-serif;
+    background: #f5f5f5;
+    margin: 0;
+    padding: 0;
+}
+
+.container {
+    width: 600px;
+    margin: 40px auto;
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+input,
+textarea {
+    width: 100%;
+    padding: 10px;
+    margin: 8px 0;
+    box-sizing: border-box;
+}
+
+button {
+    padding: 10px 20px;
+    background: #007bff;
+    color: white;
+    border: none;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #0056b3;
+}
+
+a {
+    color: #007bff;
+    text-decoration: none;
+}
+
+hr {
+    margin: 20px 0;
+}
