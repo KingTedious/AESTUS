@@ -1,13 +1,14 @@
 <?php
-$servidor = "localhost";
-$usuario = "root";
-$senha = "";
-$banco = "jovemaprendiz";
 
-// Conexão com o banco (quando usar)
-$conn = new mysqli($servidor, $usuario, $senha, $banco);
+$host = "localhost";
+$user = "root";
+$pass = "";
+$db = "jovemconnect";
+
+$conn = new mysqli($host, $user, $pass, $db);
 
 if ($conn->connect_error) {
-  die("Erro na conexão: " . $conn->connect_error);
+    die("Erro na conexão: " . $conn->connect_error);
 }
+
 ?>
