@@ -1,85 +1,73 @@
 <?php
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+/* ============================================================
+   jovem/processar_login.php
 
-require_once 'includes/config.php'; 
-// --> ADICIONE ISSO: Inclui o motor de logs que criamos
-require_once 'includes/logger.php'; 
+   Espelho de empresa/processar_login.php para o fluxo jovem.
+   Diferenças: tabela jovens, coluna nome (não nome_empresa),
+   chaves de sessão jovem_id / jovem_nome.
 
+   Erros comuns do original que este arquivo corrige:
+   1. require_once 'includes/config.php'  → caminho relativo
+      busca jovem/includes/config.php (não existe).
+      Correto: dirname(__DIR__) . "/includes/config.php"
+   2. PDO em projeto mysqli.
+   3. Chaves de sessão erradas.
+   ============================================================ */
+session_start();
+
+// Bloqueia GET direto na URL
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    // Registamos que alguém tentou acessar o script de forma incorreta diretamente pela URL
-    registrar_log("Acesso direto bloqueado ao processar_login.php", "WARNING");
-    header("Location: index.php");
+    header("Location: login.php");
     exit;
 }
 
-$email = filter_input(INPUT_POST, 'email', FILTER_SANITIZE_EMAIL);
-$senha = $_POST['senha'] ?? '';
-$tipo_usuario = $_POST['tipo_usuario'] ?? 'jovem';
+// dirname(__DIR__) → sobe de jovem/ para a raiz do projeto
+require_once dirname(__DIR__) . "/includes/config.php";
 
-if (empty($email) || empty($senha)) {
-    // Registamos que houve um erro de digitação/campos em branco
-    registrar_log("Tentativa de login com campos vazios para o e-mail: " . ($email ?: 'Não informado'), "WARNING");
-    $_SESSION['erro_login'] = "Por favor, preencha todos os campos.";
-    header("Location: " . $tipo_usuario . "/login.php");
+// ── Leitura e validação básica ────────────────────────────────────────────────
+$email = trim($_POST['email'] ?? '');
+$senha = $_POST['senha']      ?? '';
+
+if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL) || empty($senha)) {
+    $_SESSION['erro_login'] = "Preencha todos os campos corretamente.";
+    header("Location: login.php");
     exit;
 }
 
-try {
-    if ($tipo_usuario === 'empresa') {
-        $sql = "SELECT id, nome, email, senha FROM empresas WHERE email = :email LIMIT 1";
-        $stmt = $conn->prepare($sql);
-        $stmt->bindParam(':email', $email);
-        $stmt->execute();
-        
-        $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+// ── Busca o jovem pelo e-mail ─────────────────────────────────────────────────
+$stmt = $conn->prepare(
+    "SELECT id, nome, senha
+     FROM   jovens
+     WHERE  email = ?
+     LIMIT  1"
+);
+$stmt->bind_param("s", $email);
+$stmt->execute();
+$jovem = $stmt->get_result()->fetch_assoc();
+$stmt->close();
 
-        if ($usuario && password_verify($senha, $usuario['senha'])) {
-            $_SESSION['usuario_id'] = $usuario['id'];
-            $_SESSION['usuario_nome'] = $usuario['nome'];
-            $_SESSION['usuario_tipo'] = 'empresa';
+// ── Verifica senha ────────────────────────────────────────────────────────────
+if ($jovem && password_verify($senha, $jovem['senha'])) {
 
-            // --> ADICIONE ISSO: Login corporativo com sucesso!
-            registrar_log("Empresa '{$usuario['nome']}' (ID: {$usuario['id']}) logou com sucesso.", "INFO");
+    unset($_SESSION['erro_login']);
 
-            header("Location: empresa/dashboard.php");
-            exit;
-        }
+    // ✅ Chaves corretas — lidas por todas as páginas do projeto
+    $_SESSION['jovem_id']   = intval($jovem['id']);
+    $_SESSION['jovem_nome'] = $jovem['nome'];
 
-    } else {
-        $sql = "SELECT id, nome, email, senha FROM jovens WHERE email = :email LIMIT 1";
-        $stmt = $conn->prepare($sql);
-        $stmt->bindParam(':email', $email);
-        $stmt->execute();
-        
-        $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+    // Atualiza ultimo_login
+    $stmt_ul = $conn->prepare(
+        "UPDATE jovens SET ultimo_login = NOW() WHERE id = ?"
+    );
+    $stmt_ul->bind_param("i", $_SESSION['jovem_id']);
+    $stmt_ul->execute();
+    $stmt_ul->close();
 
-        if ($usuario && password_verify($senha, $usuario['senha'])) {
-            $_SESSION['usuario_id'] = $usuario['id'];
-            $_SESSION['usuario_nome'] = $usuario['nome'];
-            $_SESSION['usuario_tipo'] = 'jovem';
-
-            // --> ADICIONE ISSO: Login do candidato com sucesso!
-            registrar_log("Candidato '{$usuario['nome']}' (ID: {$usuario['id']}) logou com sucesso.", "INFO");
-
-            header("Location: jovem/perfil.php");
-            exit;
-        }
-    }
-
-    // --> ADICIONE ISSO: Se chegou aqui, a senha ou e-mail estavam errados
-    registrar_log("Falha de login: Senha incorreta ou e-mail inexistente para [{$email}] no painel [{$tipo_usuario}]", "WARNING");
-
-    $_SESSION['erro_login'] = "E-mail ou senha incorretos.";
-    header("Location: " . $tipo_usuario . "/login.php");
-    exit;
-
-} catch (PDOException $e) {
-    // --> ADICIONE ISSO: Erro crítico no banco de dados! Salvamos a mensagem real do MySQL para o programador ver
-    registrar_log("Erro crítico de banco de dados no login: " . $e->getMessage(), "ERROR");
-
-    $_SESSION['erro_login'] = "Erro interno no servidor de autenticação.";
-    header("Location: " . $tipo_usuario . "/login.php");
+    header("Location: ../dashboard/jovem.php");
     exit;
 }
+
+// ── Credenciais inválidas ─────────────────────────────────────────────────────
+$_SESSION['erro_login'] = "E-mail ou senha incorretos. Tente novamente.";
+header("Location: login.php");
+exit;

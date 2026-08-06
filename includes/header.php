@@ -1,50 +1,162 @@
+<?php
+/* ============================================================
+   includes/header.php
+
+   Abre o documento HTML e injeta a navbar correta baseada
+   no estado de sessão.
+
+   USO:
+     // 1. session_start() sempre ANTES de incluir este arquivo
+     // 2. (opcional) defina $page_title antes do include:
+     //    $page_title = 'Minhas Candidaturas';
+     //    include '../includes/header.php';
+
+   ❌ PROBLEMAS DO ORIGINAL (todos corrigidos aqui):
+     · Somente suporte a $_SESSION['jovem_id'] — empresa invisível
+     · Todos os estilos inline (sem classes do design system)
+     · Variáveis CSS inexistentes: --primary, --text-main
+     · Google Fonts duplicado (Inter carregado duas vezes + Poppins
+       que não é usada em nenhuma outra parte do projeto)
+     · Sem data-theme no <html> → tema nunca aplicado pelo CSS
+     · Sem título dinâmico → todas as páginas mostram o mesmo título
+     · Sem navbar pública para usuários não logados
+   ============================================================ */
+
+// Segurança: session_status evita "headers already sent" se
+// a página chamar session_start() antes de incluir este arquivo
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// ── Detecta estado de sessão ──────────────────────────────────────────────────
+$_hdr_jovem   = isset($_SESSION['jovem_id']);
+$_hdr_empresa = isset($_SESSION['empresa_id']);
+$_hdr_logado  = $_hdr_jovem || $_hdr_empresa;
+
+// ── Título dinâmico ───────────────────────────────────────────────────────────
+// Cada página pode definir $page_title antes do include.
+// Ex: $page_title = 'Minhas Candidaturas';
+$_hdr_title = !empty($page_title)
+    ? htmlspecialchars($page_title) . ' | JovemConnect'
+    : 'JovemConnect — Conectando talentos ao futuro';
+?>
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-br" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JovemConnect - O Futuro Começa Aqui</title>
+    <meta name="description" content="JovemConnect — conectando jovens talentos com oportunidades de carreira.">
+    <title><?= $_hdr_title ?></title>
 
-    <link rel="stylesheet" href="../assets/css/style.css">
-    
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Poppins:wght@500;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Google Fonts: Inter — uma única requisição, pesos necessários -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+          rel="stylesheet">
+
+    <!-- Design System JovemConnect v3.00 -->
+    <link rel="stylesheet" href="../Assets/css/style.css">
+
+    <!--
+        Aplica o tema salvo ANTES do primeiro render do CSS.
+        Sem este script inline, ocorre "flash of unstyled content":
+        a página aparece brevemente no tema padrão antes de mudar.
+    -->
+    <script>
+        (function () {
+            var t = localStorage.getItem('jc-theme');
+            if (t) document.documentElement.setAttribute('data-theme', t);
+        }());
+    </script>
 </head>
 <body>
 
-<!-- Estrutura do Header -->
-<header style="background-color: var(--bg-card); border-bottom: 1px solid var(--border); padding: 10px 0;">
-    <div class="container" style="display: flex; justify-content: space-between; align-items: center; padding: 0 20px;">
-        
-        <!-- Lado Esquerdo: Logo -->
-        <div class="logo">
-            <a href="../dashboard/jovem.php" style="text-decoration: none; display: flex; align-items: center; gap: 10px;">
-                <div style="background: var(--primary); width: 35px; height: 35px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">
-                    JC
-                </div>
-                <span style="color: var(--text-main); font-weight: 700; font-size: 1.2rem;">JovemConnect</span>
-            </a>
+<?php if ($_hdr_logado): ?>
+
+<!-- ============================================================
+     NAVBAR INTERNA (usuário autenticado)
+     ============================================================ -->
+<nav class="navbar-inner">
+
+    <!-- Logo → dashboard do tipo de usuário correto -->
+    <a href="../dashboard/<?= $_hdr_jovem ? 'jovem' : 'empresa' ?>.php" class="nav-logo">
+        <span class="logo-box">💼</span>
+        <span class="logo-jovem">Jovem</span><span class="logo-connect">Connect</span>
+    </a>
+
+    <!-- Barra de busca central (ID usado pela página para adicionar filtro) -->
+    <div class="navbar-inner-center">
+        <div class="search-bar">
+            <span class="search-icon">⌕</span>
+            <input
+                type="search"
+                id="searchGlobal"
+                class="search-global-input"
+                placeholder="<?= $_hdr_jovem ? 'Buscar vagas...' : 'Buscar candidatos...' ?>"
+                autocomplete="off"
+                aria-label="<?= $_hdr_jovem ? 'Buscar vagas' : 'Buscar candidatos' ?>">
         </div>
-
-        <!-- Lado Direito: Menu de Navegação e Perfil -->
-        <nav style="display: flex; align-items: center; gap: 20px;">
-            
-            <?php if(isset($_SESSION['jovem_id'])): ?>
-                <!-- Links Extras (Opcional) -->
-                <a href="../dashboard/jovem.php" style="color: var(--text-secondary); text-decoration: none; font-size: 0.9rem;">Vagas</a>
-
-                <!-- Botão de Perfil -->
-                <a href="../jovem/perfil.php" class="profile-button" style="display: flex; align-items: center; gap: 10px; text-decoration: none; background: var(--bg-input); padding: 5px 15px; border-radius: 20px; border: 1px solid var(--border); transition: 0.3s;">
-                    <span style="color: var(--text-main); font-size: 0.9rem; font-weight: 500;">
-                        <?php echo explode(' ', $_SESSION['jovem_nome'])[0]; ?>
-                    </span>
-                    <!-- Círculo com a Inicial -->
-                    <div style="width: 30px; height: 30px; background: var(--primary); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: bold;">
-                        <?php echo strtoupper(substr($_SESSION['jovem_nome'], 0, 1)); ?>
-                    </div>
-                </a>
-            <?php endif; ?>
-
-        </nav>
     </div>
-</header>
+
+    <!-- Ações do lado direito -->
+    <div class="navbar-inner-right">
+        <!-- Toggle de tema -->
+        <button
+            class="icon-btn btn-theme"
+            id="btnTheme"
+            title="Alternar tema"
+            aria-label="Alternar tema claro/escuro">
+            🌙
+        </button>
+
+        <!-- Link de perfil (destino muda conforme o tipo) -->
+        <?php if ($_hdr_jovem): ?>
+            <a href="../jovem/perfil.php"   class="icon-btn" title="Meu Perfil"       aria-label="Meu Perfil">👤</a>
+        <?php else: ?>
+            <a href="../empresa/perfil.php" class="icon-btn" title="Perfil da Empresa" aria-label="Perfil da Empresa">👤</a>
+        <?php endif; ?>
+
+        <!-- Logout -->
+        <a href="../logout.php"
+           class="icon-btn text-danger"
+           title="Sair"
+           aria-label="Sair da conta">↪</a>
+    </div>
+
+</nav><!-- /.navbar-inner -->
+
+<?php else: ?>
+
+<!-- ============================================================
+     NAVBAR PÚBLICA (visitante não autenticado)
+     ============================================================ -->
+<nav class="navbar">
+
+    <a href="../index.php" class="nav-logo">
+        <span class="logo-box">💼</span>
+        <span class="logo-jovem">Jovem</span><span class="logo-connect">Connect</span>
+    </a>
+
+    <div class="nav-links">
+        <a href="../index.php#sobre">Sobre</a>
+        <a href="../empresa/login.php">Entrar</a>
+    </div>
+
+    <div class="nav-actions">
+        <button
+            class="btn-theme"
+            id="btnTheme"
+            title="Alternar tema"
+            aria-label="Alternar tema claro/escuro">
+            🌙
+        </button>
+        <a href="../empresa/login.php" class="btn btn-primary btn-sm">Começar</a>
+    </div>
+
+</nav><!-- /.navbar -->
+
+<?php endif; ?>
+<?php
+// Limpa variáveis locais para não vazar para o escopo da página
+unset($_hdr_jovem, $_hdr_empresa, $_hdr_logado, $_hdr_title);
+?>

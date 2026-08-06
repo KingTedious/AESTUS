@@ -1,42 +1,100 @@
 <?php
+/* ============================================================
+   includes/auth.php
+   Utilitário de verificação de autenticação.
+
+   USO (apenas em páginas protegidas — nunca em login/cadastro):
+     require_once dirname(__DIR__) . "/includes/auth.php";
+     verificar_autenticacao('empresa'); // ou 'jovem'
+
+   ⚠ NÃO chamar em páginas de login ou cadastro.
+     Essas páginas fazem a verificação de sessão inline e
+     redirecionam para o dashboard se o usuário já estiver logado.
+
+   CHAVES DE SESSÃO usadas pelo projeto:
+     Empresa → $_SESSION['empresa_id'], $_SESSION['empresa_nome']
+     Jovem   → $_SESSION['jovem_id'],   $_SESSION['jovem_nome']
+
+   ❌ PROBLEMA DO ORIGINAL:
+     Checava $_SESSION['usuario_id'] e $_SESSION['usuario_tipo'] —
+     chaves que NENHUMA página do projeto escreve.
+     Isso fazia a função expulsar todo usuário, mesmo logado.
+   ============================================================ */
+
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-require_once __DIR__ . '/logger.php';
+// Carrega logger.php se disponível; fallback silencioso caso contrário
+if (file_exists(__DIR__ . '/logger.php')) {
+    require_once __DIR__ . '/logger.php';
+}
+
+if (!function_exists('registrar_log')) {
+    /**
+     * Fallback: grava no error_log padrão do PHP quando logger.php não existe.
+     */
+    function registrar_log(string $mensagem, string $nivel = 'INFO'): void {
+        error_log("[JovemConnect][{$nivel}] {$mensagem}");
+    }
+}
 
 /**
- * Função para verificar se o utilizador está logado e se tem a permissão correta.
- * 
- * @param string $tipo_requerido O tipo de utilizador necessário ('jovem' ou 'empresa')
+ * Verifica se o usuário está autenticado com o tipo correto.
+ * Redireciona e encerra a execução se não autorizado.
+ *
+ * @param string $tipo  Tipo exigido pela página: 'empresa' ou 'jovem'
  */
-function verificar_autenticacao($tipo_requerido) {
-    // Se não houver uma sessão de ID ativa...
-    if (!isset($_SESSION['usuario_id'])) {
-        
-        // REGISTO DE LOG: Alguém tentou aceder a uma área restrita sem login
-        $url_tentada = $_SERVER['REQUEST_URI'] ?? 'URL desconhecida';
-        registrar_log("Tentativa de acesso não autorizado à página [{$url_tentada}]. Redirecionado para o login.", "WARNING");
-        
-        $_SESSION['erro_login'] = "Precisa de iniciar sessão para aceder a esta página.";
-        
-        // Redireciona de volta para a pasta de login correta
-        header("Location: ../" . $tipo_requerido . "/login.php");
+function verificar_autenticacao(string $tipo): void {
+
+    // Guarda contra tipos inválidos (evita redirects inesperados)
+    if (!in_array($tipo, ['empresa', 'jovem'], true)) {
+        registrar_log(
+            "verificar_autenticacao() chamada com tipo inválido: '{$tipo}'.",
+            'ERROR'
+        );
+        header('Location: ../index.php');
         exit;
     }
 
-    // Se o utilizador estiver logado, mas tentar aceder ao painel do outro tipo (Ex: Jovem a tentar entrar na Empresa)
-    if ($_SESSION['usuario_tipo'] !== $tipo_requerido) {
-        
-        // REGISTO DE LOG: Possível tentativa de invasão ou erro de navegação entre perfis
-        registrar_log("Utilizador ID {$_SESSION['usuario_id']} ({$_SESSION['usuario_tipo']}) tentou aceder ilegalmente à área reservada de: [{$tipo_requerido}]", "WARNING");
-        
-        // Expulsa o utilizador para a sua respetiva página correta
-        if ($_SESSION['usuario_tipo'] === 'empresa') {
-            header("Location: ../empresa/dashboard.php");
-        } else {
-            header("Location: ../jovem/perfil.php");
-        }
+    $tem_empresa = isset($_SESSION['empresa_id']);
+    $tem_jovem   = isset($_SESSION['jovem_id']);
+    $autenticado = $tem_empresa || $tem_jovem;
+    $url         = $_SERVER['REQUEST_URI'] ?? 'URL desconhecida';
+
+    // ── Sem sessão ativa ──────────────────────────────────────────────────────
+    if (!$autenticado) {
+        registrar_log(
+            "Acesso não autorizado a [{$url}]. Sem sessão ativa. " .
+            "Redirecionado para ../{$tipo}/login.php",
+            'WARNING'
+        );
+        $_SESSION['erro_login'] = 'Faça login para acessar esta página.';
+        header("Location: ../{$tipo}/login.php");
         exit;
     }
+
+    // ── Logado como jovem tentando acessar área de empresa ───────────────────
+    if ($tipo === 'empresa' && !$tem_empresa) {
+        $jovem_id = intval($_SESSION['jovem_id'] ?? 0);
+        registrar_log(
+            "Jovem ID {$jovem_id} tentou acessar área restrita de empresa em [{$url}].",
+            'WARNING'
+        );
+        header('Location: ../dashboard/jovem.php');
+        exit;
+    }
+
+    // ── Logado como empresa tentando acessar área de jovem ───────────────────
+    if ($tipo === 'jovem' && !$tem_jovem) {
+        $empresa_id = intval($_SESSION['empresa_id'] ?? 0);
+        registrar_log(
+            "Empresa ID {$empresa_id} tentou acessar área restrita de jovem em [{$url}].",
+            'WARNING'
+        );
+        header('Location: ../dashboard/empresa.php');
+        exit;
+    }
+
+    // Autenticado e tipo correto — continua normalmente
 }

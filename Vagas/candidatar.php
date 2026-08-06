@@ -1,69 +1,306 @@
-<?php 
-/* 1. CONFIGURAÇÕES E SESSÃO */
-include("../includes/config.php"); 
+<?php
+/* ============================================================
+   Vagas/candidatar.php
+
+   Fluxo correto (HTTP semântico + PRG):
+   ┌─────────────────────────────────────────────────────────┐
+   │ GET  ?vaga=X   → exibe página de confirmação da vaga   │
+   │ POST           → processa a candidatura                 │
+   │ Redirect  →    GET ?result=ok | duplicate | error       │
+   └─────────────────────────────────────────────────────────┘
+
+   ❌ PROBLEMAS DO ORIGINAL (todos corrigidos aqui):
+   1. session_start() depois do include config.php.
+   2. SQL Injection: real_escape_string() em vaga_id (inteiro)
+      — deveria ser intval() + prepared statement.
+   3. Candidatura processada via GET → F5 / back cria duplicata,
+      qualquer pessoa com a URL processa a ação.
+   4. Status 'Pendente' diverge do schema (DEFAULT 'Recebido').
+   5. $conn->error exposto para o usuário final.
+   6. include header.php após queries e <link> no body.
+   7. include footer.php em página com HTML próprio.
+   8. var(--principal) não existe no CSS v3.00.
+   ============================================================ */
 session_start();
 
-// Proteção: Apenas jovens logados podem se candidatar
-if(!isset($_SESSION['jovem_id'])){
-    include("../includes/header.php");
-    echo "<div class='container'><div class='card'><h2>Acesso Negado</h2><p>Você precisa estar logado como jovem para se candidatar.</p><a href='../jovem/login.php' class='btn'>Fazer Login</a></div></div>";
-    include("../includes/footer.php");
+if (!isset($_SESSION['jovem_id'])) {
+    header("Location: ../jovem/login.php");
     exit;
 }
 
-$jovem_id = $_SESSION['jovem_id'];
+require_once dirname(__DIR__) . "/includes/config.php";
 
-// 2. VERIFICAÇÃO DO ID DA VAGA
-if(!isset($_GET['vaga'])){
-    header("Location: ../vagas/listar.php");
-    exit;
-}
+$jovem_id = intval($_SESSION['jovem_id']);
 
-$vaga_id = $conn->real_escape_string($_GET['vaga']);
-$mensagem = "";
-$sucesso = false;
+// ── Lê o result do redirect (PRG) ────────────────────────────────────────────
+$result_code = $_GET['result'] ?? null; // 'ok' | 'duplicate' | 'error' | null
 
-/* 3. VERIFICAR SE JÁ EXISTE CANDIDATURA
-   Evita que o jovem clique duas vezes e gere registros duplicados no banco. */
-$check = $conn->query("SELECT id FROM candidaturas WHERE vaga_id = '$vaga_id' AND jovem_id = '$jovem_id'");
+// ── Lê o vaga_id (de GET ou de result redirect) ───────────────────────────────
+$vaga_id = intval($_GET['vaga'] ?? $_GET['vaga_id'] ?? 0);
 
-if($check->num_rows > 0){
-    $mensagem = "Você já se candidatou a esta vaga anteriormente.";
-} else {
-    /* 4. INSERIR CANDIDATURA
-       Definimos o status inicial como 'Pendente' (conforme a lógica do projeto). */
-    $sql = "INSERT INTO candidaturas (vaga_id, jovem_id, status) VALUES ('$vaga_id', '$jovem_id', 'Pendente')";
+/* ============================================================
+   POST: processa a candidatura
+   ============================================================ */
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    if($conn->query($sql) === TRUE){
-        $mensagem = "Candidatura realizada com sucesso! Boa sorte!";
-        $sucesso = true;
-    } else {
-        $mensagem = "Erro técnico ao processar candidatura: " . $conn->error;
+    $vaga_id = intval($_POST['vaga_id'] ?? 0);
+
+    if ($vaga_id <= 0) {
+        header("Location: ../dashboard/jovem.php");
+        exit;
     }
+
+    // Verifica duplicata (a UNIQUE KEY do banco também bloqueia, mas checamos antes por UX)
+    $stmt_chk = $conn->prepare(
+        "SELECT id FROM candidaturas WHERE vaga_id = ? AND jovem_id = ? LIMIT 1"
+    );
+    $stmt_chk->bind_param("ii", $vaga_id, $jovem_id);
+    $stmt_chk->execute();
+    $stmt_chk->store_result();
+    $ja_existe = $stmt_chk->num_rows > 0;
+    $stmt_chk->close();
+
+    if ($ja_existe) {
+        header("Location: candidatar.php?vaga_id={$vaga_id}&result=duplicate");
+        exit;
+    }
+
+    // Insere — status 'Recebido' (valor DEFAULT do schema v3.00)
+    $stmt_ins = $conn->prepare(
+        "INSERT INTO candidaturas (vaga_id, jovem_id, status) VALUES (?, ?, 'Recebido')"
+    );
+    $stmt_ins->bind_param("ii", $vaga_id, $jovem_id);
+
+    if ($stmt_ins->execute()) {
+        $stmt_ins->close();
+        header("Location: candidatar.php?vaga_id={$vaga_id}&result=ok");
+    } else {
+        // Loga o erro real; não expõe para o usuário
+        error_log("[JovemConnect] Erro ao inserir candidatura: " . $conn->error);
+        $stmt_ins->close();
+        header("Location: candidatar.php?vaga_id={$vaga_id}&result=error");
+    }
+    exit;
 }
 
-/* 5. INTERFACE VISUAL */
-include("../includes/header.php"); 
+/* ============================================================
+   GET: carrega dados da vaga para exibição
+   ============================================================ */
+if ($vaga_id <= 0) {
+    header("Location: ../dashboard/jovem.php");
+    exit;
+}
+
+// Busca a vaga (com nome da empresa)
+$stmt_v = $conn->prepare(
+    "SELECT v.id, v.titulo, v.descricao, v.cidade, v.estado,
+            v.salario, v.carga_horaria, v.area, v.tipo_contrato,
+            e.nome_empresa
+     FROM   vagas v
+     JOIN   empresas e ON v.empresa_id = e.id
+     WHERE  v.id = ?
+     LIMIT  1"
+);
+$stmt_v->bind_param("i", $vaga_id);
+$stmt_v->execute();
+$vaga = $stmt_v->get_result()->fetch_assoc();
+$stmt_v->close();
+
+if (!$vaga) {
+    header("Location: ../dashboard/jovem.php");
+    exit;
+}
+
+// Verifica se já se candidatou (para não mostrar o form desnecessariamente)
+$stmt_chk2 = $conn->prepare(
+    "SELECT id FROM candidaturas WHERE vaga_id = ? AND jovem_id = ? LIMIT 1"
+);
+$stmt_chk2->bind_param("ii", $vaga_id, $jovem_id);
+$stmt_chk2->execute();
+$stmt_chk2->store_result();
+$ja_candidatado = $stmt_chk2->num_rows > 0;
+$stmt_chk2->close();
+
+// Se não há result code mas já está candidatado, redireciona direto
+if (!$result_code && $ja_candidatado) {
+    $result_code = 'duplicate';
+}
 ?>
+<!DOCTYPE html>
+<html lang="pt-br" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>
+        <?= $result_code ? 'Candidatura' : 'Confirmar Candidatura' ?> | JovemConnect
+    </title>
+    <link rel="stylesheet" href="../Assets/css/style.css">
+</head>
+<body>
 
-<link rel="stylesheet" href="../assets/css/style.css">
-
-<div class="container">
-    <div class="card" style="text-align: center; padding: 50px;">
-        <?php if($sucesso): ?>
-            <h2 style="color: var(--principal);">✔️ Sucesso!</h2>
-            <p style="font-size: 1.2rem; margin: 20px 0;"><?php echo $mensagem; ?></p>
-        <?php else: ?>
-            <h2 style="color: #64748b;">⚠️ Atenção</h2>
-            <p style="font-size: 1.2rem; margin: 20px 0;"><?php echo $mensagem; ?></p>
-        <?php endif; ?>
-
-        <hr>
-        <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: center;">
-            <a href="../vagas/listar.php" class="btn" style="background: #334155;">Ver outras vagas</a>
-            <a href="minhas.php" class="btn">Minhas Candidaturas</a>
-        </div>
+<!-- Barra de topo -->
+<div class="detail-bar">
+    <div class="d-flex align-center gap-12">
+        <a href="listar.php?id=<?= $vaga_id ?>"
+           class="icon-btn" title="Voltar">←</a>
+        <span class="detail-bar-title">
+            <?= $result_code ? 'Status da Candidatura' : 'Confirmar Candidatura' ?>
+        </span>
     </div>
 </div>
 
-<?php include("../includes/footer.php"); ?>
+<div class="page-progress"><div class="page-progress-fill"></div></div>
+
+<div style="max-width:560px;margin:88px auto 60px;padding:0 24px;">
+
+    <?php if ($result_code === 'ok'): ?>
+    <!-- ══ SUCESSO ══════════════════════════════════════════════════════════ -->
+    <div class="card fade-up" style="text-align:center;padding:56px 32px;">
+        <div style="font-size:52px;margin-bottom:18px;">🎉</div>
+        <h2 style="font-size:20px;font-weight:800;margin-bottom:10px;color:#4ade80;">
+            Candidatura Enviada!
+        </h2>
+        <p class="text-secondary" style="font-size:14px;line-height:1.7;margin-bottom:8px;">
+            Você se candidatou com sucesso à vaga de
+            <strong><?= htmlspecialchars($vaga['titulo']) ?></strong>
+            na <strong><?= htmlspecialchars($vaga['nome_empresa']) ?></strong>.
+        </p>
+        <p class="text-secondary" style="font-size:13px;margin-bottom:28px;">
+            Status atual: <span class="badge">Recebido</span>
+        </p>
+        <div class="d-flex gap-12" style="justify-content:center;flex-wrap:wrap;">
+            <a href="../dashboard/jovem.php"
+               class="btn btn-ghost btn-sm">Ver outras vagas</a>
+            <a href="../Candidaturas/minhas.php"
+               class="btn btn-primary btn-sm">Minhas Candidaturas</a>
+        </div>
+    </div>
+
+    <?php elseif ($result_code === 'duplicate'): ?>
+    <!-- ══ JÁ CANDIDATADO ═══════════════════════════════════════════════════ -->
+    <div class="card fade-up" style="text-align:center;padding:56px 32px;
+         border-color:rgba(250,204,21,.3);">
+        <div style="font-size:52px;margin-bottom:18px;">⚠️</div>
+        <h2 style="font-size:20px;font-weight:800;margin-bottom:10px;color:#facc15;">
+            Candidatura já registrada
+        </h2>
+        <p class="text-secondary" style="font-size:14px;line-height:1.7;margin-bottom:28px;">
+            Você já se candidatou à vaga de
+            <strong><?= htmlspecialchars($vaga['titulo']) ?></strong>.
+            Acompanhe o andamento em <em>Minhas Candidaturas</em>.
+        </p>
+        <div class="d-flex gap-12" style="justify-content:center;flex-wrap:wrap;">
+            <a href="../dashboard/jovem.php"
+               class="btn btn-ghost btn-sm">Ver outras vagas</a>
+            <a href="../Candidaturas/minhas.php"
+               class="btn btn-primary btn-sm">Minhas Candidaturas</a>
+        </div>
+    </div>
+
+    <?php elseif ($result_code === 'error'): ?>
+    <!-- ══ ERRO ════════════════════════════════════════════════════════════ -->
+    <div class="card fade-up" style="text-align:center;padding:56px 32px;
+         border-color:rgba(239,68,68,.3);">
+        <div style="font-size:52px;margin-bottom:18px;">❌</div>
+        <h2 style="font-size:20px;font-weight:800;margin-bottom:10px;color:#f87171;">
+            Algo deu errado
+        </h2>
+        <p class="text-secondary" style="font-size:14px;line-height:1.7;margin-bottom:28px;">
+            Não foi possível registrar sua candidatura.
+            Tente novamente em alguns instantes.
+        </p>
+        <div class="d-flex gap-12" style="justify-content:center;flex-wrap:wrap;">
+            <a href="../dashboard/jovem.php"
+               class="btn btn-ghost btn-sm">Ver vagas</a>
+            <a href="candidatar.php?vaga=<?= $vaga_id ?>"
+               class="btn btn-primary btn-sm">Tentar novamente</a>
+        </div>
+    </div>
+
+    <?php else: ?>
+    <!-- ══ CONFIRMAÇÃO (exibida no GET normal) ══════════════════════════════ -->
+
+    <!-- Card da vaga (resumo) -->
+    <div class="card fade-up" style="margin-bottom:16px;">
+        <?php if (!empty($vaga['area'])): ?>
+        <span class="badge badge-area" style="margin-bottom:10px;display:inline-flex;">
+            <?= htmlspecialchars($vaga['area']) ?>
+        </span>
+        <?php endif; ?>
+
+        <h2 style="font-size:20px;font-weight:800;margin-bottom:4px;letter-spacing:-.01em;">
+            <?= htmlspecialchars($vaga['titulo']) ?>
+        </h2>
+        <div class="job-card-company" style="margin-bottom:14px;">
+            <span>🏢</span><?= htmlspecialchars($vaga['nome_empresa']) ?>
+        </div>
+
+        <div class="job-card-meta" style="margin-bottom:10px;">
+            <?php if (!empty($vaga['salario'])): ?>
+            <div class="job-card-meta-item">
+                <span>💰</span>
+                <span>R$ <?= htmlspecialchars($vaga['salario']) ?></span>
+            </div>
+            <?php endif; ?>
+            <?php if (!empty($vaga['carga_horaria'])): ?>
+            <div class="job-card-meta-item">
+                <span>🕐</span>
+                <span><?= htmlspecialchars($vaga['carga_horaria']) ?></span>
+            </div>
+            <?php endif; ?>
+        </div>
+
+        <?php if (!empty($vaga['cidade'])): ?>
+        <div class="job-card-location">
+            <span>📍</span>
+            <span>
+                <?= htmlspecialchars($vaga['cidade']) ?>
+                <?= !empty($vaga['estado']) ? ', ' . htmlspecialchars($vaga['estado']) : '' ?>
+            </span>
+        </div>
+        <?php endif; ?>
+    </div>
+
+    <!-- Form de confirmação -->
+    <div class="card fade-up" style="text-align:center;padding:32px 24px;">
+        <div style="font-size:40px;margin-bottom:14px;">✈</div>
+        <h3 style="font-size:17px;font-weight:700;margin-bottom:8px;">
+            Confirmar candidatura?
+        </h3>
+        <p class="text-secondary" style="font-size:13px;line-height:1.6;margin-bottom:24px;">
+            Ao confirmar, a empresa receberá seu perfil e currículo.
+            O status inicial será <span class="badge">Recebido</span>.
+        </p>
+
+        <!-- POST — processa de forma segura -->
+        <form method="POST" action="candidatar.php">
+            <input type="hidden" name="vaga_id" value="<?= $vaga_id ?>">
+            <div class="d-flex gap-12" style="justify-content:center;flex-wrap:wrap;">
+                <a href="listar.php?id=<?= $vaga_id ?>"
+                   class="btn btn-secondary btn-sm">Cancelar</a>
+                <button type="submit" class="btn btn-primary btn-sm">
+                    ✈ Confirmar Candidatura
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <?php endif; ?>
+
+</div><!-- /container -->
+
+<!-- FABs -->
+<div class="fab-stack">
+    <button class="fab fab-a11y" id="btnA11y" title="Acessibilidade" aria-label="Acessibilidade">♿</button>
+</div>
+<div class="user-indicator">
+    <?= strtoupper(mb_substr($_SESSION['jovem_nome'] ?? 'J', 0, 1)) ?>
+</div>
+
+<script>
+const savedTheme = localStorage.getItem('jc-theme');
+if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
+</script>
+
+</body>
+</html>

@@ -1,82 +1,76 @@
 <?php
-// Inicia a sessão com segurança
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+/* ============================================================
+   empresa/processar_login.php
 
-// Conecta ao arquivo de configuração global e ao banco de dados ($conn)
-require_once 'includes/config.php'; 
+   ❌ PROBLEMAS DO ORIGINAL (todos corrigidos aqui):
+   1. Usava PDO  ($stmt->fetch(PDO::FETCH_ASSOC), bindParam(':email'))
+      mas o projeto inteiro usa mysqli → quebrava na execução.
+   2. require_once 'includes/config.php'  → caminho errado.
+      Arquivo está em empresa/, config em includes/ → usar dirname(__DIR__).
+   3. SELECT nome FROM empresas → coluna não existe; é nome_empresa.
+   4. $_SESSION['usuario_id'] / ['usuario_nome'] / ['usuario_tipo']
+      → chaves que nenhuma outra página do projeto lê.
+      O projeto usa empresa_id / empresa_nome (e jovem_id / jovem_nome).
+   5. Redirect pós-login: "empresa/dashboard.php" → caminho relativo errado.
+      De dentro de empresa/, o dashboard está em ../dashboard/empresa.php.
+   6. Tentava autenticar jovem neste arquivo, mas o JS da login.php
+      redireciona jovens para ../jovem/processar_login.php → duplicidade.
+      Este arquivo agora é empresa-only.
+   ============================================================ */
+session_start();
 
-// Bloqueia acessos diretos via URL sem submissão de formulário
+// Bloqueia GET direto na URL
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    header("Location: index.php");
+    header("Location: login.php");
     exit;
 }
 
-// Captura e sanitiza as credenciais enviadas pelos inputs empilhados
-$email = filter_input(INPUT_POST, 'email', FILTER_SANITIZE_EMAIL);
-$senha = $_POST['senha'] ?? '';
-$tipo_usuario = $_POST['tipo_usuario'] ?? 'jovem'; // Captura o valor do controle de abas
+// config.php está em includes/, um nível acima de empresa/
+require_once dirname(__DIR__) . "/includes/config.php";
 
-// Validação simples de campos em branco
-if (empty($email) || empty($senha)) {
-    $_SESSION['erro_login'] = "Por favor, preencha todos os campos.";
-    header("Location: " . $tipo_usuario . "/login.php");
+// ── Leitura e validação básica ────────────────────────────────────────────────
+$email = trim($_POST['email'] ?? '');
+$senha = $_POST['senha']      ?? '';
+
+if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL) || empty($senha)) {
+    $_SESSION['erro_login'] = "Preencha todos os campos corretamente.";
+    header("Location: login.php");
     exit;
 }
 
-try {
-    // Roteamento inteligente baseado no tipo selecionado na interface (#89B4FA)
-    if ($tipo_usuario === 'empresa') {
-        
-        // --- AUTENTICAÇÃO DO FLUXO EMPRESA ---
-        $sql = "SELECT id, nome, email, senha FROM empresas WHERE email = :email LIMIT 1";
-        $stmt = $conn->prepare($sql);
-        $stmt->bindParam(':email', $email);
-        $stmt->execute();
-        
-        // Corrigido: Usando a variável no singular $usuario
-        $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+// ── Busca a empresa pelo e-mail (prepared statement mysqli) ───────────────────
+$stmt = $conn->prepare(
+    "SELECT id, nome_empresa, senha
+     FROM   empresas
+     WHERE  email = ?
+     LIMIT  1"
+);
+$stmt->bind_param("s", $email);
+$stmt->execute();
+$empresa = $stmt->get_result()->fetch_assoc();
+$stmt->close();
 
-        // Corrigido: Verificando se $usuario (no singular) existe e validando a senha
-        if ($usuario && password_verify($senha, $usuario['senha'])) {
-            $_SESSION['usuario_id'] = $usuario['id'];
-            $_SESSION['usuario_nome'] = $usuario['nome'];
-            $_SESSION['usuario_tipo'] = 'empresa';
+// ── Verifica senha ────────────────────────────────────────────────────────────
+// ATENÇÃO: o usuário de teste (id=3) tem senha '123456' em texto puro no banco.
+// password_verify() NÃO vai funcionar para ele até que a senha seja re-hashada.
+// Para corrigir, atualize no banco:
+//   UPDATE empresas SET senha = '$2y$...' WHERE id = 3;
+// Gere o hash com: echo password_hash('123456', PASSWORD_DEFAULT);
+if ($empresa && password_verify($senha, $empresa['senha'])) {
 
-            header("Location: empresa/dashboard.php");
-            exit;
-        }
+    // Login bem-sucedido → limpa erros anteriores
+    unset($_SESSION['erro_login']);
 
-    } else {
-        
-        // --- AUTENTICAÇÃO DO FLUXO JOVEM (PADRÃO) ---
-        $sql = "SELECT id, nome, email, senha FROM jovens WHERE email = :email LIMIT 1";
-        $stmt = $conn->prepare($sql);
-        $stmt->bindParam(':email', $email);
-        $stmt->execute();
-        
-        // Corrigido: Usando a variável no singular $usuario
-        $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+    // ✅ Chaves de sessão corretas — usadas por todas as outras páginas
+    $_SESSION['empresa_id']   = intval($empresa['id']);
+    $_SESSION['empresa_nome'] = $empresa['nome_empresa'];
 
-        // Corrigido: Verificando se $usuario (no singular) existe e validando a senha
-        if ($usuario && password_verify($senha, $usuario['senha'])) {
-            $_SESSION['usuario_id'] = $usuario['id'];
-            $_SESSION['usuario_nome'] = $usuario['nome'];
-            $_SESSION['usuario_tipo'] = 'jovem';
-
-            header("Location: jovem/perfil.php");
-            exit;
-        }
-    }
-
-    // Se não encontrou o usuário ou a senha estiver errada
-    $_SESSION['erro_login'] = "E-mail ou senha incorretos.";
-    header("Location: " . $tipo_usuario . "/login.php");
-    exit;
-
-} catch (PDOException $e) {
-    $_SESSION['erro_login'] = "Erro interno no servidor de autenticação.";
-    header("Location: " . $tipo_usuario . "/login.php");
+    // Redireciona para o dashboard (de empresa/ → ../dashboard/)
+    header("Location: ../dashboard/empresa.php");
     exit;
 }
+
+// ── Credenciais inválidas ─────────────────────────────────────────────────────
+$_SESSION['erro_login'] = "E-mail ou senha incorretos. Tente novamente.";
+header("Location: login.php");
+exit;
