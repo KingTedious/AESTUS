@@ -1,0 +1,15 @@
+# Ambientes virtuais e Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Segredos e Configurações
+.env
+
+# Logs e Cache
+*.log
+error_log
+
+# Banco de Dados Local
+*.sql
