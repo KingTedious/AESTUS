@@ -48,6 +48,8 @@ echo "<b>Descrição:</b><br>".$vaga['descricao']."<br>";
 echo "<br>";
 echo "<a href='candidatar.php?vaga=".$vaga['id']."'>Candidatar-se</a>";
 
+echo "<a href='favoritar.php?vaga_id=".$row['id']."'>❤️ Favoritar</a><br><br>";
+
 }
 
 }

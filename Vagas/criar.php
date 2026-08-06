@@ -1,4 +1,5 @@
-<?php include("../includes/header.php"); ?>
+<?php include("../includes/header.php"); 
+verificarEmpresa();?>
 
 <link rel="stylesheet" href="../assets/css/style.css">
 
