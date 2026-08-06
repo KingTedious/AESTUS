@@ -1,17 +1,17 @@
 <?php
-/* 1. INÍCIO DA SESSÃO 
-   Necessário para aceder aos dados de login. */
-session_start();
+    /* 1. INÍCIO DA SESSÃO 
+    Necessário para aceder aos dados de login. */
+    session_start();
 
-/* 2. VERIFICAÇÃO DE SEGURANÇA
-   Se não for jovem E não for empresa, volta para o login. */
-if(!isset($_SESSION['jovem_id']) && !isset($_SESSION['empresa_id'])){
-    header("Location: ../index.php");
-    exit;
-}
+    /* 2. VERIFICAÇÃO DE SEGURANÇA
+    Se não for jovem E não for empresa, volta para o login. */
+    if(!isset($_SESSION['jovem_id']) && !isset($_SESSION['empresa_id'])){
+        header("Location: ../index.php");
+        exit;
+    }
 
-/* 3. INCLUSÃO DO CABEÇALHO VISUAL */
-include("../includes/header.php");
+    /* 3. INCLUSÃO DO CABEÇALHO VISUAL */
+    include("../includes/header.php");
 ?>
 
 <link rel="stylesheet" href="../assets/css/style.css">

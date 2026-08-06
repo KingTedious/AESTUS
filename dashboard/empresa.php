@@ -1,61 +1,50 @@
-<?php 
-/* 1. CONFIGURAÇÕES INICIAIS 
-   O session_start() e o config devem vir primeiro para evitar erros de conexão. */
-include("../includes/config.php"); 
-session_start();
+<?php
+    session_start();
+    include("../includes/config.php");
 
-/* 2. VERIFICAÇÃO DE LOGIN
-   Garante que apenas empresas logadas vejam esta página. */
-if(!isset($_SESSION['empresa_id'])){
-    echo "Acesso negado. Por favor, faça login como empresa.";
-    exit;
-}
+    // Proteção
+    if(!isset($_SESSION['empresa_id'])){
+        header("Location: ../index.php");
+        exit;
+    }
 
-$empresa_id = $_SESSION['empresa_id'];
+    include("../includes/header.php");
 
-/* 3. COLETA DE ESTATÍSTICAS
-   Buscamos os números reais do banco de dados 'jovemconnect'[cite: 1, 5]. */
-
-// Total de vagas criadas pela empresa [cite: 18, 19]
-$sql_vagas = "SELECT COUNT(*) as total FROM vagas WHERE empresa_id='$empresa_id'";
-$res_vagas = $conn->query($sql_vagas);
-$total_vagas = $res_vagas->fetch_assoc()['total'];
-
-// Total de candidatos recebidos em todas as vagas desta empresa 
-$sql_candidatos = "
-    SELECT COUNT(*) as total 
-    FROM candidaturas c
-    JOIN vagas v ON c.vaga_id = v.id
-    WHERE v.empresa_id='$empresa_id'
-";
-$res_candidatos = $conn->query($sql_candidatos);
-$total_candidatos = $res_candidatos->fetch_assoc()['total'];
-
-/* 4. INCLUSÃO DO CABEÇALHO VISUAL */
-include("../includes/header.php"); 
+    // Consulta os jovens cadastrados
+    $sql = "SELECT * FROM jovens ORDER BY id DESC";
+    $result = $conn->query($sql);
 ?>
 
-<link rel="stylesheet" href="../assets/css/style.css">
-
 <div class="container">
-    <div class="card">
-        <h1>Dashboard da Empresa</h1>
-        <p>Bem-vindo ao seu painel de gestão de talentos</p>
-        <hr>
+    <header style="margin-bottom: 40px;">
+        <h1>Candidatos Compatíveis</h1>
+        <p style="color: var(--text-secondary);">Jovens talentos prontos para o mercado.</p>
+    </header>
 
-        <div style="margin: 20px 0;">
-            <a href="../vagas/criar.php" class="btn">Criar Nova Vaga</a> /* Adcionar ícone de mais */
-            <a href="../vagas/minhas.php" class="btn" style="background: #334155;">Minhas Vagas</a> 
-        </div>
+    <div class="grid-vagas"> <?php if($result->num_rows > 0): ?>
+            <?php while($jovem = $result->fetch_assoc()): ?>
+                <div class="card" style="display: flex; flex-direction: column; align-items: center; text-align: center;">
+                    <div style="width: 60px; height: 60px; background: var(--border); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; margin-bottom: 15px;">
+                        <?php echo strtoupper(substr($jovem['nome'], 0, 1)); ?>
+                    </div>
+                    
+                    <h3 style="margin: 0;"><?php echo $jovem['nome']; ?></h3>
+                    <p style="color: var(--text-secondary); font-size: 0.85rem; margin: 5px 0;">
+                        <?php echo $jovem['cidade']; ?> • <?php echo $jovem['idade'] ?? '18'; ?> anos
+                    </p>
+                    
+                    <span class="badge" style="margin-top: 10px;">Candidato Ativo</span>
 
-        <div class="card" style="background: #0F172A; border-color: var(--principal);">
-            <h2>Estatísticas</h2>
-            <p><strong>Vagas publicadas:</strong> <?php echo $total_vagas; ?></p>
-            <p><strong>Total de Candidaturas:</strong> <?php echo $total_candidatos; ?></p>
-        </div>
-
-        <br>
-        <a href="../logout.php" style="color: #ff4d4d;">Sair do Sistema</a> /* Adcionar ícone de porta */
+                    <div style="width: 100%; border-top: 1px solid var(--border); margin-top: 20px; padding-top: 15px;">
+                        <a href="../empresa/ver_perfil_jovem.php?id=<?php echo $jovem['id']; ?>" class="btn" style="width: 100%; background: transparent; border: 1px solid var(--border);">
+                            🔍 Avaliar Match com IA
+                        </a>
+                    </div>
+                </div>
+            <?php endwhile; ?>
+        <?php else: ?>
+            <p>Ainda não há jovens cadastrados no sistema.</p>
+        <?php endif; ?>
     </div>
 </div>
 

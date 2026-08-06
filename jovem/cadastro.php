@@ -18,6 +18,20 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
     $estado = $_POST['estado'];
     $formacao = $_POST['formacao'];
     $telefone = $_POST['telefone'];
+    
+    // Dentro do seu arquivo de processamento PHP:
+    $escolaridade_status = $_POST['escolaridade_status'];
+    $escolaridade_tipo = $_POST['escolaridade_tipo'];
+    $escolaridade_curso = NULL;
+
+    if ($escolaridade_tipo === 'tecnico') {
+    // Se escolheu 'Outro', pega o texto digitado; senão, pega o valor do select predefinido
+    $escolaridade_curso = ($_POST['curso_predefinido'] === 'Outro') ? $_POST['curso_outro'] : $_POST['curso_predefinido'];
+    }
+
+    // Na sua query SQL, agora você salva essas 3 variáveis
+    $sql = "INSERT INTO jovens (nome, email, escolaridade_status, escolaridade_tipo, escolaridade_curso) VALUES (?, ?, ?, ?, ?)";
+    // ... bind_param e execute ...
 
     /* 3. VERIFICAÇÃO DE DUPLICIDADE 
        Verifica se o CPF ou Email já existem na tabela 'jovens' (conforme o PDF). */
@@ -86,8 +100,31 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
                 </div>
             </div>
 
-            <label>Formação/Escolaridade:</label>
-            <input type="text" name="formacao" placeholder="Ex: Ensino Médio Completo" required>
+            <label>Ensino Médio</label>
+            <select name="escolaridade_status" required>
+                <option value="cursando">Cursando</option>
+                <option value="completo">Completo</option>
+            </select>
+
+            <label>Tipo de Formação</label>
+            <select name="escolaridade_tipo" id="tipo_ensino" onchange="toggleTecnico()" required>
+                <option value="regular">Regular</option>
+                <option value="tecnico">Técnico</option>
+            </select>
+
+            <div id="campo_tecnico" style="display: none; margin-top: 15px;">
+                <label>Área do Técnico</label>
+                <select name="curso_predefinido" id="curso_predefinido" onchange="verificarOutro()">
+                    <option value="TI">Tecnologia da Informação (TI)</option>
+                    <option value="Enfermagem">Enfermagem</option>
+                    <option value="Administração">Administração</option>
+                    <option value="Logística">Logística</option>
+                    <option value="Mecânica">Mecânica</option>
+                    <option value="Outro">Outro (Especificar)</option>
+                </select>
+                
+                <input type="text" name="curso_outro" id="curso_outro" placeholder="Digite o nome do curso" style="display: none; margin-top: 10px;">
+            </div>
 
             <label>Telefone:</label>
             <input type="text" name="telefone" placeholder="(00) 00000-0000">
@@ -98,6 +135,19 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
         <p style="margin-top: 15px; text-align: center;">
             Já tem conta? <a href="login.php">Entrar</a>
         </p>
+        <script>
+            function toggleTecnico() {
+                const tipo = document.getElementById('tipo_ensino').value;
+                const campoTecnico = document.getElementById('campo_tecnico');
+                campoTecnico.style.display = (tipo === 'tecnico') ? 'block' : 'none';
+            }
+
+            function verificarOutro() {
+                const curso = document.getElementById('curso_predefinido').value;
+                const campoOutro = document.getElementById('curso_outro');
+                campoOutro.style.display = (curso === 'Outro') ? 'block' : 'none';
+            }
+        </script>
     </div>
 </div>
 

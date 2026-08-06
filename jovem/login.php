@@ -1,11 +1,9 @@
 <?php
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
-// 1. Sempre inicie a sessão e a lógica de processamento ANTES de qualquer HTML
+// 1. Lógica e Sessão (Sempre no topo)
 session_start();
 include("../includes/config.php");
 
-$erro = ""; // Variável para armazenar mensagens de erro
+$erro = ""; 
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $email = $_POST['email'];
@@ -20,62 +18,39 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $jovem = $result->fetch_assoc();
         
         if (password_verify($senha, $jovem['senha'])) {
-            // Login com sucesso
             $_SESSION['jovem_id'] = $jovem['id'];
             $_SESSION['jovem_nome'] = $jovem['nome'];
+            
+            // Lógica de primeiro acesso
             $_SESSION['primeiro_acesso'] = ($jovem['ultimo_login'] == NULL);
-
-            // Atualiza o último login
             $id_usuario = $jovem['id'];
             $conn->query("UPDATE jovens SET ultimo_login = NOW() WHERE id = '$id_usuario'");
 
             header("Location: ../dashboard/jovem.php");
             exit;
         } else {
-            // Senha errada, mas usamos a mensagem genérica
             $erro = "E-mail ou senha incorretos.";
         }
     } else {
-        // E-mail não existe, mas usamos a mesma mensagem genérica
         $erro = "E-mail ou senha incorretos.";
     }
+} // <--- Esta chave fecha o bloco do POST
 
-    }
-    if (password_verify($senha, $jovem['senha'])) {
-        $_SESSION['jovem_id'] = $jovem['id'];
-        $_SESSION['jovem_nome'] = $jovem['nome'];
-    
-        // GUARDA O ESTADO ANTERIOR: Se for NULL, é o primeiro login
-        $_SESSION['primeiro_acesso'] = ($jovem['ultimo_login'] == NULL);
-
-        // ATUALIZA O BANCO: Define que ele logou agora
-        $id_usuario = $jovem['id'];
-        $conn->query("UPDATE jovens SET ultimo_login = NOW() WHERE id = '$id_usuario'");
-
-    header("Location: ../dashboard/jovem.php");
-    exit;
-    }
-}
-
-// 2. Agora sim, começamos a parte visual (HTML)
+// 2. HTML e Visual
 include("../includes/header.php");
 ?>
-
-<link rel="stylesheet" href="../assets/css/style.css">
 
 <div class="container" style="display: flex; justify-content: center; align-items: center; min-height: 80vh;">
     <div class="card" style="width: 100%; max-width: 400px; text-align: center;">
         
         <div style="font-size: 2.5rem; margin-bottom: 10px;">🎓</div>
         <h2>Acesse sua conta</h2>
-        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 20px;">
-            Área do Candidato
-        </p>
+        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 20px;">Área do Candidato</p>
 
         <?php if($erro): ?>
-            <p style="color: #ff4d4d; background: rgba(255, 77, 77, 0.1); padding: 10px; border-radius: 5px; font-size: 0.8rem;">
+            <div style="background: rgba(255, 77, 77, 0.1); color: #ff4d4d; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-size: 0.85rem;">
                 ⚠️ <?php echo $erro; ?>
-            </p>
+            </div>
         <?php endif; ?>
 
         <form method="POST">
@@ -91,7 +66,7 @@ include("../includes/header.php");
         </form>
         
         <p style="margin-top: 25px; font-size: 0.9rem; color: var(--text-secondary);">
-            Não tem uma conta? <a href="cadastro.php" style="color: var(--primary);">Cadastre-se agora</a>
+            Não tem uma conta? <a href="cadastro.php">Cadastre-se agora</a>
         </p>
     </div>
 </div>

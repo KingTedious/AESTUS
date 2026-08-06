@@ -1,64 +1,39 @@
-<?php 
-/* 1. CONFIGURAÇÕES E SESSÃO 
-   Sempre no topo para garantir que o banco e a sessão funcionam. */
-include("../includes/config.php"); 
+<?php
 session_start();
+include("../includes/config.php");
 
-/* 2. VERIFICAÇÃO DE SEGURANÇA
-   Confirmamos se o jovem_id existe na sessão (conforme o PDF). */
+// Proteção simples: se não houver sessão, volta para o login
 if(!isset($_SESSION['jovem_id'])){
-    echo "Acesso negado. Por favor, faça login.";
+    header("Location: ../jovem/login.php");
     exit;
 }
 
-$jovem_id = $_SESSION['jovem_id'];
-$jovem_nome = $_SESSION['jovem_nome'] ?? "Jovem";
+// 1. Incluímos o cabeçalho (que já tem a logo e o botão de perfil)
+include("../includes/header.php");
 
-/* 3. ESTATÍSTICAS
-   Contamos quantas vezes o ID deste jovem aparece na tabela 'candidaturas'. */
-$sql = "SELECT COUNT(*) as total FROM candidaturas WHERE jovem_id='$jovem_id'";
-$res = $conn->query($sql);
-$total_candidaturas = $res->fetch_assoc()['total'];
-
-/* 4. CABEÇALHO VISUAL */
-include("../includes/header.php"); 
+// 2. Lógica para buscar as vagas no banco de dados
+$sql = "SELECT v.*, e.nome_empresa FROM vagas v 
+        JOIN empresas e ON v.empresa_id = e.id 
+        ORDER BY v.id DESC";
+$result = $conn->query($sql);
 ?>
 
-<link rel="stylesheet" href="../assets/css/style.css">
+<!-- 3. Início do Conteúdo Principal -->
+<main class="container" style="margin-top: 30px;">
+    <header style="margin-bottom: 40px;">
+        <h1>Vagas Disponíveis</h1>
+        <p style="color: var(--text-secondary);">Encontre a oportunidade ideal para o seu perfil.</p>
+    </header>
 
-<div class="container">
-    <div class="card">
-        <h1>Dashboard</h1>
-        <p>
-            <?php 
-                if (isset($_SESSION['primeiro_acesso']) && $_SESSION['primeiro_acesso'] == true) {
-                    echo "Bem-vindo(a), ";
-                } else {
-                    echo "Bem-vindo(a) de volta, ";
-                }
-            ?><strong><?php echo $_SESSION['jovem_nome']; ?></strong>!
-        </p>
-    </div>    
-
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 20px 0;">
-            <a href="../jovem/perfil.php" class="btn" style="background: #334155;">Meu Perfil</a> /* Colocar um icone de usuario */
-            <a href="../jovem/curriculo_ia.php" class="btn" style="background: #1DB954;">IA: Melhorar Currículo</a>
-            <a href="../vagas/listar.php" class="btn">Ver Vagas</a> /* Colocar um icone de lupa */
-            <a href="../candidaturas/minhas.php" class="btn" style="background: #334155;">Minhas Candidaturas</a>
-        </div>
-
-        <div class="card" style="background: #0F172A; border-left: 5px solid var(--principal);">
-            <h3>Minhas Estatísticas</h3>
-            <p><strong>Candidaturas enviadas:</strong> <?php echo $total_candidaturas; ?></p>
-            <p><small>Continue a candidatar-se para aumentar as suas chances!</small></p>
-        </div>
-
-        <div style="margin-top: 20px;">
-            <a href="../vagas/favoritos.php" style="color: var(--principal);">Ver minhas vagas favoritas</a> /* Colocar um icone de estrela */
-            <br><br>
-            <a href="../logout.php" style="color: #ff4d4d;">Sair</a>
-        </div>
+    <div class="grid-vagas">
+        <?php if($result->num_rows > 0): ?>
+            <?php while($vaga = $result->fetch_assoc()): ?>
+                <!-- Aqui entrariam os cards das vagas -->
+            <?php endwhile; ?>
+        <?php else: ?>
+            <p style="color: var(--text-secondary);">Nenhuma vaga encontrada no momento.</p>
+        <?php endif; ?>
     </div>
-</div>
+</main>
 
 <?php include("../includes/footer.php"); ?>
