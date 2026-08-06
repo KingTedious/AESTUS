@@ -1,58 +1,64 @@
 <?php
-session_start();
-
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
-  $nome = $_POST["nome"];
-  $cnpj = $_POST["cnpj"];
-  $area = $_POST["area"];
-  $cidade = $_POST["cidade"];
-  $estado = $_POST["estado"];
-  $email = $_POST["email"];
-  $senha = $_POST["senha"];
-
-  $_SESSION["empresa"] = [
-    "nome" => $nome,
-    "cnpj" => $cnpj,
-    "area" => $area,
-    "cidade" => $cidade,
-    "estado" => $estado,
-    "email" => $email
-  ];
-
-  header("Location: login.php?tipo=empresa");
-  exit;
-}
+$scriptPath = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '');
+$segments = explode('/', trim($scriptPath, '/'));
+$basePath = isset($segments[0]) && $segments[0] !== '' ? '/' . $segments[0] : '';
 ?>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cadastro de Empresa | JovemConnect</title>
+  <link rel="stylesheet" href="<?php echo $basePath; ?>/assets/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
 
-<?php include("../includes/header.php"); ?>
+<body class="auth-page">
+  <main class="auth-wrap">
+    <div class="auth-card cadastro-card">
+      <h2>Cadastro de Empresa</h2>
+      <p>Publique vagas e encontre jovens talentos com o perfil ideal para sua empresa.</p>
 
-<main>
-  <h2>Cadastro de Empresa</h2>
+      <form class="form-stack">
+        <div class="input-group">
+          <label for="empresa">Nome da empresa</label>
+          <input type="text" id="empresa" name="empresa" required>
+        </div>
 
-  <form method="POST" action="">
-    <label>Nome da empresa:</label><br>
-    <input type="text" name="nome"><br><br>
+        <div class="input-group">
+          <label for="cnpj">CNPJ</label>
+          <input type="text" id="cnpj" name="cnpj" maxlength="18" placeholder="00.000.000/0000-00" required>
+        </div>
 
-    <label>CNPJ:</label><br>
-    <input type="text" name="cnpj"><br><br>
+        <div class="input-group">
+          <label for="area">Area de atuacao</label>
+          <input type="text" id="area" name="area" placeholder="Ex: Tecnologia, Varejo..." required>
+        </div>
 
-    <label>Área de atuação:</label><br>
-    <input type="text" name="area"><br><br>
+        <div class="input-group">
+          <label for="localizacao">Cidade / Estado</label>
+          <input type="text" id="localizacao" name="localizacao" placeholder="Ex: Sao Paulo - SP" required>
+        </div>
 
-    <label>Cidade:</label><br>
-    <input type="text" name="cidade"><br><br>
+        <div class="input-group">
+          <label for="email">Email</label>
+          <input type="email" id="email" name="email" required>
+        </div>
 
-    <label>Estado:</label><br>
-    <input type="text" name="estado"><br><br>
+        <div class="input-group">
+          <label for="senha">Senha</label>
+          <input type="password" id="senha" name="senha" required>
+        </div>
 
-    <label>Email:</label><br>
-    <input type="email" name="email"><br><br>
+        <button type="submit" class="btn btn-primary btn-full">Cadastrar</button>
+      </form>
 
-    <label>Senha:</label><br>
-    <input type="password" name="senha"><br><br>
+      <p class="link-cadastro">Ja tem conta? <a href="login.php?tipo=empresa">Entrar</a></p>
+    </div>
+  </main>
 
-    <button type="submit">Cadastrar</button>
-  </form>
-</main>
-
-<?php include("../includes/footer.php"); ?>
+  <script src="<?php echo $basePath; ?>/script.js"></script>
+</body>
+</html>

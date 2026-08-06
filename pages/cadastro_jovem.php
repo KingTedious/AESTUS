@@ -1,71 +1,93 @@
 <?php
-session_start();
-
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
-  $nome = $_POST["nome"];
-  $cpf = $_POST["cpf"];
-  $data = $_POST["data"];
-  $cep = $_POST["cep"];
-  $escolaridade = $_POST["escolaridade"];
-  $tecnico = $_POST["tecnico"];
-  $clt = isset($_POST["clt"]) ? "Sim" : "Não";
-  $senha = $_POST["senha"];
-  $confirmar = $_POST["confirmar"];
-
-  if ($senha !== $confirmar) {
-    $erro = "As senhas não coincidem!";
-  } else {
-    $_SESSION["usuario"] = [
-      "nome" => $nome,
-      "cpf" => $cpf,
-      "nascimento" => $data,
-      "cep" => $cep,
-      "escolaridade" => $escolaridade,
-      "tecnico" => $tecnico,
-      "clt" => $clt
-    ];
-    header("Location: login.php?tipo=jovem");
-    exit;
-  }
-}
+$scriptPath = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '');
+$segments = explode('/', trim($scriptPath, '/'));
+$basePath = isset($segments[0]) && $segments[0] !== '' ? '/' . $segments[0] : '';
 ?>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cadastro de Jovem | JovemConnect</title>
+  <link rel="stylesheet" href="<?php echo $basePath; ?>/assets/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
 
-<?php include("../includes/header.php"); ?>
+<body class="auth-page">
+  <main class="auth-wrap">
+    <div class="auth-card cadastro-card">
+      <h2>Cadastro de Jovem</h2>
+      <p>Crie seu perfil para encontrar oportunidades de aprendizado e crescimento profissional.</p>
 
-<main>
-  <h2>Cadastro de Jovem</h2>
+      <form class="form-stack">
+        <div class="input-group">
+          <label for="nome">Nome completo</label>
+          <input type="text" id="nome" name="nome" required>
+        </div>
 
-  <?php if (isset($erro)) echo "<p style='color:red;'>$erro</p>"; ?>
+        <div class="input-group">
+          <label for="cpf">CPF</label>
+          <input type="text" id="cpf" name="cpf" placeholder="000.000.000-00" maxlength="14" required>
+        </div>
 
-  <form method="POST" action="">
-    <label>Nome completo:</label><br>
-    <input type="text" name="nome"><br><br>
+        <div class="input-group">
+          <label for="nascimento">Data de nascimento</label>
+          <input type="date" name="nascimento" id="nascimento" required>
+        </div>
 
-    <label>CPF:</label><br>
-    <input type="text" name="cpf"><br><br>
+        <div class="input-group">
+          <label for="idade">Idade</label>
+          <input type="number" id="idade" readonly>
+        </div>
 
-    <label>Data de nascimento:</label><br>
-    <input type="date" name="data"><br><br>
+        <div class="input-group">
+          <label for="cep">Regiao (CEP)</label>
+          <input type="text" id="cep" name="cep" maxlength="9" placeholder="00000-000" required>
+        </div>
 
-    <label>CEP:</label><br>
-    <input type="text" name="cep"><br><br>
+        <div class="input-group">
+          <label for="escolaridade">Escolaridade</label>
+          <input type="text" id="escolaridade" name="escolaridade" placeholder="Ex: 2o ano do ensino medio tecnico" required>
+        </div>
 
-    <label>Escolaridade:</label><br>
-    <input type="text" name="escolaridade" placeholder="Ex: 2º ano do ensino médio"><br><br>
+        <div class="input-check">
+          <input type="checkbox" id="clt" name="clt">
+          <label for="clt">Possui registro CLT</label>
+        </div>
 
-    <label>Curso Técnico (se aplicável):</label><br>
-    <input type="text" name="tecnico" placeholder="Ex: Informática"><br><br>
+        <div class="input-group">
+          <label for="senha">Senha</label>
+          <input type="password" id="senha" name="senha" required>
+        </div>
 
-    <label><input type="checkbox" name="clt"> Possui registro CLT</label><br><br>
+        <div class="input-group">
+          <label for="confirmar">Confirmar senha</label>
+          <input type="password" id="confirmar" name="confirmar" required>
+        </div>
 
-    <label>Senha:</label><br>
-    <input type="password" name="senha"><br><br>
+        <button type="submit" class="btn btn-primary btn-full">Cadastrar</button>
+      </form>
 
-    <label>Confirmar Senha:</label><br>
-    <input type="password" name="confirmar"><br><br>
+      <p class="link-cadastro">Ja tem conta? <a href="login.php?tipo=jovem">Entrar</a></p>
+    </div>
+  </main>
 
-    <button type="submit">Cadastrar</button>
-  </form>
-</main>
+  <script>
+    const nasc = document.getElementById('nascimento');
+    const idade = document.getElementById('idade');
 
-<?php include("../includes/footer.php"); ?>
+    nasc.addEventListener('change', () => {
+      const hoje = new Date();
+      const nascimento = new Date(nasc.value);
+      let anos = hoje.getFullYear() - nascimento.getFullYear();
+      const mes = hoje.getMonth() - nascimento.getMonth();
+      if (mes < 0 || (mes === 0 && hoje.getDate() < nascimento.getDate())) {
+        anos--;
+      }
+      idade.value = anos;
+    });
+  </script>
+</body>
+</html>
