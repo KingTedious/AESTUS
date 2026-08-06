@@ -1,4 +1,5 @@
 <?php
+echo "<div class='auth'>";
 include("../includes/config.php");
 session_start();
 

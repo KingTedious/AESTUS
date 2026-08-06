@@ -89,6 +89,14 @@ if($result->num_rows > 0){
 
 
 while($vaga = $result->fetch_assoc()){
+$dados = [
+"formacao" => $jovem['formacao'],
+"cidade_jovem" => $jovem['cidade'],
+"descricao" => $row['descricao'],
+"cidade_vaga" => $row['cidade']
+];
+
+$resposta = avaliarIA($dados);
 
 $jovem_id = $_SESSION['jovem_id'];
 
@@ -107,22 +115,16 @@ if($busca) echo "Busca: $busca <br>";
 if($cidade) echo "Cidade: $cidade <br>";
 if($estado) echo "Estado: $estado <br>";
 
-echo "<hr>";
+echo "<div class='card'>";
 
-echo "<h2>".$vaga['titulo']."</h2>";
+echo "<h3>".$row['titulo']."</h3>";
+echo "<p>".$row['descricao']."</p>";
 
-echo "<b>Empresa:</b> ".$vaga['nome_empresa']."<br>";
+echo "<p><b>Cidade:</b> ".$row['cidade']."</p>";
 
-echo "<b>Local:</b> ".$vaga['cidade']." - ".$vaga['estado']."<br>";
+echo "<a class='btn' href='candidatar.php?vaga_id=".$row['id']."'>Candidatar</a><br><br>";
 
-echo "<b>Salário:</b> ".$vaga['salario']."<br>";
-
-echo "<b>Tipo:</b> ".$vaga['tipo_contrato']."<br><br>";
-
-echo "<b>Descrição:</b><br>".$vaga['descricao']."<br>";
-
-echo "<br>";
-echo "<a href='candidatar.php?vaga=".$vaga['id']."'>Candidatar-se</a>";
+echo "</div>";
 
 if($ja_favoritou){
 echo "<a href='favoritar.php?vaga_id=".$row['id']."'>💔 Remover dos favoritos</a><br>";
@@ -130,6 +132,30 @@ echo "<a href='favoritar.php?vaga_id=".$row['id']."'>💔 Remover dos favoritos<
 echo "<a href='favoritar.php?vaga_id=".$row['id']."'>❤️ Favoritar</a><br>";
 }
 
+function avaliarIA($dados){
+
+
+$url = "http://localhost:5000/avaliar";
+
+$options = [
+    "http" => [
+        "header" => "Content-Type: application/json",
+        "method" => "POST",
+        "content" => json_encode($dados)
+    ]
+];
+
+$context = stream_context_create($options);
+$result = file_get_contents($url, false, $context);
+
+return json_decode($result, true);
+
+echo "Compatibilidade: ".$resposta['compatibilidade']."%<br>";
+echo $resposta['mensagem']."<br><br>";
+
+}
+
+echo "<a href='avaliar.php?vaga_id=".$row['id']."'>Avaliar para mim</a><br><br>";
 }
 
 }

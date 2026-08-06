@@ -26,6 +26,8 @@ echo "<hr>";
 
 echo "<a href='../jovem/perfil.php'>Meu perfil</a><br><br>";
 
+echo "<a href='../jovem/curriculo_ia.php'>Melhorar meu currículo</a><br><br>";
+
 echo "<a href='../vagas/listar.php'>Ver vagas</a><br><br>";
 
 echo "<a href='../candidaturas/minhas.php'>Minhas candidaturas</a><br><br>";

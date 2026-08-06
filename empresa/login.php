@@ -1,8 +1,10 @@
+
 <?php include("../includes/header.php"); ?>
 
 <link rel="stylesheet" href="../assets/css/style.css">
 
 <?php
+echo "<div class='auth'>";
 include("../includes/config.php");
 session_start();
 
