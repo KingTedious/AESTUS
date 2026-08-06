@@ -1,170 +1,117 @@
-<?php include("../includes/header.php"); ?>
-
-<link rel="stylesheet" href="../assets/css/style.css">
-
-<form method="GET">
-
-<input type="text" name="busca" placeholder="Buscar vagas...">
-
-<button type="submit">Buscar</button>
-
-</form><br>
-
-<?php
+<?php 
+/* 1. CONFIGURAÇÕES E SESSÃO */
 include("../includes/config.php");
+session_start();
 
-$busca = "";
-
-if(isset($_GET['busca'])){
-    $busca = $_GET['busca'];
+// Proteção básica
+if(!isset($_SESSION['jovem_id'])){
+    header("Location: ../jovem/login.php");
+    exit;
 }
-
-if($busca != ""){
-
-$sql = "SELECT * FROM vagas 
-WHERE titulo LIKE '%$busca%' 
-OR descricao LIKE '%$busca%'";
-
-}else{
-
-$sql = "SELECT * FROM vagas";
-
-}
-$busca = $_GET['busca'] ?? "";
-$cidade = $_GET['cidade'] ?? "";
-$estado = $_GET['estado'] ?? "";
-
-$sql = "SELECT * FROM vagas WHERE 1=1";
-
-if($busca != ""){
-    $sql .= " AND (titulo LIKE '%$busca%' OR descricao LIKE '%$busca%')";
-}
-
-if($cidade != ""){
-    $sql .= " AND cidade LIKE '%$cidade%'";
-}
-
-if($estado != ""){
-    $sql .= " AND estado LIKE '%$estado%'";
-}
-
-$sql = "SELECT vagas.*, empresas.nome_empresa 
-        FROM vagas
-        JOIN empresas ON vagas.empresa_id = empresas.id
-        ORDER BY vagas.criado_em DESC";
-
-$result = $conn->query($sql);
-?>
-
-<h1>Vagas disponíveis</h1>
-
-<form method="GET">
-
-<input type="text" name="busca" placeholder="Buscar vaga...">
-
-<button type="submit">Buscar</button>
-
-</form>
-
-<hr>
-
-<form method="GET">
-
-<input type="text" name="busca" placeholder="Buscar vaga...">
-
-<input type="text" name="cidade" placeholder="Cidade">
-
-<input type="text" name="estado" placeholder="Estado (SP)">
-
-<button type="submit">Filtrar</button>
-
-</form><br>
-<?php
-
-if($busca != ""){
-echo "<h3>Resultados para: ".$busca."</h3>";
-}
-
-if($result->num_rows > 0){
-
-
-while($vaga = $result->fetch_assoc()){
-$dados = [
-"formacao" => $jovem['formacao'],
-"cidade_jovem" => $jovem['cidade'],
-"descricao" => $row['descricao'],
-"cidade_vaga" => $row['cidade']
-];
-
-$resposta = avaliarIA($dados);
 
 $jovem_id = $_SESSION['jovem_id'];
 
-$sql_fav = "SELECT * FROM favoritos 
-WHERE jovem_id='$jovem_id' AND vaga_id='".$row['id']."'";
+/* 2. LÓGICA DE FILTROS (CAPTURA VIA GET) */
+$busca  = $_GET['busca'] ?? "";
+$cidade = $_GET['cidade'] ?? "";
+$estado = $_GET['estado'] ?? "";
 
-$res_fav = $conn->query($sql_fav);
+// Base da Query - JOIN com empresas para mostrar quem contratada
+$sql = "SELECT v.*, e.nome_empresa 
+        FROM vagas v
+        JOIN empresas e ON v.empresa_id = e.id 
+        WHERE 1=1";
 
-$ja_favoritou = $res_fav->num_rows > 0;
-
-echo "<hr>";
-
-echo "<h3>Filtros aplicados:</h3>";
-
-if($busca) echo "Busca: $busca <br>";
-if($cidade) echo "Cidade: $cidade <br>";
-if($estado) echo "Estado: $estado <br>";
-
-echo "<div class='card'>";
-
-echo "<h3>".$row['titulo']."</h3>";
-echo "<p>".$row['descricao']."</p>";
-
-echo "<p><b>Cidade:</b> ".$row['cidade']."</p>";
-
-echo "<a class='btn' href='candidatar.php?vaga_id=".$row['id']."'>Candidatar</a><br><br>";
-
-echo "</div>";
-
-if($ja_favoritou){
-echo "<a href='favoritar.php?vaga_id=".$row['id']."'>💔 Remover dos favoritos</a><br>";
-}else{
-echo "<a href='favoritar.php?vaga_id=".$row['id']."'>❤️ Favoritar</a><br>";
+// Aplicação dinâmica de filtros
+if(!empty($busca)){
+    $sql .= " AND (v.titulo LIKE '%$busca%' OR v.descricao LIKE '%$busca%')";
+}
+if(!empty($cidade)){
+    $sql .= " AND v.cidade LIKE '%$cidade%'";
+}
+if(!empty($estado)){
+    $sql .= " AND v.estado LIKE '%$estado%'";
 }
 
-function avaliarIA($dados){
+$sql .= " ORDER BY v.id DESC"; // Vagas mais recentes primeiro
+$result = $conn->query($sql);
 
-
-$url = "http://localhost:5000/avaliar";
-
-$options = [
-    "http" => [
-        "header" => "Content-Type: application/json",
-        "method" => "POST",
-        "content" => json_encode($dados)
-    ]
-];
-
-$context = stream_context_create($options);
-$result = file_get_contents($url, false, $context);
-
-return json_decode($result, true);
-
-echo "Compatibilidade: ".$resposta['compatibilidade']."%<br>";
-echo $resposta['mensagem']."<br><br>";
-
-}
-
-echo "<a href='avaliar.php?vaga_id=".$row['id']."'>Avaliar para mim</a><br><br>";
-}
-
-}
-else{
-
-echo "Nenhuma vaga disponível.";
-
-}
-
+include("../includes/header.php"); 
 ?>
+
+<link rel="stylesheet" href="../assets/css/style.css">
+
+<div class="container">
+    <h1>Vagas Disponíveis</h1>
+    <p>Encontre a oportunidade ideal e use a nossa IA para ver o seu Match.</p>
+
+    <div class="card" style="background: #1e293b; padding: 20px; border: none;">
+        <form method="GET" style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <input type="text" name="busca" placeholder="O que procura?" value="<?php echo $busca; ?>" style="flex: 2; min-width: 200px;">
+            <input type="text" name="cidade" placeholder="Cidade" value="<?php echo $cidade; ?>" style="flex: 1;">
+            <input type="text" name="estado" placeholder="UF" maxlength="2" value="<?php echo $estado; ?>" style="flex: 0.5;">
+            <button type="submit" class="btn" style="flex: 0.5;">Filtrar</button>
+        </form>
+    </div>
+
+    <hr style="margin: 30px 0; border: 0; border-top: 1px solid #334155;">
+
+    <?php if($result->num_rows > 0): ?>
+        <div style="display: grid; gap: 20px;">
+            
+            <?php while($vaga = $result->fetch_assoc()): 
+                // Verifica se esta vaga está nos favoritos deste jovem
+                $vaga_id = $vaga['id'];
+                $check_fav = $conn->query("SELECT id FROM favoritos WHERE jovem_id='$jovem_id' AND vaga_id='$vaga_id'");
+                $eh_favorito = $check_fav->num_rows > 0;
+            ?>
+
+            <div class="card" style="position: relative;">
+                <div style="position: absolute; top: 20px; right: 20px;">
+                    <a href="favoritar.php?vaga_id=<?php echo $vaga_id; ?>" style="text-decoration: none; font-size: 1.5rem;">
+                        <?php echo $eh_favorito ? "⭐" : "☆"; ?>
+                    </a>
+                </div>
+
+                <small style="color: var(--principal); font-weight: bold; text-transform: uppercase;">
+                    <?php echo $vaga['nome_empresa']; ?>
+                </small>
+                <h3 style="margin-top: 5px;"><?php echo $vaga['titulo']; ?></h3>
+                <p style="color: #94a3b8; font-size: 0.9rem;">
+                    📍 <?php echo $vaga['cidade']; ?> - <?php echo $vaga['estado']; ?> | 
+                    💼 <?php echo $vaga['tipo_contrato']; ?>
+                </p>
+                
+                <p style="margin: 15px 0;"><?php echo substr($vaga['descricao'], 0, 200) . "..."; ?></p>
+
+                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                    <a href="../candidaturas/candidatar.php?vaga=<?php echo $vaga_id; ?>" class="btn">Candidatar-me</a>
+                    <a href="avaliar_ia.php?vaga_id=<?php echo $vaga_id; ?>" class="btn" style="background: #334155;">🤖 Analisar com IA</a>
+                </div>
+            </div>
+
+            <?php endwhile; ?>
+        </div>
+    <?php else: ?>
+        <div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: start;">
+        <h3 style="margin: 0;"><?php echo $vaga['titulo']; ?></h3>
+        <span class="badge"><?php echo $vaga['tipo_contrato']; ?></span>
+    </div>
+    <p style="color: var(--text-secondary); margin-top: 4px;">🏢 <?php echo $vaga['nome_empresa']; ?></p>
+    
+    <div style="display: flex; gap: 20px; margin: 20px 0; font-size: 0.9rem;">
+        <span>💰 R$ <?php echo $vaga['salario']; ?></span>
+        <span>🕒 20h/semana</span>
+        <span>📍 <?php echo $vaga['cidade']; ?></span>
+    </div>
+
+    <a href="detalhes.php?id=<?php echo $vaga['id']; ?>" class="btn" style="width: 100%; background: transparent; border: 1px solid var(--border);">
+        ✨ Avaliar Match com IA
+    </a>
+      </div>
+        </div>
+    <?php endif; ?>
+</div>
 
 <?php include("../includes/footer.php"); ?>

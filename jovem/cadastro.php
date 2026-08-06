@@ -1,85 +1,104 @@
-<?php include("../includes/header.php"); ?>
+<?php 
+/* 1. INCLUSÕES */
+include("../includes/header.php"); 
+include("../includes/config.php"); 
 
-<link rel="stylesheet" href="../assets/css/style.css">
+$mensagem = "";
 
-<?php
-include("../includes/config.php");
-
+/* 2. PROCESSAMENTO DO FORMULÁRIO */
 if($_SERVER["REQUEST_METHOD"] == "POST"){
 
-$nome = $_POST['nome'];
-$email = $_POST['email'];
-$senha = password_hash($_POST['senha'], PASSWORD_DEFAULT);
-$cpf = $_POST['cpf'];
-$data = $_POST['data_nascimento'];
-$cidade = $_POST['cidade'];
-$estado = $_POST['estado'];
-$formacao = $_POST['formacao'];
-$telefone = $_POST['telefone'];
+    // Recolha de dados do formulário
+    $nome = $_POST['nome'];
+    $email = $_POST['email'];
+    $senha = password_hash($_POST['senha'], PASSWORD_DEFAULT);
+    $cpf = $_POST['cpf'];
+    $data_nasc = $_POST['data_nascimento'];
+    $cidade = $_POST['cidade'];
+    $estado = $_POST['estado'];
+    $formacao = $_POST['formacao'];
+    $telefone = $_POST['telefone'];
 
-$verifica = "SELECT * FROM jovens WHERE email='$email' OR cpf='$cpf'";
-$result = $conn->query($verifica);
+    /* 3. VERIFICAÇÃO DE DUPLICIDADE 
+       Verifica se o CPF ou Email já existem na tabela 'jovens' (conforme o PDF). */
+    $verifica = "SELECT id FROM jovens WHERE email='$email' OR cpf='$cpf'";
+    $result = $conn->query($verifica);
 
-if($result->num_rows > 0){
-    echo "Email ou CPF já cadastrado.";
-    exit;
-}
+    if($result->num_rows > 0){
+        $mensagem = "<p style='color: #ff4d4d;'>Erro: Email ou CPF já cadastrado no sistema.</p>";
+    } else {
+        /* 4. INSERÇÃO SEGURA (Prepared Statements)
+           Aqui incluímos TODOS os campos que a tua tabela jovens possui. */
+        $stmt = $conn->prepare("INSERT INTO jovens (nome, email, senha, cpf, data_nascimento, cidade, estado, formacao, telefone) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        
+        // "sssssssss" significa que estamos a passar 9 strings
+        $stmt->bind_param("sssssssss", $nome, $email, $senha, $cpf, $data_nasc, $cidade, $estado, $formacao, $telefone);
 
-$stmt = $conn->prepare("INSERT INTO jovens (nome, email, senha) VALUES (?, ?, ?)");
-$stmt->bind_param("sss", $nome, $email, $senha);
-$stmt->execute();
-
-if($conn->query($sql) === TRUE){
-echo "Cadastro realizado com sucesso!";
-}else{
-echo "Erro: ".$conn->error;
-}
-
+        if($stmt->execute()){
+            $mensagem = "<p style='color: var(--principal);'>Cadastro realizado com sucesso! <a href='login.php'>Fazer Login</a></p>";
+        } else {
+            $mensagem = "<p style='color: #ff4d4d;'>Erro ao cadastrar: " . $conn->error . "</p>";
+        }
+        $stmt->close();
+    }
 }
 ?>
 
-<h2>Cadastro de Jovem</h2>
+<link rel="stylesheet" href="../assets/css/style.css">
 
-<form method="POST">
+<div class="container">
+    <div class="auth">
+        <h2>Cadastro de Jovem</h2>
+        <p>Preencha os dados para começar a sua carreira.</p>
+        <hr>
 
-Nome:<br>
-<input type="text" name="nome" required>
-<br><br>
+        <?php echo $mensagem; ?>
 
-Email:<br>
-<input type="email" name="email" required>
-<br><br>
+        <form method="POST">
+            <label>Nome Completo:</label>
+            <input type="text" name="nome" placeholder="Seu nome" required>
 
-Senha:<br>
-<input type="password" name="senha" required>
-<br><br>
+            <label>Email:</label>
+            <input type="email" name="email" placeholder="exemplo@email.com" required>
 
-CPF:<br>
-<input type="text" name="cpf" required>
-<br><br>
+            <label>Senha:</label>
+            <input type="password" name="senha" placeholder="Mínimo 6 caracteres" required>
 
-Data de nascimento:<br>
-<input type="date" name="data_nascimento" required>
-<br><br>
+            <div style="display: flex; gap: 10px;">
+                <div style="flex: 1;">
+                    <label>CPF:</label>
+                    <input type="text" name="cpf" placeholder="000.000.000-00" required>
+                </div>
+                <div style="flex: 1;">
+                    <label>Nascimento:</label>
+                    <input type="date" name="data_nascimento" required>
+                </div>
+            </div>
 
-Cidade:<br>
-<input type="text" name="cidade" required>
-<br><br>
+            <div style="display: flex; gap: 10px;">
+                <div style="flex: 2;">
+                    <label>Cidade:</label>
+                    <input type="text" name="cidade" placeholder="Sua cidade" required>
+                </div>
+                <div style="flex: 1;">
+                    <label>Estado (UF):</label>
+                    <input type="text" name="estado" maxlength="2" placeholder="EX: SP" required>
+                </div>
+            </div>
 
-Estado:<br>
-<input type="text" name="estado" required>
-<br><br>
+            <label>Formação/Escolaridade:</label>
+            <input type="text" name="formacao" placeholder="Ex: Ensino Médio Completo" required>
 
-Formação:<br>
-<input type="text" name="formacao" required>
-<br><br>
+            <label>Telefone:</label>
+            <input type="text" name="telefone" placeholder="(00) 00000-0000">
 
-Telefone:<br>
-<input type="text" name="telefone">
-<br><br>
+            <button type="submit" class="btn">Criar Minha Conta</button>
+        </form>
 
-<button type="submit">Cadastrar</button>
-
-</form>
+        <p style="margin-top: 15px; text-align: center;">
+            Já tem conta? <a href="login.php">Entrar</a>
+        </p>
+    </div>
+</div>
 
 <?php include("../includes/footer.php"); ?>

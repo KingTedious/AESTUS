@@ -1,43 +1,56 @@
-<?php include("../includes/header.php"); 
-include("../includes/auth.php");
-verificarJovem();?>
+<?php 
+/* 1. CONFIGURAÇÕES E SESSÃO 
+   Sempre no topo para garantir que o banco e a sessão funcionam. */
+include("../includes/config.php"); 
+session_start();
 
-<link rel="stylesheet" href="../assets/css/style.css">
-
-<?php
+/* 2. VERIFICAÇÃO DE SEGURANÇA
+   Confirmamos se o jovem_id existe na sessão (conforme o PDF). */
+if(!isset($_SESSION['jovem_id'])){
+    echo "Acesso negado. Por favor, faça login.";
+    exit;
+}
 
 $jovem_id = $_SESSION['jovem_id'];
+$jovem_nome = $_SESSION['jovem_nome'] ?? "Jovem";
 
+/* 3. ESTATÍSTICAS
+   Contamos quantas vezes o ID deste jovem aparece na tabela 'candidaturas'. */
 $sql = "SELECT COUNT(*) as total FROM candidaturas WHERE jovem_id='$jovem_id'";
 $res = $conn->query($sql);
 $total_candidaturas = $res->fetch_assoc()['total'];
 
-include("../includes/config.php");
-session_start();
-
-if(!isset($_SESSION['jovem_id'])){
-echo "Acesso negado.";
-exit;
-}
-
-echo "<h1>Dashboard do Jovem</h1>";
-
-echo "<hr>";
-
-echo "<a href='../jovem/perfil.php'>Meu perfil</a><br><br>";
-
-echo "<a href='../jovem/curriculo_ia.php'>Melhorar meu currículo</a><br><br>";
-
-echo "<a href='../vagas/listar.php'>Ver vagas</a><br><br>";
-
-echo "<a href='../candidaturas/minhas.php'>Minhas candidaturas</a><br><br>";
-
-echo "<a href='../vagas/favoritos.php'>Minhas vagas favoritas</a><br><br>";
-
-echo "<h2>Minhas estatísticas</h2>";
-echo "Candidaturas enviadas: ".$total_candidaturas."<br><br>";
-
-echo "<a href='../logout.php'>Sair</a>";
+/* 4. CABEÇALHO VISUAL */
+include("../includes/header.php"); 
 ?>
+
+<link rel="stylesheet" href="../assets/css/style.css">
+
+<div class="container">
+    <div class="card">
+        <h1>Dashboard do Jovem</h1>
+        <p>Bem-vindo de volta, <strong><?php echo $jovem_nome; ?></strong>!</p>
+        <hr>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 20px 0;">
+            <a href="../jovem/perfil.php" class="btn" style="background: #334155;">Meu Perfil</a>
+            <a href="../jovem/curriculo_ia.php" class="btn" style="background: #1DB954;">IA: Melhorar Currículo</a>
+            <a href="../vagas/listar.php" class="btn">🔍 Ver Vagas</a>
+            <a href="../candidaturas/minhas.php" class="btn" style="background: #334155;">Minhas Candidaturas</a>
+        </div>
+
+        <div class="card" style="background: #0F172A; border-left: 5px solid var(--principal);">
+            <h3>Minhas Estatísticas</h3>
+            <p><strong>Candidaturas enviadas:</strong> <?php echo $total_candidaturas; ?></p>
+            <p><small>Continue a candidatar-se para aumentar as suas chances!</small></p>
+        </div>
+
+        <div style="margin-top: 20px;">
+            <a href="../vagas/favoritos.php" style="color: var(--principal);">⭐ Ver minhas vagas favoritas</a>
+            <br><br>
+            <a href="../logout.php" style="color: #ff4d4d;">Sair com segurança</a>
+        </div>
+    </div>
+</div>
 
 <?php include("../includes/footer.php"); ?>
