@@ -19,4 +19,3 @@ flask-cors          # Essencial para o PHP conseguir chamar o Flask sem erro de 
 mysql-connector-python
 pandas              # Se você for processar dados das vagas
 scikit-learn        # Comum para algoritmos de recomendação/match
-openai              # Se estiver usando a API da OpenAI (opcional)
