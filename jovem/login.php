@@ -231,7 +231,13 @@ require_once '../includes/config.php';
             </button>
         </div>
 
-        <form action="processar_login.php" method="POST" id="loginForm">
+        <?php if(isset($_SESSION['login_error'])): ?>
+            <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; color: #ef4444; padding: 12px; border-radius: 8px; margin-bottom: 24px; text-align: center; font-size: 0.9rem;">
+                <?php echo $_SESSION['login_error']; unset($_SESSION['login_error']); ?>
+            </div>
+        <?php endif; ?>
+
+        <form action="../processar_login.php" method="POST" id="loginForm">
             <input type="hidden" name="tipo_usuario" id="tipo_usuario" value="jovem">
 
             <div class="form-group">
@@ -283,7 +289,7 @@ function switchProfile(type) {
         footerText.textContent = "Não tem uma conta?";
         footerLink.textContent = "Cadastre-se agora";
         footerLink.href = "cadastro.php";
-        form.action = "processar_login.php"; // rota do login do jovem
+        form.action = "../processar_login.php"; // rota central
     } else {
         btnEmpresa.classList.add('active');
         btnJovem.classList.remove('active');
@@ -292,7 +298,7 @@ function switchProfile(type) {
         footerText.textContent = "Sua empresa não está parceira?";
         footerLink.textContent = "Registre sua Empresa";
         footerLink.href = "../empresa/cadastro.php";
-        form.action = "../empresa/processar_login.php"; // rota do login da empresa
+        form.action = "../processar_login.php"; // rota central
     }
 }
 </script>

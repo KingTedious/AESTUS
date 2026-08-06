@@ -24,4 +24,8 @@ if ($conn->connect_error) {
 // Garante que caracteres como 'ç', 'ã', 'é' sejam exibidos corretamente no navegador.
 $conn->set_charset("utf8mb4");
 
+// 5. Iniciar sessão globalmente
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 ?>
