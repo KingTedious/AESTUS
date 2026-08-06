@@ -25,11 +25,9 @@ if($result->num_rows > 0){
     exit;
 }
 
-$sql = "INSERT INTO jovens 
-(nome,email,senha,cpf,data_nascimento,cidade,estado,formacao,telefone)
-
-VALUES
-('$nome','$email','$senha','$cpf','$data','$cidade','$estado','$formacao','$telefone')";
+$stmt = $conn->prepare("INSERT INTO jovens (nome, email, senha) VALUES (?, ?, ?)");
+$stmt->bind_param("sss", $nome, $email, $senha);
+$stmt->execute();
 
 if($conn->query($sql) === TRUE){
 echo "Cadastro realizado com sucesso!";
