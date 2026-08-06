@@ -1,74 +1,303 @@
 <?php
-// 1. Lógica e Sessão (Sempre no topo)
-session_start();
-include("../includes/config.php");
-
-$erro = ""; 
-
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $email = $_POST['email'];
-    $senha = $_POST['senha'];
-
-    $stmt = $conn->prepare("SELECT * FROM jovens WHERE email = ?");
-    $stmt->bind_param("s", $email);
-    $stmt->execute();
-    $result = $stmt->get_result();
-
-    if ($result->num_rows > 0) {
-        $jovem = $result->fetch_assoc();
-        
-        if (password_verify($senha, $jovem['senha'])) {
-            $_SESSION['jovem_id'] = $jovem['id'];
-            $_SESSION['jovem_nome'] = $jovem['nome'];
-            
-            // Lógica de primeiro acesso
-            $_SESSION['primeiro_acesso'] = ($jovem['ultimo_login'] == NULL);
-            $id_usuario = $jovem['id'];
-            $conn->query("UPDATE jovens SET ultimo_login = NOW() WHERE id = '$id_usuario'");
-
-            header("Location: ../dashboard/jovem.php");
-            exit;
-        } else {
-            $erro = "E-mail ou senha incorretos.";
-        }
-    } else {
-        $erro = "E-mail ou senha incorretos.";
-    }
-} // <--- Esta chave fecha o bloco do POST
-
-// 2. HTML e Visual
-include("../includes/header.php");
+// Gerenciamento de rotas e includes baseado na sua árvore de diretórios
+// Se houver erros de include como no print anterior, certifique-se de que o caminho relativo está correto
+require_once '../includes/config.php'; 
 ?>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acesse sua conta - Jovem Connect</title>
+    <link rel="stylesheet" href="../Assets/css/style.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+    
+    <style>
+        /* Estilização específica da viewport de autenticação conforme o Mockup */
+        .auth-wrapper {
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #0b0f19; /* Fundo escuro profundo oficial */
+            padding: 20px;
+            box-sizing: border-box;
+            position: relative;
+        }
 
-<div class="container" style="display: flex; justify-content: center; align-items: center; min-height: 80vh;">
-    <div class="card" style="width: 100%; max-width: 400px; text-align: center;">
-        
-        <div style="font-size: 2.5rem; margin-bottom: 10px;">🎓</div>
-        <h2>Acesse sua conta</h2>
-        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 20px;">Área do Candidato</p>
+        .auth-card {
+            background: #131c2e; /* Tom ligeiramente mais claro (elevação física) */
+            border: 1px solid #1e293b;
+            border-radius: 12px;
+            padding: 40px 32px;
+            width: 100%;
+            max-width: 420px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+            text-align: center;
+        }
 
-        <?php if($erro): ?>
-            <div style="background: rgba(255, 77, 77, 0.1); color: #ff4d4d; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-size: 0.85rem;">
-                ⚠️ <?php echo $erro; ?>
+        .brand-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 24px;
+        }
+
+        .brand-logo {
+            width: 32px;
+            height: 32px;
+            background: #89b4fa;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #0b0f19;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .brand-title {
+            font-size: 1.4rem;
+            color: #ffffff;
+            font-weight: 700;
+            margin: 0;
+        }
+
+        .auth-subtitle {
+            font-size: 1.1rem;
+            color: #ffffff;
+            margin: 0 0 8px 0;
+            font-weight: 600;
+        }
+
+        .auth-desc {
+            color: #94a3b8;
+            font-size: 0.875rem;
+            margin: 0 0 24px 0;
+        }
+
+        /* Segmented Controls (Abas internas no card) - Seção 2.2 do PDF */
+        .segmented-control {
+            display: flex;
+            background: #0b0f19;
+            padding: 4px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+            border: 1px solid #1e293b;
+        }
+
+        .segment-btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 6px;
+            background: transparent;
+            color: #94a3b8;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        /* Estado Ativo da Aba utilizando a nova identidade #89B4FA */
+        .segment-btn.active {
+            background: #89b4fa;
+            color: #0b0f19;
+        }
+
+        /* Formulário empilhado verticalmente e limpo */
+        .form-group {
+            text-align: left;
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .form-group label {
+            display: block;
+            color: #ffffff;
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+        .input-icon {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #475569;
+            font-size: 1.1rem;
+            pointer-events: none;
+        }
+
+        .form-group input {
+            width: 100%;
+            background: #0b0f19;
+            border: 1px solid #1e293b;
+            color: #ffffff;
+            padding: 12px 16px 12px 42px; /* Espaço para o ícone na esquerda */
+            border-radius: 8px;
+            outline: none;
+            font-size: 0.95rem;
+            box-sizing: border-box;
+            transition: all 0.3s ease-in-out;
+        }
+
+        .form-group input:focus {
+            border-color: #89b4fa;
+            box-shadow: 0 0 0 2px rgba(137, 180, 250, 0.15);
+        }
+
+        .form-options {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 24px;
+        }
+
+        .forgot-password {
+            color: #94a3b8;
+            font-size: 0.825rem;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .forgot-password:hover {
+            color: #89b4fa;
+        }
+
+        /* Botão Entrar Oficial */
+        .btn-submit {
+            width: 100%;
+            background: #89b4fa;
+            color: #0b0f19;
+            border: none;
+            padding: 14px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease-in-out;
+            margin-bottom: 20px;
+        }
+
+        .btn-submit:hover {
+            background: #74a2ec;
+            transform: translateY(-1px);
+        }
+
+        .auth-footer {
+            color: #94a3b8;
+            font-size: 0.875rem;
+        }
+
+        .auth-footer a {
+            color: #89b4fa;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .auth-footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+
+<div class="auth-wrapper">
+    <div class="auth-card">
+        <div class="brand-header">
+            <div class="brand-logo">JC</div>
+            <h1 class="brand-title">JovemConnect</h1>
+        </div>
+
+        <h2 class="auth-subtitle">Acesse sua conta</h2>
+        <p class="auth-desc">Entre para ver as novidades no seu painel</p>
+
+        <div class="segmented-control">
+            <button type="button" class="segment-btn active" id="btnJovem" onclick="switchProfile('jovem')">
+                🎓 Sou Jovem
+            </button>
+            <button type="button" class="segment-btn" id="btnEmpresa" onclick="switchProfile('empresa')">
+                💼 Sou Empresa
+            </button>
+        </div>
+
+        <form action="processar_login.php" method="POST" id="loginForm">
+            <input type="hidden" name="tipo_usuario" id="tipo_usuario" value="jovem">
+
+            <div class="form-group">
+                <label for="email">E-mail</label>
+                <div class="input-wrapper">
+                    <span class="input-icon">✉️</span>
+                    <input type="email" id="email" name="email" placeholder="seuemail@com.com" required autocomplete="email">
+                </div>
             </div>
-        <?php endif; ?>
 
-        <form method="POST">
-            <div style="text-align: left;">
-                <label style="font-size: 0.8rem; color: var(--text-secondary);">E-mail</label>
-                <input type="email" name="email" placeholder="seu@email.com" required>
-                
-                <label style="font-size: 0.8rem; color: var(--text-secondary);">Senha</label>
-                <input type="password" name="senha" placeholder="••••••••" required>
+            <div class="form-group">
+                <label for="senha">Senha</label>
+                <div class="input-wrapper">
+                    <span class="input-icon">🔒</span>
+                    <input type="password" id="senha" name="senha" placeholder="••••••••" required autocomplete="current-password">
+                </div>
             </div>
-            
-            <button type="submit" class="btn" style="width: 100%; margin-top: 10px;">Entrar</button>
+
+            <div class="form-options">
+                <a href="recuperar_senha.php" class="forgot-password">Esqueceu a senha?</a>
+            </div>
+
+            <button type="submit" class="btn-submit">Entrar</button>
         </form>
-        
-        <p style="margin-top: 25px; font-size: 0.9rem; color: var(--text-secondary);">
-            Não tem uma conta? <a href="cadastro.php">Cadastre-se agora</a>
-        </p>
+
+        <div class="auth-footer">
+            <span id="footerText">Não tem uma conta?</span> 
+            <a href="cadastro.php" id="footerLink">Cadastre-se agora</a>
+        </div>
     </div>
 </div>
 
-<?php include("../includes/footer.php"); ?>
+<script>
+// Função para alternar as abas suavemente sem cortes secos (Seção 3.4)
+function switchProfile(type) {
+    const btnJovem = document.getElementById('btnJovem');
+    const btnEmpresa = document.getElementById('btnEmpresa');
+    const inputTipo = document.getElementById('tipo_usuario');
+    const footerText = document.getElementById('footerText');
+    const footerLink = document.getElementById('footerLink');
+    const form = document.getElementById('loginForm');
+
+    if (type === 'jovem') {
+        btnJovem.classList.add('active');
+        btnEmpresa.classList.remove('active');
+        inputTipo.value = 'jovem';
+        
+        // Ajusta os links de destino caso o usuário clique em registrar estando nessa aba
+        footerText.textContent = "Não tem uma conta?";
+        footerLink.textContent = "Cadastre-se agora";
+        footerLink.href = "cadastro.php";
+        form.action = "processar_login.php"; // rota do login do jovem
+    } else {
+        btnEmpresa.classList.add('active');
+        btnJovem.classList.remove('active');
+        inputTipo.value = 'empresa';
+        
+        footerText.textContent = "Sua empresa não está parceira?";
+        footerLink.textContent = "Registre sua Empresa";
+        footerLink.href = "../empresa/cadastro.php";
+        form.action = "../empresa/processar_login.php"; // rota do login da empresa
+    }
+}
+</script>
+
+<?php 
+// Inclui o footer global que contém os FABs persistentes de IA e Acessibilidade (Seção 3.1)
+include '../includes/footer.php'; 
+?>

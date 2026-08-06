@@ -1,171 +1,125 @@
-/* Paleta de Cores das Imagens */
+/* ==========================================================================
+   GUIA DE ESTILO OFICIAL - JOVEM CONNECT (SAAS PREMIUM)
+   ========================================================================== */
 
 :root {
-    --bg-body: #0d1117;
-    /* Fundo quase preto */
-    --bg-card: #161b22;
-    /* Fundo dos cards */
-    --bg-input: #0a0c10;
-    /* Fundo dos campos de texto */
-    --primary: #58a6ff;
-    /* Azul JovemConnect */
-    --primary-hover: #388bfd;
-    --text-main: #f0f6fc;
-    /* Branco suave */
-    --text-secondary: #8b949e;
-    /* Cinza para descrições */
-    --border: #30363d;
-    /* Bordas sutis */
-    --success: #238636;
-    --radius: 12px;
-}
-
-
-.profile-button:hover {
-    background-color: var(--border) !important;
-    border-color: var(--primary) !important;
-    transform: translateY(-2px);
-}
-
-header nav a:hover {
-    color: var(--primary) !important;
-}
-
-/* Reset e Fonte */
-
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --bg-principal: #0b0f19;
+    /* Azul-grafite profundo do fundo geral */
+    --bg-container: #131c2e;
+    /* Tom ligeiramente mais claro para os cards */
+    --principal: #89b4fa;
+    /* Novo Tom de Azul Oficial (Cornflower Blue) */
+    --principal-hover: #74a2ec;
+    /* Variação sutil para o efeito de hover */
+    --texto-puro: #ffffff;
+    /* Branco para títulos de alto impacto */
+    --texto-secundario: #94a3b8;
+    /* Cinza-médio para descrições */
+    --border-padrao: #1e293b;
+    --radius-padrao: 12px;
+    /* Cantos arredondados padronizados */
+    --transicao: all 0.3s ease-in-out;
+    /* Transições suaves (ease-in-out) */
 }
 
 body {
-    background-color: var(--bg-body);
-    color: var(--text-main);
-    line-height: 1.6;
+    background-color: var(--bg-principal);
+    color: var(--texto-secundario);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    margin: 0;
+    padding: 0;
 }
-
-.container {
-    max-width: 1100px;
-    margin: 0 auto;
-    padding: 40px 20px;
-}
-
-
-/* Títulos */
 
 h1,
 h2,
-h3 {
-    color: var(--text-main);
-    margin-bottom: 15px;
-    font-weight: 600;
+h3,
+h4,
+h5,
+h6 {
+    color: var(--texto-puro);
+    font-weight: 700;
+}
+
+.card {
+    background: var(--bg-container);
+    border: 1px solid var(--border-padrao);
+    border-radius: var(--radius-padrao);
+    padding: 24px;
+    margin-bottom: 20px;
+    transition: var(--transicao);
 }
 
 
-/* Botões Estilo Imagem 3 e 9 */
+/* Botões com a nova identidade visual */
 
 .btn {
-    background-color: var(--primary);
-    color: #ffffff;
+    background: var(--principal);
+    color: #0b0f19;
+    /* Texto escuro no botão claro para garantir contraste e legibilidade */
     border: none;
     padding: 12px 24px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 1rem;
+    border-radius: var(--radius-padrao);
     font-weight: 600;
+    cursor: pointer;
     text-decoration: none;
-    display: inline-block;
-    transition: all 0.2s ease;
-    text-align: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transicao);
 }
 
 .btn:hover {
-    background-color: var(--primary-hover);
-    transform: translateY(-1px);
+    background: var(--principal-hover);
 }
 
 
-/* Cards (Conforme imagem 3 e 4) */
+/* FAB - ELEMENTOS FLUTUANTES PERSISTENTES (SEÇÃO 3.1) */
 
-.card {
-    background-color: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 25px;
-    margin-bottom: 20px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+.fab-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    z-index: 9999;
+}
+
+.fab-btn {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    border: none;
+    color: #0b0f19;
+    /* Ícone escuro para destacar no fundo azul claro */
+    font-size: 1.5rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+    transition: var(--transicao);
 }
 
 
-/* Formulários (Conforme imagem 9) */
+/* Gradiente baseado no novo tom de azul para o botão de assistência por IA */
 
-input,
-textarea,
-select {
-    background-color: var(--bg-input);
-    border: 1px solid var(--border);
-    color: var(--text-main);
-    padding: 14px;
-    border-radius: 8px;
-    width: 100%;
-    margin: 10px 0 20px 0;
-    font-size: 1rem;
+.fab-ia {
+    background: linear-gradient(135deg, #a6ccff, #89b4fa);
 }
 
-input:focus {
-    border-color: var(--primary);
-    outline: none;
-    box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.2);
+.fab-ia:hover {
+    transform: translateY(-3px);
 }
 
-
-/* Grid de Vagas (Imagem 3) */
-
-.grid-vagas {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 20px;
+.fab-acessibilidade {
+    background: #1e293b;
+    border: 1px solid #334155;
+    color: var(--texto-puro);
+    /* Mantém o ícone branco na acessibilidade por ser fundo escuro */
 }
 
-
-/* Badges (Ex: "Administrativo") */
-
-.badge {
-    display: inline-block;
-    padding: 4px 12px;
-    background: rgba(88, 166, 255, 0.15);
-    color: var(--primary);
-    border-radius: 20px;
-    font-size: 0.75rem;
-    font-weight: bold;
-    margin-bottom: 10px;
-}
-
-
-/* Estilo para links secundários */
-
-a {
-    color: var(--primary);
-    text-decoration: none;
-}
-
-a:hover {
-    text-decoration: underline;
-}
-
-
-/* Layout de Perfil (Duas Colunas - Imagem 6) */
-
-.profile-layout {
-    display: grid;
-    grid-template-columns: 300px 1fr;
-    gap: 30px;
-}
-
-@media (max-width: 768px) {
-    .profile-layout {
-        grid-template-columns: 1fr;
-    }
+.fab-acessibilidade:hover {
+    background: #334155;
+    transform: translateY(-3px);
 }

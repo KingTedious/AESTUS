@@ -57,7 +57,7 @@ include("../includes/header.php");
                     </div>
 
                     <div style="margin-top: 20px; display: flex; gap: 10px;">
-                        <a href="avaliar_ia.php?vaga_id=<?php echo $row['id']; ?>" class="btn" style="background: #334155; font-size: 0.8rem;">🤖 Avaliar com IA</a>
+                        <a href="avaliar.php?vaga_id=<?php echo $row['id']; ?>" class="btn" style="background: #334155; font-size: 0.8rem;">🤖 Avaliar com IA</a>
                         <a href="../candidaturas/candidatar.php?vaga=<?php echo $row['id']; ?>" class="btn" style="font-size: 0.8rem;">📩 Candidatar-me</a>
                     </div>
                 </div>

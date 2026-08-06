@@ -1,4 +1,4 @@
-<?php 
+<?php
 /* 1. CONFIGURAÇÕES E SESSÃO */
 include("../includes/config.php");
 session_start();
@@ -16,7 +16,7 @@ $busca  = $_GET['busca'] ?? "";
 $cidade = $_GET['cidade'] ?? "";
 $estado = $_GET['estado'] ?? "";
 
-// Base da Query - JOIN com empresas para mostrar quem contratada
+// Base da Query - JOIN com empresas para mostrar quem contrata
 $sql = "SELECT v.*, e.nome_empresa 
         FROM vagas v
         JOIN empresas e ON v.empresa_id = e.id 
@@ -43,73 +43,66 @@ include("../includes/header.php");
 
 <div class="container">
     <h1>Vagas Disponíveis</h1>
-    <p>Encontre a oportunidade ideal e use a nossa IA para ver o seu Match.</p>
+    <p class="subtitulo">Encontre a oportunidade ideal e use a nossa IA para ver o seu Match.</p>
 
-    <div class="card" style="background: #1e293b; padding: 20px; border: none;">
-        <form method="GET" style="display: flex; gap: 10px; flex-wrap: wrap;">
-            <input type="text" name="busca" placeholder="O que procura?" value="<?php echo $busca; ?>" style="flex: 2; min-width: 200px;">
-            <input type="text" name="cidade" placeholder="Cidade" value="<?php echo $cidade; ?>" style="flex: 1;">
-            <input type="text" name="estado" placeholder="UF" maxlength="2" value="<?php echo $estado; ?>" style="flex: 0.5;">
-            <button type="submit" class="btn" style="flex: 0.5;">Filtrar</button>
+    <div class="card card-filtros">
+        <form method="GET" class="form-filtros">
+            <input type="text" name="busca" placeholder="O que procura?" value="<?php echo htmlspecialchars($busca); ?>">
+            <input type="text" name="cidade" placeholder="Cidade" value="<?php echo htmlspecialchars($cidade); ?>">
+            <input type="text" name="estado" placeholder="UF" maxlength="2" value="<?php echo htmlspecialchars($estado); ?>">
+            <button type="submit" class="btn">Filtrar</button>
         </form>
     </div>
 
-    <hr style="margin: 30px 0; border: 0; border-top: 1px solid #334155;">
+    <hr class="divisor-dashboard">
 
-    <?php if($result->num_rows > 0): ?>
-        <div style="display: grid; gap: 20px;">
+    <?php if($result && $result->num_rows > 0): ?>
+        <div class="grid-vagas-lista">
             
             <?php while($vaga = $result->fetch_assoc()): 
-                // Verifica se esta vaga está nos favoritos deste jovem
                 $vaga_id = $vaga['id'];
+                
+                // Verifica se esta vaga está nos favoritos deste jovem
                 $check_fav = $conn->query("SELECT id FROM favoritos WHERE jovem_id='$jovem_id' AND vaga_id='$vaga_id'");
-                $eh_favorito = $check_fav->num_rows > 0;
+                $eh_favorito = $check_fav && $check_fav->num_rows > 0;
             ?>
 
-            <div class="card" style="position: relative;">
-                <div style="position: absolute; top: 20px; right: 20px;">
-                    <a href="favoritar.php?vaga_id=<?php echo $vaga_id; ?>" style="text-decoration: none; font-size: 1.5rem;">
+            <div class="card card-vaga-item">
+                <div class="container-favorito">
+                    <a href="favoritar.php?vaga_id=<?php echo $vaga_id; ?>" class="btn-favorito">
                         <?php echo $eh_favorito ? "⭐" : "☆"; ?>
                     </a>
                 </div>
 
-                <small style="color: var(--principal); font-weight: bold; text-transform: uppercase;">
-                    <?php echo $vaga['nome_empresa']; ?>
+                <small class="empresa-badge">
+                    <?php echo htmlspecialchars($vaga['nome_empresa']); ?>
                 </small>
-                <h3 style="margin-top: 5px;"><?php echo $vaga['titulo']; ?></h3>
-                <p style="color: #94a3b8; font-size: 0.9rem;">
-                    📍 <?php echo $vaga['cidade']; ?> - <?php echo $vaga['estado']; ?> | 
-                    💼 <?php echo $vaga['tipo_contrato']; ?>
+                
+                <h3><?php echo htmlspecialchars($vaga['titulo']); ?></h3>
+                
+                <p class="meta-dados-vaga">
+                    📍 <?php echo htmlspecialchars($vaga['cidade']); ?> - <?php echo htmlspecialchars($vaga['estado']); ?> | 
+                    💼 <?php echo htmlspecialchars($vaga['tipo_contrato'] ?? 'Efetivo'); ?>
                 </p>
                 
-                <p style="margin: 15px 0;"><?php echo substr($vaga['descricao'], 0, 200) . "..."; ?></p>
+                <?php if(!empty($vaga['salario'])): ?>
+                    <p class="salario-vaga">💰 R$ <?php echo htmlspecialchars($vaga['salario']); ?></p>
+                <?php endif; ?>
+                
+                <p class="descricao-vaga"><?php echo substr(htmlspecialchars($vaga['descricao']), 0, 200) . "..."; ?></p>
 
-                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                    <a href="../candidaturas/candidatar.php?vaga=<?php echo $vaga_id; ?>" class="btn">Candidatar-me</a>
-                    <a href="avaliar_ia.php?vaga_id=<?php echo $vaga_id; ?>" class="btn" style="background: #334155;">🤖 Analisar com IA</a>
+                <div class="botoes-acoes">
+                    <a href="../Candidaturas/candidatar.php?vaga=<?php echo $vaga_id; ?>" class="btn">Candidatar-me</a>
+                    <a href="avaliar.php?vaga_id=<?php echo $vaga_id; ?>" class="btn btn-secundario">🤖 Analisar com IA</a>
                 </div>
             </div>
 
             <?php endwhile; ?>
         </div>
-    <?php else: ?>
-        <div class="card">
-    <div style="display: flex; justify-content: space-between; align-items: start;">
-        <h3 style="margin: 0;"><?php echo $vaga['titulo']; ?></h3>
-        <span class="badge"><?php echo $vaga['tipo_contrato']; ?></span>
-    </div>
-    <p style="color: var(--text-secondary); margin-top: 4px;">🏢 <?php echo $vaga['nome_empresa']; ?></p>
     
-    <div style="display: flex; gap: 20px; margin: 20px 0; font-size: 0.9rem;">
-        <span>💰 R$ <?php echo $vaga['salario']; ?></span>
-        <span>🕒 20h/semana</span>
-        <span>📍 <?php echo $vaga['cidade']; ?></span>
-    </div>
-
-    <a href="detalhes.php?id=<?php echo $vaga['id']; ?>" class="btn" style="width: 100%; background: transparent; border: 1px solid var(--border);">
-        ✨ Avaliar Match com IA
-    </a>
-      </div>
+    <?php else: ?>
+        <div class="card card-aviso-vazio">
+            <p>Nenhuma vaga encontrada para os filtros aplicados no momento.</p>
         </div>
     <?php endif; ?>
 </div>
