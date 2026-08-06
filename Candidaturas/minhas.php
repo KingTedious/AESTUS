@@ -58,7 +58,9 @@ $result = $conn->query($sql);
 
     } else {
         /* Caso o jovem ainda não tenha concorrido a nada */
-        echo "<div class='card'><p>Você ainda não se candidatou a nenhuma vaga.</p></div>";
+        echo "<div class='card'>
+                <p>Você ainda não se candidatou a nenhuma vaga.</p>
+            </div>";
     }
     ?>
 </div>

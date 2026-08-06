@@ -15,24 +15,24 @@ include("includes/header.php");
     <div style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;">
         
         <div class="card" style="flex: 1; min-width: 300px; max-width: 400px; padding: 40px;">
-            <div style="font-size: 3rem; margin-bottom: 10px;">🎓</div>
+            <div style="font-size: 3rem; margin-bottom: 10px;">'adciona um icone de jovem estudante'</div>
             <h2>Sou Jovem</h2>
             <p>Procuro vagas de estágio, aprendizagem e dicas de IA para o meu currículo.</p>
             <br>
             <a href="jovem/login.php" class="btn" style="display: block; margin-bottom: 10px;">Entrar agora</a>
             <a href="jovem/cadastro.php" style="color: var(--principal); text-decoration: none; font-size: 0.9rem;">
-                Ainda não tenho conta >
+                Ainda não tenho conta 
             </a>
         </div>
 
         <div class="card" style="flex: 1; min-width: 300px; max-width: 400px; padding: 40px;">
-            <div style="font-size: 3rem; margin-bottom: 10px;">🏢</div>
+            <div style="font-size: 3rem; margin-bottom: 10px;">'adciona um icone de empresa'</div>
             <h2>Sou Empresa</h2>
             <p>Desejo publicar vagas e encontrar os melhores talentos da região.</p>
             <br>
-            <a href="empresa/login.php" class="btn" style="display: block; margin-bottom: 10px; background: #334155;">Aceder Painel</a>
+            <a href="empresa/login.php" class="btn" style="display: block; margin-bottom: 10px; background: #334155;">Entrar agora</a>
             <a href="empresa/cadastro.php" style="color: #94a3b8; text-decoration: none; font-size: 0.9rem;">
-                Cadastrar minha empresa >
+                Cadastrar minha empresa
             </a>
         </div>
 
@@ -40,7 +40,7 @@ include("includes/header.php");
 
     <div style="margin-top: 60px; padding: 20px; border-top: 1px solid var(--borda);">
         <p style="color: #64748b; font-size: 0.9rem;">
-            ✨ Potencializado por <strong>Inteligência Artificial</strong> para o melhor Match de vagas.
+            Potencializado por <strong>Inteligência Artificial</strong> para o melhor Match de vagas.
         </p>
     </div>
 

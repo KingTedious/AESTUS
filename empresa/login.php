@@ -16,26 +16,36 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
     $sql = "SELECT id, nome_empresa, senha FROM empresas WHERE email='$email'";
     $result = $conn->query($sql);
 
-    if($result->num_rows > 0){
+   if ($result->num_rows > 0) {
         $empresa = $result->fetch_assoc();
 
-        /* 3. VERIFICAÇÃO DE SENHA 
-           Compara a senha digitada com o hash seguro do banco. */
-        if(password_verify($senha, $empresa['senha'])){
+        // Verifica a senha
+        if (password_verify($senha, $empresa['senha'])) {
             
-            // Define as variáveis de sessão para uso no Dashboard
+            // Define variáveis de sessão
             $_SESSION['empresa_id'] = $empresa['id'];
             $_SESSION['empresa_nome'] = $empresa['nome_empresa'];
+            
+            // Lógica opcional de primeiro acesso (se adicionar a coluna ultimo_login)
+            if (isset($empresa['ultimo_login'])) {
+                $_SESSION['empresa_primeiro_acesso'] = ($empresa['ultimo_login'] == NULL);
+                
+                // Atualiza o timestamp no banco
+                $id_emp = $empresa['id'];
+                $conn->query("UPDATE empresas SET ultimo_login = NOW() WHERE id = '$id_emp'");
+            }
 
-            // Redireciona para o painel principal
+            // Redireciona com segurança
             header("Location: ../dashboard/empresa.php");
             exit;
 
         } else {
-            $erro = "Senha incorreta. Tente novamente.";
+            // Senha incorreta -> Mensagem Genérica
+            $erro = "E-mail ou senha incorretos.";
         }
     } else {
-        $erro = "Empresa não encontrada com este email.";
+        // Email não existe -> Mesma Mensagem Genérica
+        $erro = "E-mail ou senha incorretos.";
     }
 }
 

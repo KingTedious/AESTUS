@@ -28,14 +28,22 @@ include("../includes/header.php");
 
 <div class="container">
     <div class="card">
-        <h1>Dashboard do Jovem</h1>
-        <p>Bem-vindo de volta, <strong><?php echo $jovem_nome; ?></strong>!</p>
-        <hr>
+        <h1>Dashboard</h1>
+        <p>
+            <?php 
+                if (isset($_SESSION['primeiro_acesso']) && $_SESSION['primeiro_acesso'] == true) {
+                    echo "Bem-vindo(a), ";
+                } else {
+                    echo "Bem-vindo(a) de volta, ";
+                }
+            ?><strong><?php echo $_SESSION['jovem_nome']; ?></strong>!
+        </p>
+    </div>    
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 20px 0;">
-            <a href="../jovem/perfil.php" class="btn" style="background: #334155;">Meu Perfil</a>
+            <a href="../jovem/perfil.php" class="btn" style="background: #334155;">Meu Perfil</a> /* Colocar um icone de usuario */
             <a href="../jovem/curriculo_ia.php" class="btn" style="background: #1DB954;">IA: Melhorar Currículo</a>
-            <a href="../vagas/listar.php" class="btn">🔍 Ver Vagas</a>
+            <a href="../vagas/listar.php" class="btn">Ver Vagas</a> /* Colocar um icone de lupa */
             <a href="../candidaturas/minhas.php" class="btn" style="background: #334155;">Minhas Candidaturas</a>
         </div>
 
@@ -46,9 +54,9 @@ include("../includes/header.php");
         </div>
 
         <div style="margin-top: 20px;">
-            <a href="../vagas/favoritos.php" style="color: var(--principal);">⭐ Ver minhas vagas favoritas</a>
+            <a href="../vagas/favoritos.php" style="color: var(--principal);">Ver minhas vagas favoritas</a> /* Colocar um icone de estrela */
             <br><br>
-            <a href="../logout.php" style="color: #ff4d4d;">Sair com segurança</a>
+            <a href="../logout.php" style="color: #ff4d4d;">Sair</a>
         </div>
     </div>
 </div>

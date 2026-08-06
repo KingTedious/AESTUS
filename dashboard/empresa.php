@@ -40,22 +40,22 @@ include("../includes/header.php");
 <div class="container">
     <div class="card">
         <h1>Dashboard da Empresa</h1>
-        <p>Bem-vindo ao seu painel de gestão de talentos.</p>
+        <p>Bem-vindo ao seu painel de gestão de talentos</p>
         <hr>
 
         <div style="margin: 20px 0;">
-            <a href="../vagas/criar.php" class="btn">➕ Criar Nova Vaga</a>
-            <a href="../vagas/minhas.php" class="btn" style="background: #334155;">📋 Minhas Vagas</a>
+            <a href="../vagas/criar.php" class="btn">Criar Nova Vaga</a> /* Adcionar ícone de mais */
+            <a href="../vagas/minhas.php" class="btn" style="background: #334155;">Minhas Vagas</a> 
         </div>
 
         <div class="card" style="background: #0F172A; border-color: var(--principal);">
-            <h2>📊 Estatísticas</h2>
+            <h2>Estatísticas</h2>
             <p><strong>Vagas publicadas:</strong> <?php echo $total_vagas; ?></p>
             <p><strong>Total de Candidaturas:</strong> <?php echo $total_candidatos; ?></p>
         </div>
 
         <br>
-        <a href="../logout.php" style="color: #ff4d4d;">🔴 Sair do Sistema</a>
+        <a href="../logout.php" style="color: #ff4d4d;">Sair do Sistema</a> /* Adcionar ícone de porta */
     </div>
 </div>
 
