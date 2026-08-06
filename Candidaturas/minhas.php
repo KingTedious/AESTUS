@@ -31,6 +31,7 @@ if($result->num_rows > 0){
         echo "<b>".$row['titulo']."</b><br>";
         echo "Empresa: ".$row['nome_empresa']."<br>";
         echo $row['descricao']."<br>";
+        echo "<b>Status:</b> ".$row['status']."<br><br>";
 
         echo "<hr>";
     }

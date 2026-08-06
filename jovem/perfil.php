@@ -39,7 +39,23 @@ $jovem = $result->fetch_assoc();
 
 <h1>Meu Perfil</h1>
 
-<form method="POST">
+<form method="POST" enctype="multipart/form-data"
+if(isset($_FILES['curriculo']) && $_FILES['curriculo']['name'] != ""){
+
+$arquivo = $_FILES['curriculo']['name'];
+$tmp = $_FILES['curriculo']['tmp_name'];
+
+$destino = "../uploads/curriculos/".$arquivo;
+
+move_uploaded_file($tmp, $destino);
+
+$sql = "UPDATE jovens SET curriculo='$arquivo' WHERE id='$jovem_id'";
+$conn->query($sql);
+
+}></form>
+
+<label>Currículo (PDF)</label>
+<input type="file" name="curriculo">
 
 <label>Nome</label>
 <input type="text" name="nome" value="<?php echo $jovem['nome']; ?>">

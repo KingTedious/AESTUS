@@ -1,8 +1,24 @@
+
 <?php include("../includes/header.php"); ?>
 
 <link rel="stylesheet" href="../assets/css/style.css">
 
 <?php
+
+if($_SERVER['REQUEST_METHOD'] == 'POST'){
+
+$candidatura_id = $_POST['candidatura_id'];
+$status = $_POST['status'];
+
+$sql = "UPDATE candidaturas 
+SET status='$status' 
+WHERE id='$candidatura_id'";
+
+$conn->query($sql);
+
+echo "Status atualizado!";
+}
+
 include("../includes/config.php");
 session_start();
 
@@ -45,5 +61,22 @@ echo "Nenhum candidato ainda.";
 
 }
 ?>
+
+<form method="POST">
+
+<input type="hidden" name="candidatura_id" value="<?php echo $row['candidatura_id']; ?>">
+
+<select name="status">
+
+<option value="Recebido">Recebido</option>
+<option value="Em análise">Em análise</option>
+<option value="Aprovado">Aprovado</option>
+<option value="Rejeitado">Rejeitado</option>
+
+</select>
+
+<button type="submit">Atualizar</button>
+
+</form>
 
 <?php include("../includes/footer.php"); ?>
