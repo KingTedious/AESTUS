@@ -1,81 +1,84 @@
 <?php
-// Inicia a sessão com segurança
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Conecta ao arquivo de configuração global e ao banco de dados ($conn)
 require_once 'includes/config.php'; 
+// --> ADICIONE ISSO: Inclui o motor de logs que criamos
+require_once 'includes/logger.php'; 
 
-// Bloqueia acessos diretos via URL sem submissão de formulário
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    // Registamos que alguém tentou acessar o script de forma incorreta diretamente pela URL
+    registrar_log("Acesso direto bloqueado ao processar_login.php", "WARNING");
     header("Location: index.php");
     exit;
 }
 
-// Captura e sanitiza as credenciais enviadas pelos inputs empilhados
 $email = filter_input(INPUT_POST, 'email', FILTER_SANITIZE_EMAIL);
 $senha = $_POST['senha'] ?? '';
-$tipo_usuario = $_POST['tipo_usuario'] ?? 'jovem'; // Captura o valor do controle de abas
+$tipo_usuario = $_POST['tipo_usuario'] ?? 'jovem';
 
-// Validação simples de campos em branco
 if (empty($email) || empty($senha)) {
+    // Registamos que houve um erro de digitação/campos em branco
+    registrar_log("Tentativa de login com campos vazios para o e-mail: " . ($email ?: 'Não informado'), "WARNING");
     $_SESSION['erro_login'] = "Por favor, preencha todos os campos.";
     header("Location: " . $tipo_usuario . "/login.php");
     exit;
 }
 
 try {
-    // Roteamento inteligente baseado no tipo selecionado na interface (#89B4FA)
     if ($tipo_usuario === 'empresa') {
-        
-        // --- AUTENTICAÇÃO DO FLUXO EMPRESA ---
         $sql = "SELECT id, nome, email, senha FROM empresas WHERE email = :email LIMIT 1";
         $stmt = $conn->prepare($sql);
         $stmt->bindParam(':email', $email);
         $stmt->execute();
         
-        // Corrigido: Usando a variável no singular $usuario
         $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        // Corrigido: Verificando se $usuario (no singular) existe e validando a senha
         if ($usuario && password_verify($senha, $usuario['senha'])) {
             $_SESSION['usuario_id'] = $usuario['id'];
             $_SESSION['usuario_nome'] = $usuario['nome'];
             $_SESSION['usuario_tipo'] = 'empresa';
+
+            // --> ADICIONE ISSO: Login corporativo com sucesso!
+            registrar_log("Empresa '{$usuario['nome']}' (ID: {$usuario['id']}) logou com sucesso.", "INFO");
 
             header("Location: empresa/dashboard.php");
             exit;
         }
 
     } else {
-        
-        // --- AUTENTICAÇÃO DO FLUXO JOVEM (PADRÃO) ---
         $sql = "SELECT id, nome, email, senha FROM jovens WHERE email = :email LIMIT 1";
         $stmt = $conn->prepare($sql);
         $stmt->bindParam(':email', $email);
         $stmt->execute();
         
-        // Corrigido: Usando a variável no singular $usuario
         $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        // Corrigido: Verificando se $usuario (no singular) existe e validando a senha
         if ($usuario && password_verify($senha, $usuario['senha'])) {
             $_SESSION['usuario_id'] = $usuario['id'];
             $_SESSION['usuario_nome'] = $usuario['nome'];
             $_SESSION['usuario_tipo'] = 'jovem';
+
+            // --> ADICIONE ISSO: Login do candidato com sucesso!
+            registrar_log("Candidato '{$usuario['nome']}' (ID: {$usuario['id']}) logou com sucesso.", "INFO");
 
             header("Location: jovem/perfil.php");
             exit;
         }
     }
 
-    // Se não encontrou o usuário ou a senha estiver errada
+    // --> ADICIONE ISSO: Se chegou aqui, a senha ou e-mail estavam errados
+    registrar_log("Falha de login: Senha incorreta ou e-mail inexistente para [{$email}] no painel [{$tipo_usuario}]", "WARNING");
+
     $_SESSION['erro_login'] = "E-mail ou senha incorretos.";
     header("Location: " . $tipo_usuario . "/login.php");
     exit;
 
 } catch (PDOException $e) {
+    // --> ADICIONE ISSO: Erro crítico no banco de dados! Salvamos a mensagem real do MySQL para o programador ver
+    registrar_log("Erro crítico de banco de dados no login: " . $e->getMessage(), "ERROR");
+
     $_SESSION['erro_login'] = "Erro interno no servidor de autenticação.";
     header("Location: " . $tipo_usuario . "/login.php");
     exit;

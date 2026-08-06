@@ -1,4 +1,9 @@
 <?php
+require_once '../includes/auth.php';
+verificar_autenticacao('jovem'); // Bloqueia se não for um jovem logado
+?>
+
+<?php
     /* 1. CONFIGURAÇÕES E PROTEÇÃO */
     require_once dirname(__DIR__) . "/includes/config.php";
     session_start();
