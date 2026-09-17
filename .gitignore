@@ -4,8 +4,12 @@ venv/
 __pycache__/
 *.pyc
 
+# Dependências (Composer)
+vendor/
+
 # Segredos e Configurações
 .env
+*.env
 
 # Logs e Cache
 *.log

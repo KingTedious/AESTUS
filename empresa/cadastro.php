@@ -94,7 +94,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['empresa_nome'] = $campos['nome_empresa'];
             $stmt_ins->close();
 
-            header("Location: ../dashboard/empresa.php");
+            // Etapa 2: antes de ir ao dashboard, passa pela verificação de conta.
+            header("Location: ../verificacoes/escolher_verificacao.php");
             exit;
         }
 
@@ -317,7 +318,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <div class="fab-stack">
     <button class="fab fab-a11y" id="btnA11y" title="Acessibilidade" aria-label="Abrir acessibilidade">♿</button>
 </div>
-<div class="user-indicator" title="Início">N</div>
 
 <!-- ============================================================
      SCRIPTS

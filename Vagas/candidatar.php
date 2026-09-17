@@ -171,7 +171,7 @@ if (!$result_code && $ja_candidatado) {
         <div class="d-flex gap-12" style="justify-content:center;flex-wrap:wrap;">
             <a href="../dashboard/jovem.php"
                class="btn btn-ghost btn-sm">Ver outras vagas</a>
-            <a href="../Candidaturas/minhas.php"
+            <a href="../candidaturas/minhas.php"
                class="btn btn-primary btn-sm">Minhas Candidaturas</a>
         </div>
     </div>
@@ -192,7 +192,7 @@ if (!$result_code && $ja_candidatado) {
         <div class="d-flex gap-12" style="justify-content:center;flex-wrap:wrap;">
             <a href="../dashboard/jovem.php"
                class="btn btn-ghost btn-sm">Ver outras vagas</a>
-            <a href="../Candidaturas/minhas.php"
+            <a href="../candidaturas/minhas.php"
                class="btn btn-primary btn-sm">Minhas Candidaturas</a>
         </div>
     </div>
@@ -292,9 +292,6 @@ if (!$result_code && $ja_candidatado) {
 <!-- FABs -->
 <div class="fab-stack">
     <button class="fab fab-a11y" id="btnA11y" title="Acessibilidade" aria-label="Acessibilidade">♿</button>
-</div>
-<div class="user-indicator">
-    <?= strtoupper(mb_substr($_SESSION['jovem_nome'] ?? 'J', 0, 1)) ?>
 </div>
 
 <script>

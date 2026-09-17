@@ -275,9 +275,6 @@ $resumo_atual = htmlspecialchars(
 <div class="fab-stack">
     <button class="fab fab-a11y" id="btnA11y" title="Acessibilidade" aria-label="Acessibilidade">♿</button>
 </div>
-<div class="user-indicator">
-    <?= strtoupper(mb_substr($_SESSION['jovem_nome'] ?? 'J', 0, 1)) ?>
-</div>
 
 <script>
 /* ── Tema ──────────────────────────────────────────────────── */

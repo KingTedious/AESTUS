@@ -127,7 +127,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['jovem_id']   = $conn->insert_id;
             $_SESSION['jovem_nome'] = $campos['nome'];
             $stmt_ins->close();
-            header("Location: ../dashboard/jovem.php");
+            // Etapa 2: antes de ir ao dashboard, passa pela verificação de conta.
+            header("Location: ../verificacoes/escolher_verificacao.php");
             exit;
         }
 
@@ -418,7 +419,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <div class="fab-stack">
     <button class="fab fab-a11y" id="btnA11y" title="Acessibilidade" aria-label="Acessibilidade">♿</button>
 </div>
-<div class="user-indicator">N</div>
 
 
 <!-- ============================================================

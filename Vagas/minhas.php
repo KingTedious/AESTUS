@@ -284,9 +284,6 @@ $stmt->close();
     <button class="fab fab-ai"   id="btnChat" title="Assistente IA"  aria-label="IA">✦</button>
     <button class="fab fab-a11y" id="btnA11y" title="Acessibilidade" aria-label="Acessibilidade">♿</button>
 </div>
-<div class="user-indicator">
-    <?= strtoupper(mb_substr($_SESSION['empresa_nome'] ?? 'E', 0, 1)) ?>
-</div>
 
 <script>
 /* ── Tema ──────────────────────────────────────────────────── */

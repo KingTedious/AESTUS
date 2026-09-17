@@ -376,9 +376,6 @@ $inicial = strtoupper(mb_substr($emp['nome_empresa'], 0, 1));
     <button class="fab fab-ai"   id="btnChat" title="Assistente IA"  aria-label="Assistente IA">✦</button>
     <button class="fab fab-a11y" id="btnA11y" title="Acessibilidade" aria-label="Acessibilidade">♿</button>
 </div>
-<div class="user-indicator" title="<?= htmlspecialchars($emp['nome_empresa']) ?>">
-    <?= $inicial ?>
-</div>
 
 
 <!-- ============================================================

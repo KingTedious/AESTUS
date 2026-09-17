@@ -44,19 +44,40 @@ $action = $input['action'] ?? 'match'; // 'match' ou 'curriculo'
    ============================================================ */
 if ($action === 'match') {
 
-    $jovem_id = intval($input['jovem_id'] ?? $_SESSION['jovem_id'] ?? 0);
-    $vaga_id  = intval($input['vaga_id']  ?? 0);
+    $vaga_id = intval($input['vaga_id'] ?? 0);
+
+    // ── Autorização derivada da SESSÃO, nunca do jovem_id enviado pelo frontend ──
+    if (isset($_SESSION['jovem_id'])) {
+        // Jovem só pode avaliar o próprio match, mesmo que outro jovem_id seja enviado.
+        $jovem_id = intval($_SESSION['jovem_id']);
+
+    } elseif (isset($_SESSION['empresa_id'])) {
+        // Empresa escolhe QUAL candidato avaliar, mas só em uma vaga que seja dela
+        // (ownership check — mesmo padrão usado em Vagas/candidatos.php).
+        $jovem_id   = intval($input['jovem_id'] ?? 0);
+        $empresa_id = intval($_SESSION['empresa_id']);
+
+        $stmt_own = $conn->prepare("SELECT id FROM vagas WHERE id = ? AND empresa_id = ? LIMIT 1");
+        $stmt_own->bind_param("ii", $vaga_id, $empresa_id);
+        $stmt_own->execute();
+        $vaga_pertence_a_empresa = $stmt_own->get_result()->fetch_assoc();
+        $stmt_own->close();
+
+        if (!$vaga_pertence_a_empresa) {
+            http_response_code(403);
+            echo json_encode(['error' => 'Esta vaga não pertence à sua empresa.']);
+            exit;
+        }
+
+    } else {
+        http_response_code(403);
+        echo json_encode(['error' => 'Acesso não autorizado.']);
+        exit;
+    }
 
     if ($jovem_id <= 0 || $vaga_id <= 0) {
         http_response_code(400);
         echo json_encode(['error' => 'IDs inválidos.']);
-        exit;
-    }
-
-    // Usuário empresa não pode avaliar outra empresa
-    if (!isset($_SESSION['jovem_id']) && !isset($_SESSION['empresa_id'])) {
-        http_response_code(403);
-        echo json_encode(['error' => 'Acesso não autorizado.']);
         exit;
     }
 
@@ -178,13 +199,13 @@ if ($action === 'match') {
    ============================================================ */
 if ($action === 'curriculo') {
 
-    $jovem_id = intval($input['jovem_id'] ?? $_SESSION['jovem_id'] ?? 0);
-
-    if ($jovem_id <= 0) {
-        http_response_code(400);
-        echo json_encode(['error' => 'ID inválido.']);
+    // Autoanálise de currículo — somente o próprio jovem logado pode usar esta ação.
+    if (!isset($_SESSION['jovem_id'])) {
+        http_response_code(403);
+        echo json_encode(['error' => 'Acesso não autorizado.']);
         exit;
     }
+    $jovem_id = intval($_SESSION['jovem_id']);
 
     // Busca dados completos do jovem
     $stmt_j = $conn->prepare(

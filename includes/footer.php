@@ -173,9 +173,6 @@ $_nome_usuario = $_SESSION['jovem_nome']   ??
                  $_SESSION['empresa_nome'] ??
                  null;
 if ($_nome_usuario): ?>
-<div class="user-indicator" title="Meu Perfil">
-    <?= strtoupper(mb_substr(htmlspecialchars($_nome_usuario), 0, 1)) ?>
-</div>
 <?php endif; ?>
 
 

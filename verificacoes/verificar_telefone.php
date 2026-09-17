@@ -32,8 +32,8 @@ if ($user['telefone_verificado'] == 1) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_enviar_sms'])) {
     $novoTelefone = trim($_POST['telefone'] ?? '');
 
-    if (empty($novoTelefone)) {
-        $mensagemErro = "Por favor, digite um número de telefone válido.";
+    if (empty($novoTelefone) || normalizarTelefoneE164($novoTelefone) === null) {
+        $mensagemErro = "Digite um número de celular válido, com DDD (ex: (11) 98765-4321).";
     } else {
         $novoCodigo = sprintf("%06d", random_int(0, 999999));
         $novaExpiracao = date('Y-m-d H:i:s', strtotime('+15 minutes'));
@@ -59,7 +59,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_validar_codigo']
     $codigoDigitado = trim($_POST['codigo'] ?? '');
     $agora = date('Y-m-d H:i:s');
 
-    if (!empty($codigoDigitado) && $user['codigo_telefone'] === $codigoDigitado && $user['expiracao_telefone'] >= $agora) {
+    if (!empty($codigoDigitado) && $user['codigo_telefone'] !== null
+        && hash_equals((string) $user['codigo_telefone'], $codigoDigitado)
+        && $user['expiracao_telefone'] >= $agora) {
         $update = $conn->prepare("UPDATE {$tabela} SET telefone_verificado = 1, codigo_telefone = NULL, expiracao_telefone = NULL WHERE id = ?");
         $update->bind_param("i", $idUsuario);
         $update->execute();
@@ -79,7 +81,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_validar_codigo']
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Verificação por Telefone | JovemConnect</title>
     <link rel="stylesheet" href="../assets/css/style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
 <body>
 
@@ -88,7 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_validar_codigo']
 <main class="container" style="padding: 40px 16px; max-width: 480px; margin: 0 auto;">
     <div class="card" style="text-align: center; padding: 32px 24px;">
         <div style="font-size: 48px; color: var(--accent); margin-bottom: 16px;">
-            <i class="fa-solid fa-mobile-screen-button"></i>
+            <span aria-hidden="true">📱</span>
         </div>
         
         <h2>Verificar Telefone (SMS)</h2>
@@ -98,13 +99,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_validar_codigo']
 
         <?php if ($mensagemErro): ?>
             <div style="background: rgba(231, 76, 60, 0.2); color: #e74c3c; padding: 12px; border-radius: var(--radius); margin-bottom: 16px; font-size: 14px; border: 1px solid #e74c3c;">
-                <i class="fa-solid fa-circle-exclamation"></i> <?= htmlspecialchars($mensagemErro) ?>
+                <span aria-hidden="true">⚠️</span> <?= htmlspecialchars($mensagemErro) ?>
             </div>
         <?php endif; ?>
 
         <?php if ($mensagemSucesso): ?>
             <div style="background: rgba(46, 204, 113, 0.2); color: #2ecc71; padding: 12px; border-radius: var(--radius); margin-bottom: 16px; font-size: 14px; border: 1px solid #2ecc71;">
-                <i class="fa-solid fa-circle-check"></i> <?= htmlspecialchars($mensagemSucesso) ?>
+                <span aria-hidden="true">✅</span> <?= htmlspecialchars($mensagemSucesso) ?>
             </div>
         <?php endif; ?>
 
@@ -117,7 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_validar_codigo']
                        value="<?= htmlspecialchars($user['telefone'] ?? '') ?>" required>
             </div>
             <button type="submit" class="btn btn-secondary btn-full">
-                <i class="fa-solid fa-paper-plane"></i> <?= !empty($user['telefone']) ? 'Reenviar SMS' : 'Enviar Código SMS' ?>
+                <span aria-hidden="true">📤</span> <?= !empty($user['telefone']) ? 'Reenviar SMS' : 'Enviar Código SMS' ?>
             </button>
         </form>
 

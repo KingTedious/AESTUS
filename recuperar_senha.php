@@ -1,7 +1,7 @@
 <?php
 session_start();
-require_once dirname(__DIR__) . '/includes/config.php';
-require_once dirname(__DIR__) . '/includes/mailer.php';
+require_once __DIR__ . '/includes/config.php';
+require_once __DIR__ . '/includes/mailer.php';
 
 $mensagemErro = null;
 $etapa = $_SESSION['recuperacao_etapa'] ?? 1;
@@ -72,6 +72,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_solicitar_codigo
 
             // Dispara e-mail
             enviarCodigoVerificacao($emailInput, $nomeUsuario, $codigo);
+
+            $_SESSION['recuperacao_tabela'] = $tabelaEncontrada;
         }
 
         // Avança a etapa mesmo se o e-mail não existir (boa prática de segurança)
@@ -83,9 +85,93 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_solicitar_codigo
     }
 }
 
+// --- ETAPA 2: VALIDAR O CÓDIGO RECEBIDO ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_validar_codigo_recuperacao'])) {
+    $codigoDigitado = trim($_POST['codigo'] ?? '');
+    $tabela   = $_SESSION['recuperacao_tabela']    ?? null;
+    $emailRaw = $_SESSION['recuperacao_email_raw'] ?? null;
+    $codigoOk = false;
+
+    if ($tabela && $emailRaw && !empty($codigoDigitado)) {
+        $stmtV = $conn->prepare("SELECT codigo_recuperacao, expiracao_recuperacao FROM {$tabela} WHERE email = ? LIMIT 1");
+        $stmtV->bind_param("s", $emailRaw);
+        $stmtV->execute();
+        $rowV = $stmtV->get_result()->fetch_assoc();
+        $stmtV->close();
+
+        $agora = date('Y-m-d H:i:s');
+        if ($rowV && $rowV['codigo_recuperacao'] !== null
+            && hash_equals((string) $rowV['codigo_recuperacao'], $codigoDigitado)
+            && $rowV['expiracao_recuperacao'] >= $agora) {
+            $codigoOk = true;
+        }
+    }
+
+    if ($codigoOk) {
+        $_SESSION['recuperacao_etapa'] = 3;
+        $etapa = 3;
+    } else {
+        // Mesma mensagem independentemente do motivo (conta inexistente, código
+        // errado ou expirado) — evita confirmar/negar existência da conta.
+        $mensagemErro = "Código incorreto ou expirado.";
+    }
+}
+
+// --- ETAPA 3: DEFINIR NOVA SENHA ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_definir_nova_senha'])) {
+    $tabela   = $_SESSION['recuperacao_tabela']    ?? null;
+    $emailRaw = $_SESSION['recuperacao_email_raw'] ?? null;
+    $novaSenha = $_POST['nova_senha'] ?? '';
+    $confirmarSenha = $_POST['confirmar_senha'] ?? '';
+
+    if (!$tabela || !$emailRaw) {
+        // Sessão perdida/expirada no meio do fluxo — recomeça do zero.
+        unset($_SESSION['recuperacao_etapa'], $_SESSION['recuperacao_email_mascarado'],
+              $_SESSION['recuperacao_email_raw'], $_SESSION['recuperacao_tabela']);
+        header("Location: recuperar_senha.php");
+        exit;
+    } elseif (strlen($novaSenha) < 8) {
+        $mensagemErro = "A nova senha precisa ter pelo menos 8 caracteres.";
+        $etapa = 3;
+    } elseif ($novaSenha !== $confirmarSenha) {
+        $mensagemErro = "As senhas não coincidem.";
+        $etapa = 3;
+    } else {
+        // Reconfirma a validade do código (defesa extra contra expiração entre etapas)
+        $stmtV = $conn->prepare("SELECT expiracao_recuperacao FROM {$tabela} WHERE email = ? LIMIT 1");
+        $stmtV->bind_param("s", $emailRaw);
+        $stmtV->execute();
+        $rowV = $stmtV->get_result()->fetch_assoc();
+        $stmtV->close();
+
+        $agora = date('Y-m-d H:i:s');
+        if (!$rowV || $rowV['expiracao_recuperacao'] === null || $rowV['expiracao_recuperacao'] < $agora) {
+            unset($_SESSION['recuperacao_etapa'], $_SESSION['recuperacao_email_mascarado'],
+                  $_SESSION['recuperacao_email_raw'], $_SESSION['recuperacao_tabela']);
+            $mensagemErro = "O código expirou. Solicite a recuperação novamente.";
+            $etapa = 1;
+        } else {
+            $novoHash = password_hash($novaSenha, PASSWORD_DEFAULT);
+            $update = $conn->prepare("UPDATE {$tabela} SET senha = ?, codigo_recuperacao = NULL, expiracao_recuperacao = NULL WHERE email = ?");
+            $update->bind_param("ss", $novoHash, $emailRaw);
+            $update->execute();
+            $update->close();
+
+            $tipoLogin = ($tabela === 'jovens') ? 'jovem' : 'empresa';
+            unset($_SESSION['recuperacao_etapa'], $_SESSION['recuperacao_email_mascarado'],
+                  $_SESSION['recuperacao_email_raw'], $_SESSION['recuperacao_tabela']);
+
+            $_SESSION['sucesso_login'] = "Senha redefinida com sucesso! Faça login com sua nova senha.";
+            header("Location: {$tipoLogin}/login.php");
+            exit;
+        }
+    }
+}
+
 // --- REENVIAR E-MAIL / REINICIAR ---
 if (isset($_GET['reenviar'])) {
-    unset($_SESSION['recuperacao_etapa'], $_SESSION['recuperacao_email_mascarado']);
+    unset($_SESSION['recuperacao_etapa'], $_SESSION['recuperacao_email_mascarado'],
+          $_SESSION['recuperacao_email_raw'], $_SESSION['recuperacao_tabela']);
     header("Location: recuperar_senha.php");
     exit;
 }
@@ -97,7 +183,6 @@ if (isset($_GET['reenviar'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Recuperar Senha | JovemConnect</title>
     <link rel="stylesheet" href="assets/css/style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     
     <!-- Estilos identicos ao design da imagem -->
     <style>
@@ -277,13 +362,13 @@ if (isset($_GET['reenviar'])) {
     <div class="auth-card">
         <!-- Ícone + Nome da Marca -->
         <div class="brand-icon">
-            <i class="fa-solid fa-briefcase"></i>
+            <span aria-hidden="true">💼</span>
         </div>
         <h1 class="brand-title">JovemConnect</h1>
 
         <?php if ($mensagemErro): ?>
             <div class="alert-error">
-                <i class="fa-solid fa-circle-exclamation"></i> <?= htmlspecialchars($mensagemErro) ?>
+                <span aria-hidden="true">⚠️</span> <?= htmlspecialchars($mensagemErro) ?>
             </div>
         <?php endif; ?>
 
@@ -297,7 +382,7 @@ if (isset($_GET['reenviar'])) {
                 <div class="form-group">
                     <label class="form-label">E-mail</label>
                     <div class="input-wrapper">
-                        <i class="fa-regular fa-envelope"></i>
+                        <span aria-hidden="true">✉️</span>
                         <input type="email" name="email" class="form-control" placeholder="seu@email.com" required autofocus>
                     </div>
                 </div>
@@ -306,20 +391,56 @@ if (isset($_GET['reenviar'])) {
 
             <a href="login.php" class="back-link">Voltar para o login</a>
 
-        <?php else: ?>
-            <!-- ETAPA 2: TELA DE CONFIRMAÇÃO (COMO VOCÊ PEDIU) -->
+        <?php elseif ($etapa === 2): ?>
+            <!-- ETAPA 2: DIGITAR O CÓDIGO RECEBIDO -->
             <h2 class="page-title">Verifique seu e-mail</h2>
             <p class="page-desc">
-                Mandamos um e-mail para <span class="highlight-email"><?= htmlspecialchars($emailMascarado) ?></span> para recuperar sua senha, siga o processo e atualize a página.
+                Mandamos um código para <span class="highlight-email"><?= htmlspecialchars($emailMascarado) ?></span>. Digite-o abaixo para continuar.
             </p>
 
-            <div style="display: flex; flex-direction: column; gap: 12px;">
+            <form action="recuperar_senha.php" method="POST">
+                <input type="hidden" name="acao_validar_codigo_recuperacao" value="1">
+                <div class="form-group">
+                    <label class="form-label">Código de verificação</label>
+                    <div class="input-wrapper">
+                        <span aria-hidden="true">🔑</span>
+                        <input type="text" name="codigo" class="form-control" placeholder="000000" maxlength="6" inputmode="numeric" pattern="[0-9]{6}" required autofocus>
+                    </div>
+                </div>
+                <button type="submit" class="btn-primary">Confirmar código</button>
+            </form>
+
+            <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 12px;">
                 <a href="recuperar_senha.php?reenviar=1" class="btn-secondary">
                     Não recebi meu e-mail
                 </a>
             </div>
 
             <a href="login.php" class="back-link">Voltar para o login</a>
+
+        <?php else: ?>
+            <!-- ETAPA 3: DEFINIR NOVA SENHA -->
+            <h2 class="page-title">Defina sua nova senha</h2>
+            <p class="page-desc">Escolha uma nova senha para acessar sua conta.</p>
+
+            <form action="recuperar_senha.php" method="POST">
+                <input type="hidden" name="acao_definir_nova_senha" value="1">
+                <div class="form-group">
+                    <label class="form-label">Nova senha</label>
+                    <div class="input-wrapper">
+                        <span aria-hidden="true">🔒</span>
+                        <input type="password" name="nova_senha" class="form-control" placeholder="Mínimo de 8 caracteres" minlength="8" required autofocus>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Confirmar nova senha</label>
+                    <div class="input-wrapper">
+                        <span aria-hidden="true">🔒</span>
+                        <input type="password" name="confirmar_senha" class="form-control" placeholder="Repita a nova senha" minlength="8" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn-primary">Redefinir senha</button>
+            </form>
         <?php endif; ?>
     </div>
 

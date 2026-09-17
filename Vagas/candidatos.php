@@ -313,7 +313,7 @@ $stmt_c->close();
                     <button
                         class="btn btn-ia"
                         style="flex:1;"
-                        onclick="avaliarMatch(<?= intval($row['jovem_id']) ?>, this)">
+                        onclick="avaliarMatch(<?= intval($row['jovem_id']) ?>, <?= $vaga_id ?>, this)">
                         ✦ Match com IA
                     </button>
                 </div>
@@ -360,9 +360,6 @@ $stmt_c->close();
 <div class="fab-stack">
     <button class="fab fab-ai"   id="btnChat" title="Assistente IA"  aria-label="IA">✦</button>
     <button class="fab fab-a11y" id="btnA11y" title="Acessibilidade" aria-label="Acessibilidade">♿</button>
-</div>
-<div class="user-indicator">
-    <?= strtoupper(mb_substr($_SESSION['empresa_nome'] ?? 'E', 0, 1)) ?>
 </div>
 
 <!-- ============================================================
@@ -457,7 +454,7 @@ async function atualizarStatus(candId, btn) {
 }
 
 /* ── Avaliar Match com IA ───────────────────────────────────── */
-async function avaliarMatch(jovemId, btn) {
+async function avaliarMatch(jovemId, vagaId, btn) {
     btn.disabled  = true;
     btn.innerHTML = '<span class="loading-spinner"></span> Analisando...';
 
@@ -468,6 +465,7 @@ async function avaliarMatch(jovemId, btn) {
             body: JSON.stringify({
                 action:     'match',
                 jovem_id:   jovemId,
+                vaga_id:    vagaId,
                 empresa_id: <?= $empresa_id ?>
             }),
         });
@@ -479,6 +477,17 @@ async function avaliarMatch(jovemId, btn) {
         btn.innerHTML   = `✦ Match: ${score ?? '--'}%`;
         btn.title       = analise ?? '';
         btn.style.color = 'var(--accent)';
+
+        // Link para a análise completa (Vagas/avaliar.php, Etapa 3) — o botão só
+        // mostra o score; motivos individuais só existem na tooltip do title.
+        if (!btn.nextElementSibling?.classList.contains('link-analise-completa')) {
+            const linkAnalise = document.createElement('a');
+            linkAnalise.href      = `avaliar.php?vaga_id=${vagaId}&jovem_id=${jovemId}`;
+            linkAnalise.className = 'link-analise-completa back-link';
+            linkAnalise.style.cssText = 'display:block;margin-top:8px;font-size:12px;';
+            linkAnalise.textContent = 'Ver análise completa →';
+            btn.after(linkAnalise);
+        }
     } catch {
         btn.innerHTML = '✦ Match com IA';
         btn.disabled  = false;

@@ -20,13 +20,23 @@ function registrar_log($mensagem, $nivel = 'INFO') {
         mkdir($diretorio_logs, 0755, true);
     }
 
-    // 3. Captura os metadados do utilizador atual para auditoria
+    // 3. Captura os metadados do utilizador atual para auditoria.
+    //    Chaves reais da sessão nesta versão: jovem_id/jovem_nome (jovem) e
+    //    empresa_id/empresa_nome (empresa) — não existe 'usuario_id'/'usuario_tipo'
+    //    em nenhum outro ponto do sistema. Corrigido na Etapa 4 (V3.10).
     $data_hora    = date('Y-m-d H:i:s');
     $ip_usuario   = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
-    
-    // Se o utilizador estiver logado, pegamos o ID, senão fica como 'ANONIMO'
-    $usuario_id   = $_SESSION['usuario_id'] ?? 'ANONIMO';
-    $usuario_tipo = $_SESSION['usuario_tipo'] ?? 'VISITANTE';
+
+    if (isset($_SESSION['jovem_id'])) {
+        $usuario_id   = $_SESSION['jovem_id'];
+        $usuario_tipo = 'JOVEM';
+    } elseif (isset($_SESSION['empresa_id'])) {
+        $usuario_id   = $_SESSION['empresa_id'];
+        $usuario_tipo = 'EMPRESA';
+    } else {
+        $usuario_id   = 'ANONIMO';
+        $usuario_tipo = 'VISITANTE';
+    }
 
     // 4. Formata a linha de texto de forma padronizada e limpa
     // PHP_EOL adiciona uma quebra de linha correta no fim (Enter)

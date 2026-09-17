@@ -17,6 +17,22 @@ $tabela = ($tipoUsuario === 'jovem') ? 'jovens' : 'empresas';
 $mensagemSucesso = null;
 $mensagemErro = null;
 
+if (!function_exists('gerarEEnviarCodigoEmail')) {
+    // Gera um novo código, grava no banco e envia por e-mail. Reaproveitada
+    // no reenvio manual e no primeiro envio automático (ao entrar na página).
+    function gerarEEnviarCodigoEmail(mysqli $conn, string $tabela, int $idUsuario, string $email, string $nome): bool {
+        $novoCodigo    = sprintf("%06d", random_int(0, 999999));
+        $novaExpiracao = date('Y-m-d H:i:s', strtotime('+15 minutes'));
+
+        $update = $conn->prepare("UPDATE {$tabela} SET codigo_verificacao = ?, expiracao_codigo = ? WHERE id = ?");
+        $update->bind_param("ssi", $novoCodigo, $novaExpiracao, $idUsuario);
+        $update->execute();
+        $update->close();
+
+        return enviarCodigoVerificacao($email, $nome, $novoCodigo);
+    }
+}
+
 // 1. PROCESSAR VALIDAÇÃO DO CÓDIGO (POST)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_verificar'])) {
     $codigoDigitado = trim($_POST['codigo'] ?? '');
@@ -34,8 +50,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_verificar'])) {
 
     $agora = date('Y-m-d H:i:s');
 
-    if (!empty($codigoDigitado) && $user['codigo_verificacao'] === $codigoDigitado && $user['expiracao_codigo'] >= $agora) {
-        // Marca e-mail como verificado e limpa os tokens temporários
+    if (!empty($codigoDigitado) && $user['codigo_verificacao'] !== null
+        && hash_equals((string) $user['codigo_verificacao'], $codigoDigitado)
+        && $user['expiracao_codigo'] >= $agora) {
+        // Marca e-mail como verificado e limpa os tokens temporários (código não é reutilizável)
         $update = $conn->prepare("UPDATE {$tabela} SET email_verificado = 1, codigo_verificacao = NULL, expiracao_codigo = NULL WHERE id = ?");
         $update->bind_param("i", $idUsuario);
         $update->execute();
@@ -56,18 +74,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_reenviar'])) {
     $user = $stmt->get_result()->fetch_assoc();
     $stmt->close();
 
-    $novoCodigo = sprintf("%06d", random_int(0, 999999));
-    $novaExpiracao = date('Y-m-d H:i:s', strtotime('+15 minutes'));
-
-    $update = $conn->prepare("UPDATE {$tabela} SET codigo_verificacao = ?, expiracao_codigo = ? WHERE id = ?");
-    $update->bind_param("ssi", $novoCodigo, $novaExpiracao, $idUsuario);
-    $update->execute();
-    $update->close();
-
-    if (enviarCodigoVerificacao($user['email'], $user['nome'], $novoCodigo)) {
+    if (gerarEEnviarCodigoEmail($conn, $tabela, $idUsuario, $user['email'], $user['nome'])) {
         $mensagemSucesso = "Novo código enviado para " . htmlspecialchars($user['email']) . "!";
     } else {
-        $mensagemErro = "Falha ao enviar o e-mail. Verifique suas configurações de SMTP em includes/mailer.php.";
+        $mensagemErro = "Não foi possível enviar o e-mail agora. Tente novamente em instantes.";
+    }
+}
+
+// 3. PRIMEIRO ACESSO (GET): se não há código válido pendente, envia um automaticamente
+if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    $stmt = $conn->prepare("SELECT nome, email, codigo_verificacao, expiracao_codigo, email_verificado FROM {$tabela} WHERE id = ? LIMIT 1");
+    $stmt->bind_param("i", $idUsuario);
+    $stmt->execute();
+    $user = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    if ($user['email_verificado'] == 1) {
+        header("Location: ../dashboard/index.php");
+        exit;
+    }
+
+    $agora = date('Y-m-d H:i:s');
+    $temCodigoValido = !empty($user['codigo_verificacao']) && $user['expiracao_codigo'] >= $agora;
+
+    if (!$temCodigoValido) {
+        if (gerarEEnviarCodigoEmail($conn, $tabela, $idUsuario, $user['email'], $user['nome'])) {
+            $mensagemSucesso = "Enviamos um código para " . htmlspecialchars($user['email']) . "!";
+        } else {
+            $mensagemErro = "Não foi possível enviar o e-mail agora. Você pode tentar novamente pelo botão abaixo.";
+        }
     }
 }
 ?>
@@ -78,7 +113,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_reenviar'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Verificar E-mail | JovemConnect</title>
     <link rel="stylesheet" href="../assets/css/style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
 <body>
 
@@ -87,7 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_reenviar'])) {
 <main class="container" style="padding: 40px 16px; max-width: 480px; margin: 0 auto;">
     <div class="card" style="text-align: center; padding: 32px 24px;">
         <div style="font-size: 48px; color: var(--accent); margin-bottom: 16px;">
-            <i class="fa-solid fa-envelope-open-text"></i>
+            <span aria-hidden="true">📨</span>
         </div>
         
         <h2>Verifique seu E-mail</h2>
@@ -97,13 +131,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_reenviar'])) {
 
         <?php if ($mensagemErro): ?>
             <div style="background: rgba(231, 76, 60, 0.2); color: #e74c3c; padding: 12px; border-radius: var(--radius); margin-bottom: 16px; font-size: 14px; border: 1px solid #e74c3c;">
-                <i class="fa-solid fa-circle-exclamation"></i> <?= htmlspecialchars($mensagemErro) ?>
+                <span aria-hidden="true">⚠️</span> <?= htmlspecialchars($mensagemErro) ?>
             </div>
         <?php endif; ?>
 
         <?php if ($mensagemSucesso): ?>
             <div style="background: rgba(46, 204, 113, 0.2); color: #2ecc71; padding: 12px; border-radius: var(--radius); margin-bottom: 16px; font-size: 14px; border: 1px solid #2ecc71;">
-                <i class="fa-solid fa-circle-check"></i> <?= htmlspecialchars($mensagemSucesso) ?>
+                <span aria-hidden="true">✅</span> <?= htmlspecialchars($mensagemSucesso) ?>
             </div>
         <?php endif; ?>
 

@@ -40,8 +40,13 @@ $total_vagas   = $result_vagas->num_rows;
 // ── 2. Candidatos das vagas desta empresa ─────────────────────────────────────
 //    Prioridade: jovens que se candidataram a alguma vaga da empresa.
 //    Fallback (0 candidatos): jovens com área_interesse compatível.
+// Nota (Etapa 3): sem DISTINCT/sem colapsar por jovem — cada candidatura já é
+// um par (jovem, vaga) inequívoco, então cada linha vira um card com o
+// vaga_id certo para o botão "Avaliar Match com IA" (candidaturas.vaga_id +
+// vagas.titulo). Um mesmo jovem que se candidatou a 2 vagas desta empresa
+// aparece em 2 cards, um por vaga — evita escolher uma vaga arbitrária.
 $stmt_cands = $conn->prepare(
-    "SELECT DISTINCT
+    "SELECT
          j.id,
          j.nome,
          j.cidade,
@@ -50,7 +55,9 @@ $stmt_cands = $conn->prepare(
          j.resumo_profissional,
          j.escolaridade_curso,
          j.escolaridade_tipo,
-         TIMESTAMPDIFF(YEAR, j.data_nascimento, CURDATE()) AS idade
+         TIMESTAMPDIFF(YEAR, j.data_nascimento, CURDATE()) AS idade,
+         c.vaga_id  AS vaga_id_card,
+         v.titulo   AS vaga_titulo_card
      FROM   jovens j
      JOIN   candidaturas c ON c.jovem_id = j.id
      JOIN   vagas        v ON c.vaga_id  = v.id
@@ -61,8 +68,11 @@ $stmt_cands = $conn->prepare(
 $stmt_cands->bind_param("i", $empresa_id);
 $stmt_cands->execute();
 $result_cands = $stmt_cands->get_result();
+$modo_fallback = false;
 
-// Fallback: buscar por área compatível se não há candidatos ainda
+// Fallback: buscar por área compatível se não há candidatos ainda.
+// Aqui não existe candidatura, então não existe um vaga_id específico por
+// jovem — ver bloco de decisão logo abaixo (vaga_fallback_id / seletor).
 if ($result_cands->num_rows === 0 && $empresa_area) {
     $stmt_cands->close();
     $stmt_cands = $conn->prepare(
@@ -86,9 +96,32 @@ if ($result_cands->num_rows === 0 && $empresa_area) {
     $stmt_cands->bind_param("s", $area_like);
     $stmt_cands->execute();
     $result_cands = $stmt_cands->get_result();
+    $modo_fallback = true;
 }
 
 $total_cands = $result_cands->num_rows;
+
+// No modo fallback não há vaga_id por card. Resolve isso com a menor
+// alteração possível dado o que já existe na página: se a empresa tem
+// exatamente 1 vaga, essa é a vaga (zero ambiguidade); com 2+ vagas, o
+// usuário escolhe explicitamente pelo seletor (evita adivinhar por ele);
+// com 0 vagas, não há nada para avaliar e o botão fica desabilitado.
+$vaga_fallback_unica = null;
+if ($modo_fallback && $total_vagas === 1) {
+    $result_vagas->data_seek(0);
+    $primeira_vaga = $result_vagas->fetch_assoc();
+    $vaga_fallback_unica = ['id' => $primeira_vaga['id'], 'titulo' => $primeira_vaga['titulo']];
+    $result_vagas->data_seek(0);
+}
+
+$vagas_para_seletor = [];
+if ($modo_fallback && $total_vagas > 1) {
+    $result_vagas->data_seek(0);
+    while ($v = $result_vagas->fetch_assoc()) {
+        $vagas_para_seletor[] = ['id' => $v['id'], 'titulo' => $v['titulo']];
+    }
+    $result_vagas->data_seek(0);
+}
 ?>
 <!DOCTYPE html>
 <html lang="pt-br" data-theme="dark">
@@ -167,6 +200,21 @@ $total_cands = $result_cands->num_rows;
                 ? htmlspecialchars(mb_substr($jovem['resumo_profissional'], 0, 130)) . '...'
                 : 'Busco oportunidade na área de ' . ($area_label ?: 'aprendizado')
                   . ' para aplicar meus conhecimentos e crescer profissionalmente...';
+
+            // Qual vaga este card representa (ver bloco de decisão logo acima das queries):
+            //  - modo normal: vem direto da candidatura (par jovem+vaga inequívoco);
+            //  - fallback com 1 vaga só: essa é a vaga, sem ambiguidade;
+            //  - fallback com 2+ vagas: usuário escolhe no seletor do próprio card;
+            //  - fallback com 0 vagas: não há o que avaliar, botão desabilitado.
+            $vaga_id_card    = null;
+            $vaga_titulo_card = null;
+            if (!$modo_fallback) {
+                $vaga_id_card     = intval($jovem['vaga_id_card']);
+                $vaga_titulo_card = $jovem['vaga_titulo_card'];
+            } elseif ($vaga_fallback_unica) {
+                $vaga_id_card     = intval($vaga_fallback_unica['id']);
+                $vaga_titulo_card = $vaga_fallback_unica['titulo'];
+            }
         ?>
         <div class="candidate-card"
              data-nome="<?= strtolower(htmlspecialchars($jovem['nome'])) ?>">
@@ -198,13 +246,45 @@ $total_cands = $result_cands->num_rows;
             <!-- Bio resumida -->
             <p class="candidate-bio"><?= $resumo ?></p>
 
+            <?php if ($vaga_titulo_card): ?>
+            <!-- Contexto: para qual vaga esta avaliação é (evita ambiguidade) -->
+            <div class="candidate-area" style="margin-bottom:10px;">
+                <span>💼</span>
+                <span>Candidatura para: <strong><?= htmlspecialchars($vaga_titulo_card) ?></strong></span>
+            </div>
+            <?php elseif ($modo_fallback && count($vagas_para_seletor) > 0): ?>
+            <!-- Sem candidatura ainda: a empresa escolhe explicitamente contra qual vaga comparar -->
+            <div class="form-group" style="margin-bottom:10px;">
+                <label class="form-label" style="font-size:12px;">Avaliar para qual vaga?</label>
+                <select class="form-control select-vaga-avaliar" style="font-size:13px;padding:8px;">
+                    <option value="">Selecione uma vaga...</option>
+                    <?php foreach ($vagas_para_seletor as $vOpt): ?>
+                    <option value="<?= intval($vOpt['id']) ?>"><?= htmlspecialchars($vOpt['titulo']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <?php endif; ?>
+
             <!-- Botão de match IA -->
+            <?php if ($vaga_id_card): ?>
             <button
                 class="btn btn-ia"
-                onclick="avaliarMatch(<?= intval($jovem['id']) ?>, this)"
+                onclick="avaliarMatch(<?= intval($jovem['id']) ?>, <?= $vaga_id_card ?>, this)"
                 data-jovem="<?= intval($jovem['id']) ?>">
                 ✦ Avaliar Match com IA
             </button>
+            <?php elseif ($modo_fallback && count($vagas_para_seletor) > 0): ?>
+            <button
+                class="btn btn-ia"
+                onclick="avaliarMatchComSeletor(<?= intval($jovem['id']) ?>, this)"
+                data-jovem="<?= intval($jovem['id']) ?>">
+                ✦ Avaliar Match com IA
+            </button>
+            <?php else: ?>
+            <button class="btn btn-ia" disabled title="Publique uma vaga para poder avaliar candidatos.">
+                ✦ Avaliar Match com IA
+            </button>
+            <?php endif; ?>
 
         </div>
         <?php endwhile; ?>
@@ -317,10 +397,112 @@ $total_cands = $result_cands->num_rows;
     <button class="fab fab-ai"   id="btnChat" title="Assistente IA"   aria-label="Abrir assistente IA">✦</button>
     <button class="fab fab-a11y" id="btnA11y" title="Acessibilidade"  aria-label="Abrir acessibilidade">♿</button>
 </div>
-<div class="user-indicator" title="<?= htmlspecialchars($empresa_nome) ?>">
-    <?= strtoupper(mb_substr($empresa_nome, 0, 1)) ?>
+
+<div class="chat-widget" id="chatWidget" role="dialog"
+     aria-label="Assistente JovemConnect" aria-modal="false">
+    <div class="chat-header">
+        <div class="chat-header-left">
+            <span>✦</span><span>Assistente JovemConnect</span>
+        </div>
+        <button class="chat-close" id="chatClose" aria-label="Fechar">✕</button>
+    </div>
+    <div class="chat-body" id="chatBody">
+        <div class="chat-msg">
+            Oi! 👋 Posso te ajudar a entender como funcionam as vagas,
+            a avaliação de compatibilidade da IA, ou qualquer dúvida sobre o JovemConnect.
+            Como posso ajudar?
+        </div>
+    </div>
+    <div class="chat-footer">
+        <input type="text" class="chat-input" id="chatInput"
+               placeholder="Pergunte algo..." aria-label="Mensagem">
+        <button class="chat-send" id="chatSend" aria-label="Enviar">✈</button>
+    </div>
 </div>
 
+<!-- ============================================================
+     PAINEL DE ACESSIBILIDADE
+     ============================================================ -->
+<div class="a11y-panel" id="a11yPanel" role="dialog"
+     aria-label="Acessibilidade" aria-modal="false">
+
+    <div class="a11y-header">
+        <h3>♿ Acessibilidade</h3>
+        <button class="a11y-reset" id="a11yReset" title="Restaurar" aria-label="Restaurar padrões">↺</button>
+    </div>
+
+    <div class="a11y-body">
+
+        <div class="a11y-item">
+            <label class="a11y-label" id="lblFs">
+                T Tamanho do Texto (<span id="fontSizeVal">100</span>%)
+            </label>
+            <input type="range" id="rangeFontSize" min="80" max="140" value="100"
+                   aria-labelledby="lblFs">
+        </div>
+
+        <hr class="a11y-divider">
+
+        <div class="a11y-row">
+            <label class="a11y-label" for="togDislexia">⋮ᴬ Fonte para Dislexia</label>
+            <label class="toggle">
+                <input type="checkbox" id="togDislexia">
+                <span class="toggle-track"></span>
+            </label>
+        </div>
+
+        <hr class="a11y-divider">
+
+        <div class="a11y-item">
+            <label class="a11y-label" for="selDaltonismo">🎨 Filtro de Daltonismo</label>
+            <select id="selDaltonismo" class="form-control">
+                <option value="">Nenhum</option>
+                <option value="protanopia">Protanopia</option>
+                <option value="deuteranopia">Deuteranopia</option>
+                <option value="tritanopia">Tritanopia</option>
+            </select>
+        </div>
+
+        <hr class="a11y-divider">
+
+        <div class="a11y-row">
+            <label class="a11y-label" for="togContraste">⊙ Alto Contraste</label>
+            <label class="toggle">
+                <input type="checkbox" id="togContraste">
+                <span class="toggle-track"></span>
+            </label>
+        </div>
+
+        <hr class="a11y-divider">
+
+        <div class="a11y-row">
+            <label class="a11y-label" for="togCinza">👁 Tons de Cinza</label>
+            <label class="toggle">
+                <input type="checkbox" id="togCinza">
+                <span class="toggle-track"></span>
+            </label>
+        </div>
+
+    </div>
+</div>
+
+<!-- SVG filters daltonismo -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+        <filter id="protanopia">
+            <feColorMatrix type="matrix"
+                values="0.567,0.433,0,0,0 0.558,0.442,0,0,0 0,0.242,0.758,0,0 0,0,0,1,0"/>
+        </filter>
+        <filter id="deuteranopia">
+            <feColorMatrix type="matrix"
+                values="0.625,0.375,0,0,0 0.7,0.3,0,0,0 0,0.3,0.7,0,0 0,0,0,1,0"/>
+        </filter>
+        <filter id="tritanopia">
+            <feColorMatrix type="matrix"
+                values="0.95,0.05,0,0,0 0,0.433,0.567,0,0 0,0.475,0.525,0,0 0,0,0,1,0"/>
+        </filter>
+    </defs>
+</svg>
 
 <!-- ============================================================
      SCRIPTS
@@ -352,7 +534,7 @@ document.getElementById('searchCandidatos')?.addEventListener('input', function 
 });
 
 /* ── Avaliação de Match com IA ────────────────────────── */
-async function avaliarMatch(jovemId, btn) {
+async function avaliarMatch(jovemId, vagaId, btn) {
     btn.disabled = true;
     btn.innerHTML = '<span class="loading-spinner"></span> Analisando...';
 
@@ -361,18 +543,37 @@ async function avaliarMatch(jovemId, btn) {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
             body:    JSON.stringify({
+                action:     'match',
                 jovem_id:   jovemId,
+                vaga_id:    vagaId,
                 empresa_id: <?= $empresa_id ?>
             })
         });
 
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
 
-        const { score, analise } = await res.json();
+        if (!res.ok || typeof data.score === 'undefined') {
+            btn.innerHTML = '✦ Avaliar Match com IA';
+            btn.disabled  = false;
+            btn.title     = data.error || 'Não foi possível avaliar agora.';
+            return;
+        }
 
-        btn.innerHTML   = `✦ Match: ${score ?? '--'}%`;
+        btn.innerHTML   = `✦ Match: ${data.score}%`;
         btn.style.color = 'var(--accent)';
-        btn.title       = analise ?? '';
+        btn.title       = data.analise ?? '';
+
+        // Link para a análise completa (reaproveita Vagas/avaliar.php da Etapa 3) —
+        // o botão só mostra o score; a análise por extenso e os motivos individuais
+        // só cabem numa tooltip de hover, pouco visível (principalmente em touch).
+        if (!btn.nextElementSibling?.classList.contains('link-analise-completa')) {
+            const linkAnalise = document.createElement('a');
+            linkAnalise.href      = `../Vagas/avaliar.php?vaga_id=${vagaId}&jovem_id=${jovemId}`;
+            linkAnalise.className = 'link-analise-completa back-link';
+            linkAnalise.style.cssText = 'display:block;margin-top:8px;font-size:12px;';
+            linkAnalise.textContent = 'Ver análise completa →';
+            btn.after(linkAnalise);
+        }
 
     } catch (err) {
         btn.innerHTML = '✦ Avaliar Match com IA';
@@ -380,6 +581,164 @@ async function avaliarMatch(jovemId, btn) {
         console.error('Erro no match IA:', err);
     }
 }
+
+/* Cards sem candidatura (modo "descoberta"): a vaga vem do <select> do
+   próprio card em vez de já vir pronta — exige escolha explícita antes
+   de avaliar, para nunca comparar com uma vaga arbitrária. */
+function avaliarMatchComSeletor(jovemId, btn) {
+    const select = btn.closest('.candidate-card')?.querySelector('.select-vaga-avaliar');
+    const vagaId = select ? parseInt(select.value, 10) : 0;
+
+    if (!vagaId) {
+        select?.focus();
+        select?.classList.add('input-error');
+        return;
+    }
+
+    avaliarMatch(jovemId, vagaId, btn);
+}
+
+/* ── Assistente + Acessibilidade (mesma implementação de index.php) ──── */
+const chatWidget = document.getElementById('chatWidget');
+const chatBody   = document.getElementById('chatBody');
+const chatInput  = document.getElementById('chatInput');
+const a11yPanel  = document.getElementById('a11yPanel');
+
+document.getElementById('btnChat')?.addEventListener('click', () => {
+    chatWidget.classList.toggle('is-open');
+    a11yPanel?.classList.remove('is-open');
+    if (chatWidget.classList.contains('is-open')) chatInput?.focus();
+    atualizarVisibilidadeFabs();
+});
+document.getElementById('chatClose')?.addEventListener('click', () => {
+    chatWidget.classList.remove('is-open');
+    atualizarVisibilidadeFabs();
+});
+
+// Evita sobreposicao visual: enquanto um painel esta aberto, esconde o FAB
+// do OUTRO (o FAB do painel aberto continua visivel, para dar para fechar).
+function atualizarVisibilidadeFabs() {
+    const chatAberto = chatWidget.classList.contains('is-open');
+    const a11yAberto  = a11yPanel.classList.contains('is-open');
+    const btnChatEl = document.getElementById('btnChat');
+    const btnA11yEl = document.getElementById('btnA11y');
+    if (btnChatEl) btnChatEl.style.display = a11yAberto ? 'none' : '';
+    if (btnA11yEl) btnA11yEl.style.display = chatAberto ? 'none' : '';
+}
+
+function addMsg(html, fromUser = false) {
+    const d = document.createElement('div');
+    d.className = 'chat-msg';
+    if (fromUser) d.style.cssText =
+        'background:var(--accent-subtle);border:1px solid var(--accent);margin-left:24px;';
+    d.innerHTML = html;
+    chatBody.appendChild(d);
+    chatBody.scrollTop = chatBody.scrollHeight;
+    return d;
+}
+
+const respostas = {
+    jovem:   'Para se cadastrar como jovem, clique em <strong>Sou Jovem</strong>. O processo e rapido e gratuito! 🎓',
+    empresa: 'Para publicar vagas, clique em <strong>Sou Empresa</strong>. Use nossa IA para encontrar candidatos compativeis! 💼',
+    vaga:    'As vagas aparecem no dashboard apos o login. A IA calcula automaticamente a compatibilidade com seu perfil! ✦',
+    ia:      'Nossa IA analisa formacao, localizacao e area de interesse para gerar um score de 0-100% de compatibilidade. ✦',
+    aprendiz:'O Jovem Aprendiz e um programa que permite a jovens entre 14 e 24 anos seu primeiro emprego com carteira assinada. 📋',
+};
+
+async function sendChat() {
+    const msg = chatInput.value.trim();
+    if (!msg) return;
+    chatInput.value = '';
+    addMsg(msg, true);
+    const spinner = addMsg('<span class="loading-spinner"></span>');
+
+    try {
+        await fetch('http://127.0.0.1:5000/ping', { signal: AbortSignal.timeout(2000) });
+    } catch { /* Flask offline - fallback estatico */ }
+
+    spinner.remove();
+
+    const lower = msg.toLowerCase();
+    const key   = Object.keys(respostas).find(k => lower.includes(k));
+    addMsg(key
+        ? respostas[key]
+        : 'Boa pergunta! Para mais informacoes, explore o site ou entre em contato. 😊');
+}
+
+document.getElementById('chatSend')?.addEventListener('click', sendChat);
+chatInput?.addEventListener('keydown', e => { if (e.key === 'Enter') sendChat(); });
+
+/* -- Painel de Acessibilidade -- */
+document.getElementById('btnA11y')?.addEventListener('click', () => {
+    a11yPanel.classList.toggle('is-open');
+    chatWidget.classList.remove('is-open');
+    atualizarVisibilidadeFabs();
+});
+
+const rangeFs = document.getElementById('rangeFontSize');
+rangeFs?.addEventListener('input', function () {
+    document.getElementById('fontSizeVal').textContent = this.value;
+    html.style.fontSize = (this.value / 100) + 'rem';
+    localStorage.setItem('jc-fontsize', this.value);
+});
+
+document.getElementById('togDislexia')?.addEventListener('change', function () {
+    html.style.fontFamily = this.checked ? '"OpenDyslexic","Comic Sans MS",cursive' : '';
+    localStorage.setItem('jc-dyslexia', this.checked ? '1' : '0');
+});
+
+document.getElementById('selDaltonismo')?.addEventListener('change', function () {
+    const f = { protanopia:'url(#protanopia)', deuteranopia:'url(#deuteranopia)', tritanopia:'url(#tritanopia)' };
+    html.style.filter = f[this.value] || '';
+    localStorage.setItem('jc-daltonismo', this.value);
+});
+
+document.getElementById('togContraste')?.addEventListener('change', function () {
+    html.classList.toggle('high-contrast', this.checked);
+    localStorage.setItem('jc-contraste', this.checked ? '1' : '0');
+});
+
+document.getElementById('togCinza')?.addEventListener('change', function () {
+    html.style.filter = this.checked ? 'grayscale(100%)' : '';
+    localStorage.setItem('jc-cinza', this.checked ? '1' : '0');
+});
+
+document.getElementById('a11yReset')?.addEventListener('click', () => {
+    html.style.fontSize = html.style.fontFamily = html.style.filter = '';
+    html.classList.remove('high-contrast');
+    if (rangeFs) rangeFs.value = 100;
+    document.getElementById('fontSizeVal').textContent = '100';
+    ['togDislexia','togContraste','togCinza'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.checked = false;
+    });
+    document.getElementById('selDaltonismo').value = '';
+    ['jc-fontsize','jc-dyslexia','jc-daltonismo','jc-contraste','jc-cinza']
+        .forEach(k => localStorage.removeItem(k));
+});
+
+// Restaura preferencias salvas
+;(function() {
+    const fs = localStorage.getItem('jc-fontsize');
+    if (fs && rangeFs) {
+        rangeFs.value = fs;
+        document.getElementById('fontSizeVal').textContent = fs;
+        html.style.fontSize = (fs / 100) + 'rem';
+    }
+    if (localStorage.getItem('jc-dyslexia') === '1') {
+        document.getElementById('togDislexia').checked = true;
+        html.style.fontFamily = '"OpenDyslexic","Comic Sans MS",cursive';
+    }
+    if (localStorage.getItem('jc-contraste') === '1') {
+        document.getElementById('togContraste').checked = true;
+        html.classList.add('high-contrast');
+    }
+    if (localStorage.getItem('jc-cinza') === '1') {
+        document.getElementById('togCinza').checked = true;
+        html.style.filter = 'grayscale(100%)';
+    }
+})();
+
 </script>
 
 <?php

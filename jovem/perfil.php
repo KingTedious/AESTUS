@@ -784,11 +784,6 @@ $localizacao = implode(', ', $local_parts);
     <button class="fab fab-ai"   id="btnChat" title="Assistente IA"  aria-label="IA">✦</button>
     <button class="fab fab-a11y" id="btnA11y" title="Acessibilidade" aria-label="Acessibilidade">♿</button>
 </div>
-<div class="user-indicator">
-    <?= $eh_empresa
-        ? strtoupper(mb_substr($_SESSION['empresa_nome'] ?? 'E', 0, 1))
-        : $inicial ?>
-</div>
 
 <!-- Modal de exclusão (só aparece para o dono) -->
 <?php if ($eh_dono): ?>

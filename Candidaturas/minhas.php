@@ -147,9 +147,6 @@ function statusBadge(string $status): string {
   <button class="fab fab-ai" id="btnChat" title="Assistente IA" aria-label="Abrir assistente IA">✦</button>
   <button class="fab fab-a11y" id="btnA11y" title="Acessibilidade" aria-label="Abrir painel de acessibilidade">♿</button>
 </div>
-<div class="user-indicator">
-  <?= strtoupper(substr($_SESSION['jovem_nome'] ?? 'U', 0, 1)) ?>
-</div>
 
 <?php
 $stmt->close();

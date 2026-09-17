@@ -45,6 +45,22 @@ if (isset($_SESSION['jovem_id'])) {
         Entre para ver as novidades no seu feed
     </p>
 
+    <!-- ── Sucesso (ex.: senha redefinida por recuperar_senha.php) ────────────── -->
+    <?php if (!empty($_SESSION['sucesso_login'])): ?>
+    <div style="
+        background : rgba(34,197,94,.12);
+        border     : 1px solid rgba(34,197,94,.3);
+        border-radius: var(--radius-sm);
+        padding    : 12px 16px;
+        margin-bottom: 20px;
+        font-size  : 13px;
+        color      : #4ade80;
+    ">
+        ✓ <?= htmlspecialchars($_SESSION['sucesso_login']) ?>
+        <?php unset($_SESSION['sucesso_login']); ?>
+    </div>
+    <?php endif; ?>
+
     <!-- ── Abas Jovem / Empresa ──────────────────────────────────────────── -->
     <div class="auth-tabs" role="tablist" aria-label="Tipo de usuário">
         <button
@@ -94,7 +110,7 @@ if (isset($_SESSION['jovem_id'])) {
             <!-- Label + "Esqueceu a senha?" na mesma linha -->
             <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
                 <label class="form-label" for="senha" style="margin:0;">Senha</label>
-                <a href="recuperar_senha.php" class="forgot-link" id="linkRecuperar">
+                <a href="../recuperar_senha.php" class="forgot-link" id="linkRecuperar">
                     Esqueceu a senha?
                 </a>
             </div>
@@ -130,7 +146,6 @@ if (isset($_SESSION['jovem_id'])) {
 <div class="fab-stack">
     <button class="fab fab-a11y" id="btnA11y" title="Acessibilidade" aria-label="Acessibilidade">♿</button>
 </div>
-<div class="user-indicator">N</div>
 
 <!-- ============================================================
      SCRIPTS
@@ -161,7 +176,7 @@ function switchProfile(type) {
         inputTipo.value        = 'jovem';
         emailInput.placeholder = 'seu@email.com';
         form.action            = '../jovem/processar_login.php';
-        linkRec.href           = '../jovem/recuperar_senha.php';
+        linkRec.href           = '../recuperar_senha.php';
 
         footerText.textContent = 'Não tem uma conta?';
         footerLink.textContent = 'Cadastre-se agora';
@@ -177,7 +192,7 @@ function switchProfile(type) {
         inputTipo.value        = 'empresa';
         emailInput.placeholder = 'rh@empresa.com.br';
         form.action            = 'processar_login.php';
-        linkRec.href           = 'recuperar_senha.php';
+        linkRec.href           = '../recuperar_senha.php';
 
         footerText.textContent = 'Sua empresa não está parceira?';
         footerLink.textContent = 'Registre sua Empresa';

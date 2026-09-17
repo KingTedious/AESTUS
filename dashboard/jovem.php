@@ -185,7 +185,10 @@ $noticias = [
 
             <div class="job-card"
                  data-titulo="<?=  strtolower(htmlspecialchars($vaga['titulo'])) ?>"
-                 data-empresa="<?= strtolower(htmlspecialchars($vaga['nome_empresa'])) ?>">
+                 data-empresa="<?= strtolower(htmlspecialchars($vaga['nome_empresa'])) ?>"
+                 onclick="location.href='../Vagas/listar.php?id=<?= intval($vaga['id']) ?>'"
+                 style="cursor:pointer;"
+                 title="Ver detalhes da vaga">
 
                 <!-- Título + badge de área -->
                 <div class="job-card-top">
@@ -232,7 +235,7 @@ $noticias = [
                 <?php endif; ?>
 
                 <!-- Botão IA (rodapé do card) -->
-                <div class="job-card-footer">
+                <div class="job-card-footer" onclick="event.stopPropagation()">
                     <button
                         class="btn btn-ia"
                         onclick="avaliarMatch(<?= intval($vaga['id']) ?>, this)"
@@ -282,10 +285,112 @@ $noticias = [
     <button class="fab fab-ai"   id="btnChat" title="Assistente IA"  aria-label="Abrir assistente IA">✦</button>
     <button class="fab fab-a11y" id="btnA11y" title="Acessibilidade" aria-label="Abrir acessibilidade">♿</button>
 </div>
-<div class="user-indicator" title="<?= htmlspecialchars($jovem_nome) ?>">
-    <?= strtoupper(mb_substr($jovem_nome, 0, 1)) ?>
+
+<div class="chat-widget" id="chatWidget" role="dialog"
+     aria-label="Assistente JovemConnect" aria-modal="false">
+    <div class="chat-header">
+        <div class="chat-header-left">
+            <span>✦</span><span>Assistente JovemConnect</span>
+        </div>
+        <button class="chat-close" id="chatClose" aria-label="Fechar">✕</button>
+    </div>
+    <div class="chat-body" id="chatBody">
+        <div class="chat-msg">
+            Oi! 👋 Posso te ajudar a entender como funcionam as vagas,
+            a avaliação de compatibilidade da IA, ou qualquer dúvida sobre o JovemConnect.
+            Como posso ajudar?
+        </div>
+    </div>
+    <div class="chat-footer">
+        <input type="text" class="chat-input" id="chatInput"
+               placeholder="Pergunte algo..." aria-label="Mensagem">
+        <button class="chat-send" id="chatSend" aria-label="Enviar">✈</button>
+    </div>
 </div>
 
+<!-- ============================================================
+     PAINEL DE ACESSIBILIDADE
+     ============================================================ -->
+<div class="a11y-panel" id="a11yPanel" role="dialog"
+     aria-label="Acessibilidade" aria-modal="false">
+
+    <div class="a11y-header">
+        <h3>♿ Acessibilidade</h3>
+        <button class="a11y-reset" id="a11yReset" title="Restaurar" aria-label="Restaurar padrões">↺</button>
+    </div>
+
+    <div class="a11y-body">
+
+        <div class="a11y-item">
+            <label class="a11y-label" id="lblFs">
+                T Tamanho do Texto (<span id="fontSizeVal">100</span>%)
+            </label>
+            <input type="range" id="rangeFontSize" min="80" max="140" value="100"
+                   aria-labelledby="lblFs">
+        </div>
+
+        <hr class="a11y-divider">
+
+        <div class="a11y-row">
+            <label class="a11y-label" for="togDislexia">⋮ᴬ Fonte para Dislexia</label>
+            <label class="toggle">
+                <input type="checkbox" id="togDislexia">
+                <span class="toggle-track"></span>
+            </label>
+        </div>
+
+        <hr class="a11y-divider">
+
+        <div class="a11y-item">
+            <label class="a11y-label" for="selDaltonismo">🎨 Filtro de Daltonismo</label>
+            <select id="selDaltonismo" class="form-control">
+                <option value="">Nenhum</option>
+                <option value="protanopia">Protanopia</option>
+                <option value="deuteranopia">Deuteranopia</option>
+                <option value="tritanopia">Tritanopia</option>
+            </select>
+        </div>
+
+        <hr class="a11y-divider">
+
+        <div class="a11y-row">
+            <label class="a11y-label" for="togContraste">⊙ Alto Contraste</label>
+            <label class="toggle">
+                <input type="checkbox" id="togContraste">
+                <span class="toggle-track"></span>
+            </label>
+        </div>
+
+        <hr class="a11y-divider">
+
+        <div class="a11y-row">
+            <label class="a11y-label" for="togCinza">👁 Tons de Cinza</label>
+            <label class="toggle">
+                <input type="checkbox" id="togCinza">
+                <span class="toggle-track"></span>
+            </label>
+        </div>
+
+    </div>
+</div>
+
+<!-- SVG filters daltonismo -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+        <filter id="protanopia">
+            <feColorMatrix type="matrix"
+                values="0.567,0.433,0,0,0 0.558,0.442,0,0,0 0,0.242,0.758,0,0 0,0,0,1,0"/>
+        </filter>
+        <filter id="deuteranopia">
+            <feColorMatrix type="matrix"
+                values="0.625,0.375,0,0,0 0.7,0.3,0,0,0 0,0.3,0.7,0,0 0,0,0,1,0"/>
+        </filter>
+        <filter id="tritanopia">
+            <feColorMatrix type="matrix"
+                values="0.95,0.05,0,0,0 0,0.433,0.567,0,0 0,0.475,0.525,0,0 0,0,0,1,0"/>
+        </filter>
+    </defs>
+</svg>
 
 <!-- ============================================================
      SCRIPTS
@@ -346,6 +451,148 @@ async function avaliarMatch(vagaId, btn) {
         console.error('Erro no match IA:', err);
     }
 }
+
+/* ── Assistente + Acessibilidade (mesma implementação de index.php) ──── */
+const chatWidget = document.getElementById('chatWidget');
+const chatBody   = document.getElementById('chatBody');
+const chatInput  = document.getElementById('chatInput');
+const a11yPanel  = document.getElementById('a11yPanel');
+
+document.getElementById('btnChat')?.addEventListener('click', () => {
+    chatWidget.classList.toggle('is-open');
+    a11yPanel?.classList.remove('is-open');
+    if (chatWidget.classList.contains('is-open')) chatInput?.focus();
+    atualizarVisibilidadeFabs();
+});
+document.getElementById('chatClose')?.addEventListener('click', () => {
+    chatWidget.classList.remove('is-open');
+    atualizarVisibilidadeFabs();
+});
+
+// Evita sobreposicao visual: enquanto um painel esta aberto, esconde o FAB
+// do OUTRO (o FAB do painel aberto continua visivel, para dar para fechar).
+function atualizarVisibilidadeFabs() {
+    const chatAberto = chatWidget.classList.contains('is-open');
+    const a11yAberto  = a11yPanel.classList.contains('is-open');
+    const btnChatEl = document.getElementById('btnChat');
+    const btnA11yEl = document.getElementById('btnA11y');
+    if (btnChatEl) btnChatEl.style.display = a11yAberto ? 'none' : '';
+    if (btnA11yEl) btnA11yEl.style.display = chatAberto ? 'none' : '';
+}
+
+function addMsg(html, fromUser = false) {
+    const d = document.createElement('div');
+    d.className = 'chat-msg';
+    if (fromUser) d.style.cssText =
+        'background:var(--accent-subtle);border:1px solid var(--accent);margin-left:24px;';
+    d.innerHTML = html;
+    chatBody.appendChild(d);
+    chatBody.scrollTop = chatBody.scrollHeight;
+    return d;
+}
+
+const respostas = {
+    jovem:   'Para se cadastrar como jovem, clique em <strong>Sou Jovem</strong>. O processo e rapido e gratuito! 🎓',
+    empresa: 'Para publicar vagas, clique em <strong>Sou Empresa</strong>. Use nossa IA para encontrar candidatos compativeis! 💼',
+    vaga:    'As vagas aparecem no dashboard apos o login. A IA calcula automaticamente a compatibilidade com seu perfil! ✦',
+    ia:      'Nossa IA analisa formacao, localizacao e area de interesse para gerar um score de 0-100% de compatibilidade. ✦',
+    aprendiz:'O Jovem Aprendiz e um programa que permite a jovens entre 14 e 24 anos seu primeiro emprego com carteira assinada. 📋',
+};
+
+async function sendChat() {
+    const msg = chatInput.value.trim();
+    if (!msg) return;
+    chatInput.value = '';
+    addMsg(msg, true);
+    const spinner = addMsg('<span class="loading-spinner"></span>');
+
+    try {
+        await fetch('http://127.0.0.1:5000/ping', { signal: AbortSignal.timeout(2000) });
+    } catch { /* Flask offline - fallback estatico */ }
+
+    spinner.remove();
+
+    const lower = msg.toLowerCase();
+    const key   = Object.keys(respostas).find(k => lower.includes(k));
+    addMsg(key
+        ? respostas[key]
+        : 'Boa pergunta! Para mais informacoes, explore o site ou entre em contato. 😊');
+}
+
+document.getElementById('chatSend')?.addEventListener('click', sendChat);
+chatInput?.addEventListener('keydown', e => { if (e.key === 'Enter') sendChat(); });
+
+/* -- Painel de Acessibilidade -- */
+document.getElementById('btnA11y')?.addEventListener('click', () => {
+    a11yPanel.classList.toggle('is-open');
+    chatWidget.classList.remove('is-open');
+    atualizarVisibilidadeFabs();
+});
+
+const rangeFs = document.getElementById('rangeFontSize');
+rangeFs?.addEventListener('input', function () {
+    document.getElementById('fontSizeVal').textContent = this.value;
+    html.style.fontSize = (this.value / 100) + 'rem';
+    localStorage.setItem('jc-fontsize', this.value);
+});
+
+document.getElementById('togDislexia')?.addEventListener('change', function () {
+    html.style.fontFamily = this.checked ? '"OpenDyslexic","Comic Sans MS",cursive' : '';
+    localStorage.setItem('jc-dyslexia', this.checked ? '1' : '0');
+});
+
+document.getElementById('selDaltonismo')?.addEventListener('change', function () {
+    const f = { protanopia:'url(#protanopia)', deuteranopia:'url(#deuteranopia)', tritanopia:'url(#tritanopia)' };
+    html.style.filter = f[this.value] || '';
+    localStorage.setItem('jc-daltonismo', this.value);
+});
+
+document.getElementById('togContraste')?.addEventListener('change', function () {
+    html.classList.toggle('high-contrast', this.checked);
+    localStorage.setItem('jc-contraste', this.checked ? '1' : '0');
+});
+
+document.getElementById('togCinza')?.addEventListener('change', function () {
+    html.style.filter = this.checked ? 'grayscale(100%)' : '';
+    localStorage.setItem('jc-cinza', this.checked ? '1' : '0');
+});
+
+document.getElementById('a11yReset')?.addEventListener('click', () => {
+    html.style.fontSize = html.style.fontFamily = html.style.filter = '';
+    html.classList.remove('high-contrast');
+    if (rangeFs) rangeFs.value = 100;
+    document.getElementById('fontSizeVal').textContent = '100';
+    ['togDislexia','togContraste','togCinza'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.checked = false;
+    });
+    document.getElementById('selDaltonismo').value = '';
+    ['jc-fontsize','jc-dyslexia','jc-daltonismo','jc-contraste','jc-cinza']
+        .forEach(k => localStorage.removeItem(k));
+});
+
+// Restaura preferencias salvas
+;(function() {
+    const fs = localStorage.getItem('jc-fontsize');
+    if (fs && rangeFs) {
+        rangeFs.value = fs;
+        document.getElementById('fontSizeVal').textContent = fs;
+        html.style.fontSize = (fs / 100) + 'rem';
+    }
+    if (localStorage.getItem('jc-dyslexia') === '1') {
+        document.getElementById('togDislexia').checked = true;
+        html.style.fontFamily = '"OpenDyslexic","Comic Sans MS",cursive';
+    }
+    if (localStorage.getItem('jc-contraste') === '1') {
+        document.getElementById('togContraste').checked = true;
+        html.classList.add('high-contrast');
+    }
+    if (localStorage.getItem('jc-cinza') === '1') {
+        document.getElementById('togCinza').checked = true;
+        html.style.filter = 'grayscale(100%)';
+    }
+})();
+
 </script>
 
 <?php $stmt_vagas->close(); ?>

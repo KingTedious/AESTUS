@@ -305,4 +305,8 @@ if __name__ == "__main__":
     print("  http://127.0.0.1:5000")
     print(f"  Gemini: {'✓ Ativo' if gemini_model else '✗ Inativo (sem GEMINI_API_KEY)'}")
     print("=" * 50)
-    app.run(host="127.0.0.1", port=5000, debug=True)
+    # Etapa 4 (V3.10): debug nunca fica ligado por padrão no fluxo normal de
+    # execução (iniciar_ia.bat). Para depuração local, defina a variável de
+    # ambiente FLASK_DEBUG=1 antes de rodar "python IA/recomendar.py".
+    debug_mode = os.environ.get("FLASK_DEBUG", "0") == "1"
+    app.run(host="127.0.0.1", port=5000, debug=debug_mode)

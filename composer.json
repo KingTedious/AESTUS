@@ -3,7 +3,9 @@
     "description": "Plataforma de conexão entre jovens talentos e empresas.",
     "type": "project",
     "require": {
-        "php": ">=8.0"
+        "php": ">=8.0",
+        "phpmailer/phpmailer": "^6.9",
+        "twilio/sdk": "^8.3"
     },
     "authors": [
         {
