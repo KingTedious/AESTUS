@@ -16,7 +16,7 @@
    9. var(--principal) e var(--borda) não existem no CSS v3.00.
    10. include header.php após queries e <link> no body.
    ============================================================ */
-session_start();
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
 
 if (!isset($_SESSION['empresa_id'])) {
     header("Location: ../empresa/login.php");
@@ -32,6 +32,7 @@ $empresa_id = intval($_SESSION['empresa_id']);
    ============================================================ */
 if ($_SERVER['REQUEST_METHOD'] === 'POST'
     && ($_POST['action'] ?? '') === 'delete') {
+    csrf_require();
 
     $vaga_id = intval($_POST['vaga_id'] ?? 0);
 
@@ -200,11 +201,9 @@ $stmt->close();
                     👥 Ver Candidatos<?= $n_cands > 0 ? " ({$n_cands})" : '' ?>
                 </a>
 
-                <a href="criar.php?editar=<?= $vaga_id ?>"
-                   class="btn btn-ghost btn-sm"
-                   title="Editar esta vaga (criar.php com modo edição)">
-                    ✏ Editar
-                </a>
+                <!-- Stage 3: o botão "✏ Editar" foi removido — criar.php ignora ?editar=
+                     e abria o formulário de CRIAÇÃO vazio (salvar gerava uma vaga nova,
+                     duplicada). A edição de vaga não existe no backend: pendência. -->
 
                 <!-- Delete via POST (botão abre modal de confirmação) -->
                 <button
@@ -266,6 +265,7 @@ $stmt->close();
         </p>
         <!-- Form POST — sem GET, sem excluir.php separado -->
         <form method="POST" action="minhas.php" id="formDelete">
+            <?= csrf_field() ?>
             <input type="hidden" name="action"   value="delete">
             <input type="hidden" name="vaga_id"  id="deleteVagaId" value="">
             <div class="d-flex gap-12" style="justify-content:center;">
@@ -279,11 +279,8 @@ $stmt->close();
     </div>
 </div>
 
-<!-- FABs -->
-<div class="fab-stack">
-    <button class="fab fab-ai"   id="btnChat" title="Assistente IA"  aria-label="IA">✦</button>
-    <button class="fab fab-a11y" id="btnA11y" title="Acessibilidade" aria-label="Acessibilidade">♿</button>
-</div>
+<!-- FABs + Assistente + Acessibilidade (Stage 3: antes os botões não tinham painel nem script) -->
+<?php include dirname(__DIR__) . '/includes/assistente.php'; ?>
 
 <script>
 /* ── Tema ──────────────────────────────────────────────────── */

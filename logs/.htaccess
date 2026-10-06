@@ -1,0 +1,9 @@
+# Stage 3: o log tem nomes, IDs, IPs e detalhes técnicos de erros —
+# não deve ser acessível pelo navegador (http://.../logs/sistema.log).
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+</IfModule>

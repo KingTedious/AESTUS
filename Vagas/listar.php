@@ -17,7 +17,7 @@
    7. SELECT v.* → sem controle das colunas, sem campos v3.00.
    8. include header.php após queries e <link> no body.
    ============================================================ */
-session_start();
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
 
 if (!isset($_SESSION['jovem_id'])) {
     header("Location: ../jovem/login.php");
@@ -103,6 +103,7 @@ if (isset($_GET['id']) && intval($_GET['id']) > 0) {
     <link rel="stylesheet" href="../Assets/css/style.css">
 </head>
 <body>
+<?= csrf_js() ?>
 
 <div class="detail-bar">
     <div class="d-flex align-center gap-12">
@@ -165,6 +166,17 @@ if (isset($_GET['id']) && intval($_GET['id']) > 0) {
                         <span style="color:#f87171;">📍</span>
                         <?= htmlspecialchars($vaga['cidade']) ?>
                         <?= !empty($vaga['estado']) ? ', ' . htmlspecialchars($vaga['estado']) : '' ?>
+                    </span>
+                </div>
+                <?php endif; ?>
+
+                <?php if (!empty($vaga['tipo_contrato'])): ?>
+                <!-- Stage 3: o tipo de contrato já era carregado, mas não aparecia -->
+                <div class="detail-meta-item">
+                    <span class="detail-meta-label">CONTRATO</span>
+                    <span class="detail-meta-value">
+                        <span>📋</span>
+                        <?= htmlspecialchars($vaga['tipo_contrato']) ?>
                     </span>
                 </div>
                 <?php endif; ?>
@@ -275,10 +287,8 @@ if (isset($_GET['id']) && intval($_GET['id']) > 0) {
 
 </div><!-- /.detail-page -->
 
-<!-- FABs -->
-<div class="fab-stack">
-    <button class="fab fab-a11y" id="btnA11y" title="Acessibilidade" aria-label="Acessibilidade">♿</button>
-</div>
+<!-- FABs + Assistente + Acessibilidade (Stage 3: antes os botões não tinham painel nem script) -->
+<?php include dirname(__DIR__) . '/includes/assistente.php'; ?>
 
 <script>
 const t = localStorage.getItem('jc-theme');
@@ -364,6 +374,7 @@ $areas_result = $conn->query(
     <link rel="stylesheet" href="../Assets/css/style.css">
 </head>
 <body>
+<?= csrf_js() ?>
 
 <!-- Navbar interna -->
 <nav class="navbar-inner">
@@ -595,11 +606,8 @@ $areas_result = $conn->query(
 
 </div><!-- /.dashboard-wrap -->
 
-<!-- FABs -->
-<div class="fab-stack">
-    <button class="fab fab-ai"   id="btnChat" title="Assistente IA"  aria-label="IA">✦</button>
-    <button class="fab fab-a11y" id="btnA11y" title="Acessibilidade" aria-label="Acessibilidade">♿</button>
-</div>
+<!-- FABs + Assistente + Acessibilidade (Stage 3: antes os botões não tinham painel nem script) -->
+<?php include dirname(__DIR__) . '/includes/assistente.php'; ?>
 
 <script>
 /* ── Tema ──────────────────────────────────────────────────── */
@@ -648,13 +656,20 @@ async function avaliarMatch(vagaId, btn) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'match', vaga_id: vagaId, jovem_id: <?= $jovem_id ?> }),
         });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
+        if (!res.ok) {
+            // Stage 3: guarda o motivo devolvido pelo servidor (ex.: "Servidor de IA indisponível.")
+            const corpo = await res.json().catch(() => ({}));
+            throw new Error(corpo.error || `HTTP ${res.status}`);
+        }
         const { score } = await res.json();
         btn.innerHTML   = `✦ Match: ${score ?? '--'}%`;
         btn.style.color = 'var(--accent)';
-    } catch {
-        btn.innerHTML = '✦ Match IA';
+    } catch (err) {
         btn.disabled  = false;
+        // Stage 3: antes o botão só voltava ao normal, sem explicar o que houve
+        btn.textContent = '✦ ' + (err?.message || 'Não foi possível avaliar agora.');
+        btn.title       = 'Clique para tentar novamente';
+        setTimeout(() => { btn.innerHTML = '✦ Match IA'; btn.title = ''; }, 3500);
     }
 }
 </script>

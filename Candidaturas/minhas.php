@@ -3,14 +3,18 @@
    Candidaturas/minhas.php  — corrigido com base no schema real
    ============================================================ */
 
-session_start();
-include("../includes/config.php");
-include("../includes/header.php");
+require_once dirname(__DIR__) . '/includes/session.php';   // Stage 3: sessão endurecida (Stage 2) também nesta página
+jc_session_start();
 
+// Stage 3: login checado ANTES de qualquer saída HTML. Antes o header.php era
+// impresso primeiro e o redirect só funcionava graças ao output_buffering do php.ini.
 if (!isset($_SESSION['jovem_id'])) {
     header("Location: ../jovem/login.php");
     exit;
 }
+
+include("../includes/config.php");
+include("../includes/header.php");
 
 $jovem_id = intval($_SESSION['jovem_id']);
 
@@ -116,7 +120,7 @@ function statusBadge(string $status): string {
             </p>
 
             <div class="job-card-footer">
-              <a href="../Vagas/detalhes.php?id=<?= intval($row['vaga_id']) ?>"
+              <a href="../Vagas/listar.php?id=<?= intval($row['vaga_id']) ?>"
                  class="btn btn-ghost btn-sm btn-full">
                 Ver Detalhes
               </a>
@@ -143,10 +147,8 @@ function statusBadge(string $status): string {
   </main>
 </div>
 
-<div class="fab-stack">
-  <button class="fab fab-ai" id="btnChat" title="Assistente IA" aria-label="Abrir assistente IA">✦</button>
-  <button class="fab fab-a11y" id="btnA11y" title="Acessibilidade" aria-label="Abrir painel de acessibilidade">♿</button>
-</div>
+<!-- Stage 3: FABs removidos daqui — includes/footer.php já os renderiza (IDs duplicados
+     faziam o botão visível ficar sem ação) -->
 
 <?php
 $stmt->close();

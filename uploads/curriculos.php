@@ -18,7 +18,7 @@
    5. Sem atualização no banco de dados.
    6. Acessível diretamente via GET sem consequência.
    ============================================================ */
-session_start();
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 if (!isset($_SESSION['jovem_id'])) {
@@ -33,6 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 require_once dirname(__DIR__) . "/includes/config.php";
+csrf_require();
 
 $jovem_id = intval($_SESSION['jovem_id']);
 

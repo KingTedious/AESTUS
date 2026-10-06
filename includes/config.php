@@ -38,19 +38,66 @@ if (!function_exists('registrar_log')) {
     }
 }
 
+// ── Stage 3: rede de segurança para exceções não tratadas ────────────────────
+// Desde o PHP 8.1 o mysqli lança mysqli_sql_exception por padrão. Sem este
+// handler, um erro inesperado (chave estrangeira, dado longo demais, coluna
+// inexistente...) virava "Fatal error" com caminho do arquivo, SQL e stack
+// trace na tela (display_errors do XAMPP). Agora os detalhes completos vão
+// para logs/sistema.log e o usuário recebe só uma mensagem amigável
+// (JSON nos endpoints AJAX). Não engole o erro: ele continua registrado.
+if (!function_exists('jc_excecao_nao_tratada')) {
+    function jc_excecao_nao_tratada(Throwable $e): void {
+        registrar_log(
+            'Exceção não tratada: ' . get_class($e) . ': ' . $e->getMessage()
+            . ' em ' . $e->getFile() . ':' . $e->getLine()
+            . ' | URL: ' . ($_SERVER['REQUEST_URI'] ?? '-')
+            . ' | Trace: ' . str_replace(["\r", "\n"], ' | ', $e->getTraceAsString()),
+            'ERROR'
+        );
+
+        $json = (($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'XMLHttpRequest');
+        foreach (headers_list() as $h) {
+            if (stripos($h, 'application/json') !== false) {
+                $json = true;
+                break;
+            }
+        }
+
+        if (!headers_sent()) {
+            http_response_code(500);
+            header('Content-Type: ' . ($json ? 'application/json' : 'text/html') . '; charset=utf-8');
+        }
+
+        echo $json
+            ? json_encode(['error' => 'Erro interno. Tente novamente em instantes.'])
+            : '<p style="font-family:sans-serif;padding:24px;">Ocorreu um erro inesperado. '
+              . 'Tente novamente em instantes. <a href="javascript:history.back()">Voltar</a></p>';
+    }
+    set_exception_handler('jc_excecao_nao_tratada');
+}
+
 // ── Credenciais ───────────────────────────────────────────────────────────────
 // Usando define() para evitar sobrescrita acidental por outras variáveis.
+require_once __DIR__ . '/env.php';
+
 if (!defined('DB_HOST')) {
-    define('DB_HOST',    'localhost');
-    define('DB_USER',    'root');
-    define('DB_PASS',    '');
-    define('DB_NAME',    'jovemconnect');
-    define('DB_CHARSET', 'utf8mb4');
+    define('DB_HOST',    getenv('DB_HOST') ?: 'localhost');
+    define('DB_USER',    getenv('DB_USER') ?: 'root');
+    define('DB_PASS',    getenv('DB_PASS') !== false ? getenv('DB_PASS') : '');
+    define('DB_NAME',    getenv('DB_NAME') ?: 'jovemconnect');
+    define('DB_CHARSET', getenv('DB_CHARSET') ?: 'utf8mb4');
 }
 
 // ── Conexão mysqli ────────────────────────────────────────────────────────────
 // Uma única instância. Nenhum PDO. Nenhuma duplicata.
-$conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
+try {
+    $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
+} catch (\mysqli_sql_exception $e) {
+    // PHP 8.1+ lanca excecao em falha de conexao antes de checar connect_error.
+    registrar_log('Falha na conexao com o banco de dados: ' . $e->getMessage(), 'ERROR');
+    http_response_code(503);
+    die('O sistema esta temporariamente indisponivel. Tente novamente em alguns instantes.');
+}
 
 if ($conn->connect_error) {
     // Loga o erro real (interno) sem exibi-lo ao usuário

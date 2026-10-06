@@ -14,7 +14,7 @@
    6. <link> CSS no body após output do header.php.
    7. Layout sem seções — não corresponde ao print Cadastro_Jovem.png.
    ============================================================ */
-session_start();
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
 
 // Já logado → redireciona direto
 if (isset($_SESSION['jovem_id'])) {
@@ -31,6 +31,7 @@ $campos = [];
    PROCESSAMENTO POST (todo PHP antes de qualquer output HTML)
    ============================================================ */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_require();
 
     // ── Leitura e sanitização básica ──────────────────────────────────────────
     $campos = [
@@ -51,6 +52,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $esc_tipo   = (($_POST['escolaridade_tipo'] ?? '') === 'tecnico') ? 'tecnico' : 'regular';
     $clt        = isset($_POST['clt']) ? 1 : 0;
+
+    // Stage 3: guarda as escolhas para repopular o formulário quando houver erro
+    // (antes os rádios/checkbox de escolaridade voltavam ao padrão)
+    $campos['escolaridade_status'] = $esc_status;
+    $campos['escolaridade_tipo']   = $esc_tipo;
+    $campos['clt']                 = $clt;
 
     $senha      = $_POST['senha']           ?? '';
     $conf_senha = $_POST['confirmar_senha'] ?? '';
@@ -73,6 +80,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $erros[] = 'E-mail é obrigatório.';
     elseif (!filter_var($campos['email'], FILTER_VALIDATE_EMAIL))
         $erros[] = 'Formato de e-mail inválido.';
+    elseif (mb_strlen($campos['email']) > 100)   // Stage 3: coluna tem 100 caracteres
+        $erros[] = 'E-mail muito longo (máximo 100 caracteres).';
 
     $cpf_num = preg_replace('/\D/', '', $campos['cpf']);
     if (strlen($cpf_num) !== 11)
@@ -126,6 +135,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Login automático após cadastro
             $_SESSION['jovem_id']   = $conn->insert_id;
             $_SESSION['jovem_nome'] = $campos['nome'];
+            jc_session_regenerate(); // MED-001
             $stmt_ins->close();
             // Etapa 2: antes de ir ao dashboard, passa pela verificação de conta.
             header("Location: ../verificacoes/escolher_verificacao.php");
@@ -162,6 +172,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </div>
 
+    <!-- Stage 3: volta para a escolha Jovem/Empresa -->
+    <p style="margin:0 0 12px;"><a href="../comecar.php" class="back-link">← Voltar</a></p>
+
     <!-- ── Alertas de erro ─────────────────────────────────────────────────── -->
     <?php if (!empty($erros)): ?>
     <div class="form-card" style="border-color:rgba(239,68,68,.4);margin-bottom:0;">
@@ -172,6 +185,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <?php endif; ?>
 
     <form method="POST" id="formCadastroJovem" novalidate>
+        <?= csrf_field() ?>
 
         <!-- ================================================================
              CARD 1 — Cabeçalho

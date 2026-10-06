@@ -28,7 +28,7 @@
    Caso contrário (form convencional, sem JS)
    → redirect seguro para página da vaga ou dashboard.
    ============================================================ */
-session_start();
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
 
 // ── Detecta se é chamada AJAX ────────────────────────────────────────────────
 $is_ajax = ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'XMLHttpRequest';
@@ -64,6 +64,7 @@ require_once dirname(__DIR__) . "/includes/config.php";
 
 $jovem_id = intval($_SESSION['jovem_id']);
 $vaga_id  = intval($_POST['vaga_id'] ?? 0);
+csrf_require($is_ajax);
 
 if ($vaga_id <= 0) {
     if ($is_ajax) jsonError(400, 'vaga_id inválido.');

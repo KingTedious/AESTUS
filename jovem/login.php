@@ -17,7 +17,7 @@
    5. Duplicata quase idêntica de empresa/login.php — a única
       diferença real é qual aba começa ativa.
    ============================================================ */
-session_start();
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
 
 // Sessão ativa → redireciona sem mostrar o formulário
 if (isset($_SESSION['jovem_id'])) {
@@ -116,6 +116,7 @@ if (isset($_SESSION['empresa_id'])) {
     <form action="processar_login.php" method="POST" id="loginForm" novalidate>
 
         <input type="hidden" name="tipo_usuario" id="tipo_usuario" value="jovem">
+        <?= csrf_field() ?>
 
         <!-- E-mail -->
         <div class="form-group">

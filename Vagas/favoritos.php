@@ -16,7 +16,7 @@
    8. include header.php após queries e <link> no body.
    9. var(--principal) não existe no CSS v3.00.
    ============================================================ */
-session_start();
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
 
 if (!isset($_SESSION['jovem_id'])) {
     header("Location: ../jovem/login.php");
@@ -59,6 +59,7 @@ $stmt->close();
     <link rel="stylesheet" href="../Assets/css/style.css">
 </head>
 <body>
+<?= csrf_js() ?>
 
 <!-- Navbar interna -->
 <nav class="navbar-inner">
@@ -190,6 +191,7 @@ $stmt->close();
                 <noscript>
                     <form method="POST" action="favoritar.php">
                         <input type="hidden" name="vaga_id" value="<?= $vaga_id ?>">
+            <?= csrf_field() ?>
                         <button type="submit"
                                 class="btn btn-secondary btn-sm btn-full">
                             ⭐ Remover dos Favoritos
@@ -228,11 +230,8 @@ $stmt->close();
 </main>
 </div><!-- /.dashboard-wrap -->
 
-<!-- FABs -->
-<div class="fab-stack">
-    <button class="fab fab-ai"   id="btnChat" title="Assistente IA"  aria-label="IA">✦</button>
-    <button class="fab fab-a11y" id="btnA11y" title="Acessibilidade" aria-label="Acessibilidade">♿</button>
-</div>
+<!-- FABs + Assistente + Acessibilidade (Stage 3: antes os botões não tinham painel nem script) -->
+<?php include dirname(__DIR__) . '/includes/assistente.php'; ?>
 
 <script>
 /* ── Tema ──────────────────────────────────────────────────── */

@@ -1,0 +1,9 @@
+# Stage 3: os currículos (dados pessoais) só podem ser baixados por
+# uploads/ver_curriculo.php, que confere a sessão e as permissões.
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+</IfModule>

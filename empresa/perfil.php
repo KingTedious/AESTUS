@@ -2,7 +2,7 @@
 /* ============================================================
    empresa/perfil.php
    ============================================================ */
-session_start();
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
 
 if (!isset($_SESSION['empresa_id'])) {
     header("Location: login.php");
@@ -10,6 +10,7 @@ if (!isset($_SESSION['empresa_id'])) {
 }
 
 require_once dirname(__DIR__) . "/includes/config.php";
+require_once dirname(__DIR__) . "/includes/endereco_empresa.php";   // Stage 3: endereço completo
 
 $empresa_id = intval($_SESSION['empresa_id']);
 
@@ -18,27 +19,52 @@ $saved = isset($_GET['saved']) ? (int)$_GET['saved'] : 0; // 1=ok, 2=erro
 
 // ── Processamento POST ────────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_require();
 
-    $nome_empresa      = trim($_POST['nome_empresa']     ?? '');
-    $email             = trim($_POST['email']             ?? '');
-    $cnpj              = trim($_POST['cnpj']              ?? '');
-    $cidade            = trim($_POST['cidade']            ?? '');
-    $estado            = strtoupper(trim($_POST['estado'] ?? ''));
-    $area_atuacao      = trim($_POST['area_atuacao']      ?? '');
+    // Stage 3: limites = tamanho das colunas (antes, texto longo = erro fatal)
+    $nome_empresa      = mb_substr(trim($_POST['nome_empresa']     ?? ''), 0, 150);
+    $email             = trim($_POST['email']             ?? '');   // validado abaixo (não cortado)
+    $cnpj              = cnpj_formatado($_POST['cnpj'] ?? '');   // null se não tiver 14 dígitos
+    $cidade            = mb_substr(trim($_POST['cidade']            ?? ''), 0, 100);
+    $estado            = mb_substr(strtoupper(trim($_POST['estado'] ?? '')), 0, 2);
+    $area_atuacao      = mb_substr(trim($_POST['area_atuacao']      ?? ''), 0, 100);
     $descricao         = trim($_POST['descricao']         ?? '');
-    $site_oficial      = trim($_POST['site_oficial']      ?? '');
-    $linkedin          = trim($_POST['linkedin']          ?? '');
+    $site_oficial      = mb_substr(trim($_POST['site_oficial']      ?? ''), 0, 255);
+    $linkedin          = mb_substr(trim($_POST['linkedin']          ?? ''), 0, 255);
     $perfil_verificado = isset($_POST['perfil_verificado']) ? 1 : 0;
+    $end               = endereco_empresa_do_post();
 
-    if (empty($nome_empresa) || empty($email) || empty($cnpj)) {
+    if (empty($nome_empresa) || mb_strlen($email) > 100 || !filter_var($email, FILTER_VALIDATE_EMAIL) || $cnpj === null
+        || ($end['cep'] !== '' && strlen($end['cep']) !== 8)) {
         header("Location: perfil.php?saved=2");
         exit;
     }
+
+    // Stage 3: e-mail/CNPJ de outra empresa → aviso (antes: erro fatal de chave única)
+    $stmt = $conn->prepare("SELECT id FROM empresas WHERE (email = ? OR cnpj = ?) AND id <> ? LIMIT 1");
+    $stmt->bind_param("ssi", $email, $cnpj, $empresa_id);
+    $stmt->execute();
+    $em_uso = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    if ($em_uso) {
+        header("Location: perfil.php?saved=3");
+        exit;
+    }
+
+    // Stage 3: trocar o e-mail desfaz a verificação (o endereço novo não foi verificado)
+    $stmt = $conn->prepare("SELECT email, email_verificado FROM empresas WHERE id = ? LIMIT 1");
+    $stmt->bind_param("i", $empresa_id);
+    $stmt->execute();
+    $atual = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    $email_verificado = (mb_strtolower((string)$atual['email']) === mb_strtolower($email))
+                        ? (int)$atual['email_verificado'] : 0;
 
     $stmt = $conn->prepare(
         "UPDATE empresas
          SET nome_empresa      = ?,
              email             = ?,
+             email_verificado  = ?,
              cnpj              = ?,
              cidade            = ?,
              estado            = ?,
@@ -50,28 +76,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
          WHERE id = ?"
     );
     $stmt->bind_param(
-        "sssssssssii",
-        $nome_empresa, $email, $cnpj, $cidade, $estado,
+        "ssisssssssii",
+        $nome_empresa, $email, $email_verificado, $cnpj, $cidade, $estado,
         $area_atuacao, $descricao, $site_oficial, $linkedin,
         $perfil_verificado, $empresa_id
     );
+    $ok = $stmt->execute();
+    $stmt->close();
 
-    if ($stmt->execute()) {
-        $_SESSION['empresa_nome'] = $nome_empresa;
+    // Stage 3: endereço completo (só depois que a migração aditiva for aplicada)
+    if ($ok && empresa_tem_endereco($conn)) {
+        $stmt = $conn->prepare(
+            "UPDATE empresas
+             SET cep = ?, logradouro = ?, numero = ?, complemento = ?, bairro = ?
+             WHERE id = ?"
+        );
+        $stmt->bind_param("sssssi", $end['cep'], $end['logradouro'], $end['numero'],
+                          $end['complemento'], $end['bairro'], $empresa_id);
+        $ok = $stmt->execute();
         $stmt->close();
+    }
+
+    if ($ok) {
+        $_SESSION['empresa_nome'] = $nome_empresa;
         header("Location: perfil.php?saved=1");
         exit;
     }
 
-    $stmt->close();
     header("Location: perfil.php?saved=2");
     exit;
 }
 
 // ── Leitura dos dados da empresa ──────────────────────────────────────────────
+$tem_endereco  = empresa_tem_endereco($conn);   // Stage 3
+$cols_endereco = $tem_endereco ? ', cep, logradouro, numero, complemento, bairro' : '';
 $stmt = $conn->prepare(
     "SELECT nome_empresa, email, cnpj, cidade, estado, telefone,
-            area_atuacao, descricao, site_oficial, linkedin, perfil_verificado
+            area_atuacao, descricao, site_oficial, linkedin, perfil_verificado{$cols_endereco}
      FROM   empresas
      WHERE  id = ?
      LIMIT  1"
@@ -132,12 +173,15 @@ $inicial = strtoupper(mb_substr($emp['nome_empresa'], 0, 1));
 <div id="toast" class="toast toast-success">✓ Perfil atualizado com sucesso!</div>
 <?php elseif ($saved === 2): ?>
 <div id="toast" class="toast toast-error">✕ Erro ao salvar. Verifique os campos obrigatórios.</div>
+<?php elseif ($saved === 3): ?>
+<div id="toast" class="toast toast-error">✕ Este e-mail ou CNPJ já está em uso por outra empresa.</div>
 <?php endif; ?>
 
 <!-- ============================================================
      LAYOUT DE PERFIL (form único — cobre todos os campos)
      ============================================================ -->
 <form method="POST" action="perfil.php" id="formPerfil">
+    <?= csrf_field() ?>
 
 <div class="profile-page">
 
@@ -179,12 +223,11 @@ $inicial = strtoupper(mb_substr($emp['nome_empresa'], 0, 1));
                 <p class="profile-info-value"><?= htmlspecialchars($emp['area_atuacao']) ?></p>
             </div>
             <?php endif; ?>
-            <?php if (!empty($emp['cidade'])): ?>
+            <?php $endereco_txt = endereco_empresa_formatado($emp);   // Stage 3: endereço completo ?>
+            <?php if ($endereco_txt !== ''): ?>
             <div class="profile-info-item">
-                <p class="profile-info-label">Localização</p>
-                <p class="profile-info-value">
-                    📍 <?= htmlspecialchars($emp['cidade']) ?><?= !empty($emp['estado']) ? ', ' . htmlspecialchars($emp['estado']) : '' ?>
-                </p>
+                <p class="profile-info-label">Endereço</p>
+                <p class="profile-info-value">📍 <?= htmlspecialchars($endereco_txt) ?></p>
             </div>
             <?php endif; ?>
         </div>
@@ -201,15 +244,48 @@ $inicial = strtoupper(mb_substr($emp['nome_empresa'], 0, 1));
                 <input type="text" name="cnpj" class="form-control"
                        value="<?= htmlspecialchars($emp['cnpj']) ?>" maxlength="18">
             </div>
+            <?php if ($tem_endereco): ?>
+            <!-- Stage 3: endereço completo — CEP primeiro; rua, bairro, cidade e UF
+                 vêm do ViaCEP; número e complemento são preenchidos à mão -->
+            <div class="form-group">
+                <label class="form-label">CEP</label>
+                <input type="text" name="cep" id="cep" class="form-control"
+                       placeholder="00000-000" maxlength="9" inputmode="numeric"
+                       value="<?= htmlspecialchars(preg_replace('/^(\d{5})(\d{3})$/', '$1-$2', $emp['cep'] ?? '')) ?>">
+                <small id="cepStatus" class="text-muted" style="font-size:12px;" aria-live="polite"></small>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Rua / Logradouro</label>
+                <input type="text" name="logradouro" id="logradouro" class="form-control" maxlength="150"
+                       value="<?= htmlspecialchars($emp['logradouro'] ?? '') ?>">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Número</label>
+                    <input type="text" name="numero" id="numero" class="form-control" maxlength="10"
+                           placeholder="Ex: 123 ou S/N" value="<?= htmlspecialchars($emp['numero'] ?? '') ?>">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Complemento</label>
+                    <input type="text" name="complemento" id="complemento" class="form-control" maxlength="100"
+                           placeholder="Ex: Sala 4" value="<?= htmlspecialchars($emp['complemento'] ?? '') ?>">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Bairro</label>
+                <input type="text" name="bairro" id="bairro" class="form-control" maxlength="100"
+                       value="<?= htmlspecialchars($emp['bairro'] ?? '') ?>">
+            </div>
+            <?php endif; ?>
             <div class="form-row">
                 <div class="form-group">
                     <label class="form-label">Cidade</label>
-                    <input type="text" name="cidade" class="form-control"
+                    <input type="text" name="cidade" id="cidade" class="form-control" maxlength="100"
                            value="<?= htmlspecialchars($emp['cidade'] ?? '') ?>">
                 </div>
                 <div class="form-group">
                     <label class="form-label">UF</label>
-                    <input type="text" name="estado" class="form-control"
+                    <input type="text" name="estado" id="estado" class="form-control"
                            value="<?= htmlspecialchars($emp['estado'] ?? '') ?>"
                            maxlength="2" placeholder="SP">
                 </div>
@@ -346,7 +422,7 @@ $inicial = strtoupper(mb_substr($emp['nome_empresa'], 0, 1));
 <!-- ============================================================
      MODAL DE EXCLUSÃO
      ============================================================ -->
-<div id="modalExcluir" class="hidden"
+<div id="modalExcluir"
      style="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:2000;
             display:none;align-items:center;justify-content:center;">
     <div class="card" style="max-width:400px;width:90%;text-align:center;padding:36px 28px;">
@@ -358,6 +434,7 @@ $inicial = strtoupper(mb_substr($emp['nome_empresa'], 0, 1));
         </p>
         <form method="POST" action="excluir_conta.php">
             <input type="hidden" name="confirmar" value="1">
+    <?= csrf_field() ?>
             <div class="d-flex gap-12" style="justify-content:center;">
                 <button type="button" class="btn btn-secondary" id="btnCancelarExcluir">
                     Cancelar
@@ -371,11 +448,8 @@ $inicial = strtoupper(mb_substr($emp['nome_empresa'], 0, 1));
 </div>
 
 
-<!-- FABs -->
-<div class="fab-stack">
-    <button class="fab fab-ai"   id="btnChat" title="Assistente IA"  aria-label="Assistente IA">✦</button>
-    <button class="fab fab-a11y" id="btnA11y" title="Acessibilidade" aria-label="Acessibilidade">♿</button>
-</div>
+<!-- FABs + Assistente + Acessibilidade (Stage 3: antes os botões não tinham painel nem script) -->
+<?php include dirname(__DIR__) . '/includes/assistente.php'; ?>
 
 
 <!-- ============================================================
@@ -399,6 +473,19 @@ let   editando  = false;
 
 btnEditar?.addEventListener('click', () => {
     editando = !editando;
+    if (!editando) {
+        // Revisão Stage 3: "Cancelar" descarta o que foi digitado no modo edição —
+        // senão os outros botões "Salvar" do formPerfil enviariam essas alterações
+        document.querySelectorAll('#editNome input, #editNome select, #editDados input, #editDados select')
+            .forEach(el => {
+                if (el.type === 'checkbox' || el.type === 'radio') el.checked = el.defaultChecked;
+                else if (el.tagName === 'SELECT') [...el.options].forEach(o => { o.selected = o.defaultSelected; });
+                else el.value = el.defaultValue;
+            });
+        const st = document.getElementById('cepStatus');
+        if (st) st.textContent = '';
+        ultimoCepBuscado = (document.getElementById('cep')?.value || '').replace(/\D/g, '');
+    }
 
     document.getElementById('viewNome').classList.toggle('hidden', editando);
     document.getElementById('editNome').classList.toggle('hidden', !editando);
@@ -409,6 +496,43 @@ btnEditar?.addEventListener('click', () => {
     btnEditar.classList.toggle('btn-secondary', !editando);
     btnEditar.classList.toggle('btn-ghost',     editando);
 });
+
+/* ── Stage 3: endereço — CEP primeiro (ViaCEP); número e complemento manuais ── */
+// Revisão Stage 3: começa com o CEP já preenchido — só focar/sair do campo não
+// rebusca nem sobrescreve rua/bairro digitados à mão (CEPs gerais de cidade)
+let ultimoCepBuscado = (document.getElementById('cep')?.value || '').replace(/\D/g, '');
+async function buscarCep() {
+    const cepEl  = document.getElementById('cep');
+    const status = document.getElementById('cepStatus');
+    const raw    = (cepEl?.value || '').replace(/\D/g, '');
+    if (raw.length !== 8 || raw === ultimoCepBuscado) return;
+    ultimoCepBuscado = raw;
+    if (status) status.textContent = 'Buscando endereço...';
+    try {
+        const res = await fetch(`https://viacep.com.br/ws/${raw}/json/`);
+        const d   = await res.json();
+        if (d.erro) {
+            if (status) status.textContent = 'CEP não encontrado — preencha o endereço manualmente.';
+            return;
+        }
+        const preencher = (id, valor) => { const el = document.getElementById(id); if (el) el.value = valor || ''; };
+        preencher('logradouro', d.logradouro);
+        preencher('bairro',     d.bairro);
+        preencher('cidade',     d.localidade);
+        preencher('estado',     d.uf);
+        if (status) status.textContent = '✓ Endereço preenchido. Informe o número e o complemento.';
+        document.getElementById('numero')?.focus();
+    } catch {
+        if (status) status.textContent = 'Não foi possível buscar o CEP agora — preencha manualmente.';
+    }
+}
+document.getElementById('cep')?.addEventListener('input', function () {
+    let v = this.value.replace(/\D/g, '').slice(0, 8);
+    if (v.length > 5) v = v.slice(0, 5) + '-' + v.slice(5);
+    this.value = v;
+    if (v.length === 9) buscarCep();
+});
+document.getElementById('cep')?.addEventListener('blur', buscarCep);
 
 /* ── Modal de exclusão ─────────────────────────────────────── */
 const modal          = document.getElementById('modalExcluir');

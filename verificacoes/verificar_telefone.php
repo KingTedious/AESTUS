@@ -1,5 +1,5 @@
 <?php
-session_start();
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
 require_once dirname(__DIR__) . '/includes/config.php';
 require_once dirname(__DIR__) . '/includes/auth.php';
 require_once dirname(__DIR__) . '/includes/sms.php';
@@ -30,6 +30,7 @@ if ($user['telefone_verificado'] == 1) {
 
 // 1. SOLICITAR / REENVIAR CÓDIGO SMS
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_enviar_sms'])) {
+    csrf_require();
     $novoTelefone = trim($_POST['telefone'] ?? '');
 
     if (empty($novoTelefone) || normalizarTelefoneE164($novoTelefone) === null) {
@@ -56,6 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_enviar_sms'])) {
 
 // 2. VALIDAR CÓDIGO DIGITADO
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_validar_codigo'])) {
+    csrf_require();
     $codigoDigitado = trim($_POST['codigo'] ?? '');
     $agora = date('Y-m-d H:i:s');
 
@@ -112,6 +114,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_validar_codigo']
         <!-- Form 1: Celular -->
         <form action="verificar_telefone.php" method="POST" style="margin-bottom: 24px;">
             <input type="hidden" name="acao_enviar_sms" value="1">
+            <?= csrf_field() ?>
             <div class="form-group" style="margin-bottom: 12px; text-align: left;">
                 <label class="form-label">Número do Celular (com DDD)</label>
                 <input type="tel" name="telefone" class="form-control" placeholder="(11) 99999-9999" 
@@ -128,6 +131,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_validar_codigo']
 
             <form action="verificar_telefone.php" method="POST">
                 <input type="hidden" name="acao_validar_codigo" value="1">
+            <?= csrf_field() ?>
                 <div class="form-group" style="margin-bottom: 16px;">
                     <label class="form-label">Digite o código de 6 dígitos recebido</label>
                     <input type="text" name="codigo" class="form-control" placeholder="000000" maxlength="6" required 

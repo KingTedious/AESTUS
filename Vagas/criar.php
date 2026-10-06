@@ -14,7 +14,7 @@
    8. include header.php após queries e <link> no body.
    9. include footer.php em página com HTML próprio.
    ============================================================ */
-session_start();
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
 
 if (!isset($_SESSION['empresa_id'])) {
     header("Location: ../empresa/login.php");
@@ -29,6 +29,7 @@ $empresa_id = intval($_SESSION['empresa_id']);
    PROCESSAMENTO POST
    ============================================================ */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_require();
 
     // Leitura e sanitização
     $titulo         = trim($_POST['titulo']         ?? '');
@@ -159,6 +160,7 @@ $erros_msg = [
     <?php endif; ?>
 
     <form method="POST" id="formVaga" novalidate>
+        <?= csrf_field() ?>
 
         <!-- ================================================================
              CARD 1 — Cabeçalho

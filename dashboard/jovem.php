@@ -2,7 +2,7 @@
 /* ============================================================
    dashboard/jovem.php
    ============================================================ */
-session_start();
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
 
 if (!isset($_SESSION['jovem_id'])) {
     header("Location: ../jovem/login.php");
@@ -82,6 +82,7 @@ $noticias = [
     <link rel="stylesheet" href="../Assets/css/style.css">
 </head>
 <body>
+<?= csrf_js() ?>
 
 <!-- ============================================================
      NAVBAR INTERNA
@@ -106,6 +107,9 @@ $noticias = [
 
     <div class="navbar-inner-right">
         <button class="icon-btn btn-theme" id="btnTheme" title="Alternar tema" aria-label="Alternar tema">🌙</button>
+        <!-- Stage 3: páginas existentes que não tinham nenhum link de acesso -->
+        <a href="../candidaturas/minhas.php" class="icon-btn" title="Minhas candidaturas" aria-label="Minhas candidaturas">📋</a>
+        <a href="../Vagas/favoritos.php" class="icon-btn" title="Vagas favoritas" aria-label="Vagas favoritas">⭐</a>
         <a href="../jovem/perfil.php"  class="icon-btn" title="Meu Perfil">👤</a>
         <a href="../logout.php"        class="icon-btn text-danger" title="Sair" aria-label="Sair">↪</a>
     </div>
@@ -437,7 +441,11 @@ async function avaliarMatch(vagaId, btn) {
             })
         });
 
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) {
+            // Stage 3: guarda o motivo devolvido pelo servidor (ex.: "Servidor de IA indisponível.")
+            const corpo = await res.json().catch(() => ({}));
+            throw new Error(corpo.error || `HTTP ${res.status}`);
+        }
 
         const { score, analise } = await res.json();
 
@@ -446,8 +454,11 @@ async function avaliarMatch(vagaId, btn) {
         btn.title       = analise ?? '';
 
     } catch (err) {
-        btn.innerHTML = '✦ Avaliar Match com IA';
         btn.disabled  = false;
+        // Stage 3: antes o botão só voltava ao normal, sem explicar o que houve
+        btn.textContent = '✦ ' + (err?.message || 'Não foi possível avaliar agora.');
+        btn.title       = 'Clique para tentar novamente';
+        setTimeout(() => { btn.innerHTML = '✦ Avaliar Match com IA'; btn.title = ''; }, 3500);
         console.error('Erro no match IA:', err);
     }
 }
@@ -485,7 +496,8 @@ function addMsg(html, fromUser = false) {
     d.className = 'chat-msg';
     if (fromUser) d.style.cssText =
         'background:var(--accent-subtle);border:1px solid var(--accent);margin-left:24px;';
-    d.innerHTML = html;
+    // Stage 3: o texto digitado pelo usuário nunca é interpretado como HTML
+    if (fromUser) d.textContent = html; else d.innerHTML = html;
     chatBody.appendChild(d);
     chatBody.scrollTop = chatBody.scrollHeight;
     return d;
@@ -506,14 +518,19 @@ async function sendChat() {
     addMsg(msg, true);
     const spinner = addMsg('<span class="loading-spinner"></span>');
 
-    try {
-        await fetch('http://127.0.0.1:5000/ping', { signal: AbortSignal.timeout(2000) });
-    } catch { /* Flask offline - fallback estatico */ }
+    // Stage 3: removido o fetch ao /ping do Flask — o resultado era ignorado
+    // (respostas são predefinidas) e gerava erro no console com o Flask desligado.
+    await new Promise(r => setTimeout(r, 350));
 
     spinner.remove();
 
-    const lower = msg.toLowerCase();
-    const key   = Object.keys(respostas).find(k => lower.includes(k));
+    // Stage 3: casa PALAVRAS inteiras, sem acento — "bom dia" não dispara a
+    // resposta de "ia"; "aprendiz" é testado antes de "jovem"; aceita plural.
+    const palavras = msg.toLowerCase().normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '').split(/[^a-z0-9]+/);
+    const radicais = { aprendiz: 'aprendiz', empresa: 'empresa', vaga: 'vaga', ia: 'ia', jovem: 'jove' };
+    const key = Object.keys(radicais).find(k => palavras.some(p =>
+        radicais[k].length <= 2 ? p === radicais[k] : p.startsWith(radicais[k])));
     addMsg(key
         ? respostas[key]
         : 'Boa pergunta! Para mais informacoes, explore o site ou entre em contato. 😊');

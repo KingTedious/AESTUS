@@ -150,7 +150,7 @@ $_hdr_title = !empty($page_title)
             aria-label="Alternar tema claro/escuro">
             🌙
         </button>
-        <a href="../empresa/login.php" class="btn btn-primary btn-sm">Começar</a>
+        <a href="../comecar.php" class="btn btn-primary btn-sm">Começar</a><!-- Stage 3: antes ia ao login de empresa -->
     </div>
 
 </nav><!-- /.navbar -->

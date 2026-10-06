@@ -13,7 +13,7 @@
    2. PDO em projeto mysqli.
    3. Chaves de sessão erradas.
    ============================================================ */
-session_start();
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
 
 // Bloqueia GET direto na URL
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -23,6 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 // dirname(__DIR__) → sobe de jovem/ para a raiz do projeto
 require_once dirname(__DIR__) . "/includes/config.php";
+csrf_require();
 
 // ── Leitura e validação básica ────────────────────────────────────────────────
 $email = trim($_POST['email'] ?? '');
@@ -54,6 +55,7 @@ if ($jovem && password_verify($senha, $jovem['senha'])) {
     // ✅ Chaves corretas — lidas por todas as páginas do projeto
     $_SESSION['jovem_id']   = intval($jovem['id']);
     $_SESSION['jovem_nome'] = $jovem['nome'];
+    jc_session_regenerate(); // MED-001: evita session fixation
 
     // Atualiza ultimo_login
     $stmt_ul = $conn->prepare(

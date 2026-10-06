@@ -21,7 +21,7 @@
    7. include footer.php em página com HTML próprio.
    8. var(--principal) não existe no CSS v3.00.
    ============================================================ */
-session_start();
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
 
 if (!isset($_SESSION['jovem_id'])) {
     header("Location: ../jovem/login.php");
@@ -42,10 +42,23 @@ $vaga_id = intval($_GET['vaga'] ?? $_GET['vaga_id'] ?? 0);
    POST: processa a candidatura
    ============================================================ */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_require();
 
     $vaga_id = intval($_POST['vaga_id'] ?? 0);
 
     if ($vaga_id <= 0) {
+        header("Location: ../dashboard/jovem.php");
+        exit;
+    }
+
+    // Stage 3: vaga inexistente (ou excluída com a página aberta) → volta ao painel.
+    // Antes o INSERT violava a chave estrangeira e mostrava um erro fatal.
+    $stmt_vx = $conn->prepare("SELECT id FROM vagas WHERE id = ? LIMIT 1");
+    $stmt_vx->bind_param("i", $vaga_id);
+    $stmt_vx->execute();
+    $vaga_existe = $stmt_vx->get_result()->fetch_assoc();
+    $stmt_vx->close();
+    if (!$vaga_existe) {
         header("Location: ../dashboard/jovem.php");
         exit;
     }
@@ -71,7 +84,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     );
     $stmt_ins->bind_param("ii", $vaga_id, $jovem_id);
 
-    if ($stmt_ins->execute()) {
+    // Stage 3: no PHP 8.1+ o mysqli lança exceção (o "else" abaixo nunca rodava).
+    // Chave duplicada (envio repetido em paralelo) vira "já candidatado".
+    try {
+        $inseriu = $stmt_ins->execute();
+    } catch (mysqli_sql_exception $e) {
+        $inseriu = false;
+        if ($e->getCode() === 1062) {
+            $stmt_ins->close();
+            header("Location: candidatar.php?vaga_id={$vaga_id}&result=duplicate");
+            exit;
+        }
+        error_log("[JovemConnect] Erro ao inserir candidatura: " . $e->getMessage());
+    }
+
+    if ($inseriu) {
         $stmt_ins->close();
         header("Location: candidatar.php?vaga_id={$vaga_id}&result=ok");
     } else {
@@ -275,6 +302,7 @@ if (!$result_code && $ja_candidatado) {
         <!-- POST — processa de forma segura -->
         <form method="POST" action="candidatar.php">
             <input type="hidden" name="vaga_id" value="<?= $vaga_id ?>">
+            <?= csrf_field() ?>
             <div class="d-flex gap-12" style="justify-content:center;flex-wrap:wrap;">
                 <a href="listar.php?id=<?= $vaga_id ?>"
                    class="btn btn-secondary btn-sm">Cancelar</a>

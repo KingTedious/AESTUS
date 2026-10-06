@@ -1,5 +1,5 @@
 <?php
-session_start();
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
 require_once dirname(__DIR__) . '/includes/config.php';
 require_once dirname(__DIR__) . '/includes/mailer.php';
 
@@ -14,6 +14,9 @@ if (!$tipoUsuario || !$idUsuario) {
 }
 
 $tabela = ($tipoUsuario === 'jovem') ? 'jovens' : 'empresas';
+// Stage 3: a tabela empresas não tem coluna "nome" (é nome_empresa). Antes, a
+// verificação de e-mail da EMPRESA parava com erro fatal "Unknown column 'nome'".
+$colNome = ($tabela === 'jovens') ? 'nome' : 'nome_empresa AS nome';
 $mensagemSucesso = null;
 $mensagemErro = null;
 
@@ -35,6 +38,7 @@ if (!function_exists('gerarEEnviarCodigoEmail')) {
 
 // 1. PROCESSAR VALIDAÇÃO DO CÓDIGO (POST)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_verificar'])) {
+    csrf_require();
     $codigoDigitado = trim($_POST['codigo'] ?? '');
 
     $stmt = $conn->prepare("SELECT email, codigo_verificacao, expiracao_codigo, email_verificado FROM {$tabela} WHERE id = ? LIMIT 1");
@@ -68,7 +72,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_verificar'])) {
 
 // 2. PROCESSAR REENVIO DE CÓDIGO (POST)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_reenviar'])) {
-    $stmt = $conn->prepare("SELECT nome, email FROM {$tabela} WHERE id = ? LIMIT 1");
+    csrf_require();
+    $stmt = $conn->prepare("SELECT {$colNome}, email FROM {$tabela} WHERE id = ? LIMIT 1");
     $stmt->bind_param("i", $idUsuario);
     $stmt->execute();
     $user = $stmt->get_result()->fetch_assoc();
@@ -83,7 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_reenviar'])) {
 
 // 3. PRIMEIRO ACESSO (GET): se não há código válido pendente, envia um automaticamente
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    $stmt = $conn->prepare("SELECT nome, email, codigo_verificacao, expiracao_codigo, email_verificado FROM {$tabela} WHERE id = ? LIMIT 1");
+    $stmt = $conn->prepare("SELECT {$colNome}, email, codigo_verificacao, expiracao_codigo, email_verificado FROM {$tabela} WHERE id = ? LIMIT 1");
     $stmt->bind_param("i", $idUsuario);
     $stmt->execute();
     $user = $stmt->get_result()->fetch_assoc();
@@ -144,6 +149,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         <!-- Formulário de Validação -->
         <form action="verificar_email.php" method="POST" style="margin-bottom: 20px;">
             <input type="hidden" name="acao_verificar" value="1">
+            <?= csrf_field() ?>
             <div class="form-group" style="margin-bottom: 20px;">
                 <input type="text" name="codigo" class="form-control" placeholder="000000" maxlength="6" required 
                        style="font-size: 28px; text-align: center; letter-spacing: 8px; font-weight: bold; padding: 12px; font-family: monospace;">
@@ -154,6 +160,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         <!-- Form de Reenvio -->
         <form action="verificar_email.php" method="POST">
             <input type="hidden" name="acao_reenviar" value="1">
+            <?= csrf_field() ?>
             <button type="submit" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 13px; text-decoration: underline;">
                 Não recebeu o código? Reenviar e-mail
             </button>

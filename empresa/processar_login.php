@@ -17,7 +17,7 @@
       redireciona jovens para ../jovem/processar_login.php → duplicidade.
       Este arquivo agora é empresa-only.
    ============================================================ */
-session_start();
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
 
 // Bloqueia GET direto na URL
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -27,6 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 // config.php está em includes/, um nível acima de empresa/
 require_once dirname(__DIR__) . "/includes/config.php";
+csrf_require();
 
 // ── Leitura e validação básica ────────────────────────────────────────────────
 $email = trim($_POST['email'] ?? '');
@@ -64,6 +65,7 @@ if ($empresa && password_verify($senha, $empresa['senha'])) {
     // ✅ Chaves de sessão corretas — usadas por todas as outras páginas
     $_SESSION['empresa_id']   = intval($empresa['id']);
     $_SESSION['empresa_nome'] = $empresa['nome_empresa'];
+    jc_session_regenerate(); // MED-001
 
     // Redireciona para o dashboard (de empresa/ → ../dashboard/)
     header("Location: ../dashboard/empresa.php");

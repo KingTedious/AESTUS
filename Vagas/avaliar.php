@@ -21,7 +21,7 @@
                  se o perfil for público — mesma regra já usada em
                  dashboard/empresa.php.
    ============================================================ */
-session_start();
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
 require_once dirname(__DIR__) . '/includes/config.php';
 
 if (!isset($_SESSION['jovem_id']) && !isset($_SESSION['empresa_id'])) {
@@ -108,6 +108,7 @@ $voltarLink = ($tipo === 'empresa')
     <link rel="stylesheet" href="../Assets/css/style.css">
 </head>
 <body>
+<?= csrf_js() ?>
 
 <nav class="navbar-inner">
     <a href="../index.php" class="nav-logo">

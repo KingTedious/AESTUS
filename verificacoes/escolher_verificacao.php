@@ -1,5 +1,5 @@
 <?php
-session_start();
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
 require_once dirname(__DIR__) . '/includes/config.php';
 require_once dirname(__DIR__) . '/includes/auth.php';
 
@@ -92,6 +92,11 @@ if ($user['email_verificado'] == 1 || $user['telefone_verificado'] == 1) {
             </p>
         </a>
     </div>
+
+    <!-- Stage 3: a verificação é opcional — antes não havia uma saída explícita desta tela -->
+    <p style="text-align: center; margin-top: 28px;">
+        <a href="../dashboard/index.php" class="back-link">Verificar depois e ir para o meu painel →</a>
+    </p>
 </main>
 
 <?php include_once dirname(__DIR__) . '/includes/footer.php'; ?>

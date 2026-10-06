@@ -1,5 +1,5 @@
 <?php
-session_start();
+require_once __DIR__ . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
 require_once __DIR__ . '/includes/config.php';
 require_once __DIR__ . '/includes/mailer.php';
 
@@ -27,6 +27,7 @@ function mascararEmail(string $email): string {
 
 // --- ETAPA 1: ENVIAR O E-MAIL DE RECUPERAÇÃO ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_solicitar_codigo'])) {
+    csrf_require();
     $emailInput = trim($_POST['email'] ?? '');
 
     if (empty($emailInput) || !filter_var($emailInput, FILTER_VALIDATE_EMAIL)) {
@@ -87,6 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_solicitar_codigo
 
 // --- ETAPA 2: VALIDAR O CÓDIGO RECEBIDO ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_validar_codigo_recuperacao'])) {
+    csrf_require();
     $codigoDigitado = trim($_POST['codigo'] ?? '');
     $tabela   = $_SESSION['recuperacao_tabela']    ?? null;
     $emailRaw = $_SESSION['recuperacao_email_raw'] ?? null;
@@ -109,6 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_validar_codigo_r
 
     if ($codigoOk) {
         $_SESSION['recuperacao_etapa'] = 3;
+        $_SESSION['recuperacao_codigo_ok'] = true;  // CRIT-001: etapa 2 valida o codigo e so entao autoriza a etapa 3
         $etapa = 3;
     } else {
         // Mesma mensagem independentemente do motivo (conta inexistente, código
@@ -119,15 +122,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_validar_codigo_r
 
 // --- ETAPA 3: DEFINIR NOVA SENHA ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_definir_nova_senha'])) {
+    csrf_require();
     $tabela   = $_SESSION['recuperacao_tabela']    ?? null;
     $emailRaw = $_SESSION['recuperacao_email_raw'] ?? null;
     $novaSenha = $_POST['nova_senha'] ?? '';
     $confirmarSenha = $_POST['confirmar_senha'] ?? '';
 
-    if (!$tabela || !$emailRaw) {
+    if (!$tabela || !$emailRaw || empty($_SESSION['recuperacao_codigo_ok'])) {
         // Sessão perdida/expirada no meio do fluxo — recomeça do zero.
         unset($_SESSION['recuperacao_etapa'], $_SESSION['recuperacao_email_mascarado'],
-              $_SESSION['recuperacao_email_raw'], $_SESSION['recuperacao_tabela']);
+              $_SESSION['recuperacao_email_raw'], $_SESSION['recuperacao_tabela'], $_SESSION['recuperacao_codigo_ok']);
         header("Location: recuperar_senha.php");
         exit;
     } elseif (strlen($novaSenha) < 8) {
@@ -147,7 +151,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_definir_nova_sen
         $agora = date('Y-m-d H:i:s');
         if (!$rowV || $rowV['expiracao_recuperacao'] === null || $rowV['expiracao_recuperacao'] < $agora) {
             unset($_SESSION['recuperacao_etapa'], $_SESSION['recuperacao_email_mascarado'],
-                  $_SESSION['recuperacao_email_raw'], $_SESSION['recuperacao_tabela']);
+                  $_SESSION['recuperacao_email_raw'], $_SESSION['recuperacao_tabela'], $_SESSION['recuperacao_codigo_ok']);
             $mensagemErro = "O código expirou. Solicite a recuperação novamente.";
             $etapa = 1;
         } else {
@@ -159,7 +163,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_definir_nova_sen
 
             $tipoLogin = ($tabela === 'jovens') ? 'jovem' : 'empresa';
             unset($_SESSION['recuperacao_etapa'], $_SESSION['recuperacao_email_mascarado'],
-                  $_SESSION['recuperacao_email_raw'], $_SESSION['recuperacao_tabela']);
+                  $_SESSION['recuperacao_email_raw'], $_SESSION['recuperacao_tabela'], $_SESSION['recuperacao_codigo_ok']);
 
             $_SESSION['sucesso_login'] = "Senha redefinida com sucesso! Faça login com sua nova senha.";
             header("Location: {$tipoLogin}/login.php");
@@ -171,7 +175,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_definir_nova_sen
 // --- REENVIAR E-MAIL / REINICIAR ---
 if (isset($_GET['reenviar'])) {
     unset($_SESSION['recuperacao_etapa'], $_SESSION['recuperacao_email_mascarado'],
-          $_SESSION['recuperacao_email_raw'], $_SESSION['recuperacao_tabela']);
+          $_SESSION['recuperacao_email_raw'], $_SESSION['recuperacao_tabela'], $_SESSION['recuperacao_codigo_ok']);
     header("Location: recuperar_senha.php");
     exit;
 }
@@ -379,6 +383,7 @@ if (isset($_GET['reenviar'])) {
 
             <form action="recuperar_senha.php" method="POST">
                 <input type="hidden" name="acao_solicitar_codigo" value="1">
+                <?= csrf_field() ?>
                 <div class="form-group">
                     <label class="form-label">E-mail</label>
                     <div class="input-wrapper">
@@ -389,7 +394,7 @@ if (isset($_GET['reenviar'])) {
                 <button type="submit" class="btn-primary">Enviar e-mail</button>
             </form>
 
-            <a href="login.php" class="back-link">Voltar para o login</a>
+            <a href="jovem/login.php" class="back-link">Voltar para o login</a><!-- Stage 3: login.php não existe na raiz (404) -->
 
         <?php elseif ($etapa === 2): ?>
             <!-- ETAPA 2: DIGITAR O CÓDIGO RECEBIDO -->
@@ -400,6 +405,7 @@ if (isset($_GET['reenviar'])) {
 
             <form action="recuperar_senha.php" method="POST">
                 <input type="hidden" name="acao_validar_codigo_recuperacao" value="1">
+                <?= csrf_field() ?>
                 <div class="form-group">
                     <label class="form-label">Código de verificação</label>
                     <div class="input-wrapper">
@@ -416,7 +422,7 @@ if (isset($_GET['reenviar'])) {
                 </a>
             </div>
 
-            <a href="login.php" class="back-link">Voltar para o login</a>
+            <a href="jovem/login.php" class="back-link">Voltar para o login</a><!-- Stage 3: login.php não existe na raiz (404) -->
 
         <?php else: ?>
             <!-- ETAPA 3: DEFINIR NOVA SENHA -->
@@ -425,6 +431,7 @@ if (isset($_GET['reenviar'])) {
 
             <form action="recuperar_senha.php" method="POST">
                 <input type="hidden" name="acao_definir_nova_senha" value="1">
+                <?= csrf_field() ?>
                 <div class="form-group">
                     <label class="form-label">Nova senha</label>
                     <div class="input-wrapper">

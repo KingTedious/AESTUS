@@ -17,7 +17,7 @@
    9. Página não carregava dados reais do perfil do jovem —
       forçava o usuário a redigitar o que já estava no banco.
    ============================================================ */
-session_start();
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
 
 if (!isset($_SESSION['jovem_id'])) {
     header("Location: ../jovem/login.php");
@@ -66,6 +66,7 @@ $erro_ia      = null;
    PROCESSAMENTO POST
    ============================================================ */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_require();
 
     // Usa o texto do POST (editável) ou o resumo atual
     $resumo_analise = trim($_POST['resumo'] ?? $jovem['resumo_profissional'] ?? '');
@@ -182,6 +183,7 @@ $resumo_atual = htmlspecialchars(
         </p>
 
         <form method="POST" id="formIA">
+        <?= csrf_field() ?>
 
             <div class="form-group">
                 <label class="form-label" for="resumo">

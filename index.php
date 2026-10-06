@@ -15,7 +15,8 @@
    8. Navbar sem ícone de tema e sem logo-box.
    9. Footer sem links de Termos/Privacidade/Contato.
    ============================================================ */
-session_start();
+require_once __DIR__ . '/includes/session.php';   // Etapa 2: cookies de sessao endurecidos
+jc_session_start();
 
 // Usuário já logado → redireciona para o painel correto
 if (isset($_SESSION['jovem_id'])) {
@@ -58,7 +59,7 @@ if (isset($_SESSION['empresa_id'])) {
             Entrar
         </a>
         <button class="btn-theme" id="btnTheme" title="Alternar tema" aria-label="Alternar tema">🌙</button>
-        <a href="jovem/cadastro.php" class="btn btn-primary btn-sm">Começar</a>
+        <a href="comecar.php" class="btn btn-primary btn-sm">Começar</a><!-- Stage 3: escolha Jovem/Empresa -->
     </div>
 </nav>
 
@@ -269,7 +270,6 @@ if (isset($_SESSION['empresa_id'])) {
     <button class="fab fab-ai"   id="btnChat" title="Assistente IA"  aria-label="Abrir assistente">✦</button>
     <button class="fab fab-a11y" id="btnA11y" title="Acessibilidade" aria-label="Acessibilidade">♿</button>
 </div>
-<div class="user-indicator" title="Visitante">N</div>
 
 <!-- SVG filters daltonismo -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -334,7 +334,8 @@ function addMsg(html, fromUser = false) {
     d.className = 'chat-msg';
     if (fromUser) d.style.cssText =
         'background:var(--accent-subtle);border:1px solid var(--accent);margin-left:24px;';
-    d.innerHTML = html;
+    // Stage 3: o texto digitado pelo usuário nunca é interpretado como HTML
+    if (fromUser) d.textContent = html; else d.innerHTML = html;
     chatBody.appendChild(d);
     chatBody.scrollTop = chatBody.scrollHeight;
     return d;
@@ -355,14 +356,19 @@ async function sendChat() {
     addMsg(msg, true);
     const spinner = addMsg('<span class="loading-spinner"></span>');
 
-    try {
-        await fetch('http://127.0.0.1:5000/ping', { signal: AbortSignal.timeout(2000) });
-    } catch { /* Flask offline — fallback estático */ }
+    // Stage 3: removido o fetch ao /ping do Flask — o resultado era ignorado
+    // (respostas são predefinidas) e gerava erro no console com o Flask desligado.
+    await new Promise(r => setTimeout(r, 350));
 
     spinner.remove();
 
-    const lower = msg.toLowerCase();
-    const key   = Object.keys(respostas).find(k => lower.includes(k));
+    // Stage 3: casa PALAVRAS inteiras, sem acento — "bom dia" não dispara a
+    // resposta de "ia"; "aprendiz" é testado antes de "jovem"; aceita plural.
+    const palavras = msg.toLowerCase().normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '').split(/[^a-z0-9]+/);
+    const radicais = { aprendiz: 'aprendiz', empresa: 'empresa', vaga: 'vaga', ia: 'ia', jovem: 'jove' };
+    const key = Object.keys(radicais).find(k => palavras.some(p =>
+        radicais[k].length <= 2 ? p === radicais[k] : p.startsWith(radicais[k])));
     addMsg(key
         ? respostas[key]
         : 'Boa pergunta! Para mais informações, explore o site ou entre em contato. 😊');

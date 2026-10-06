@@ -19,7 +19,7 @@
    9. Campos v3.00 ausentes: area_interesse, escolaridade_tipo,
       resumo_profissional, idade.
    ============================================================ */
-session_start();
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
 
 if (!isset($_SESSION['empresa_id'])) {
     header("Location: ../empresa/login.php");
@@ -66,6 +66,7 @@ $statuses_validos = ['Recebido', 'Visualizado', 'Em análise', 'Aprovado', 'Repr
    ============================================================ */
 if ($_SERVER['REQUEST_METHOD'] === 'POST'
     && ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'XMLHttpRequest') {
+    csrf_require(true);
 
     header('Content-Type: application/json; charset=utf-8');
 
@@ -91,6 +92,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'
     $affected = $stmt_upd->affected_rows;
     $stmt_upd->close();
 
+    // Stage 3: salvar o MESMO status atualiza 0 linhas — não é falta de permissão.
+    // Confirma que a candidatura é de uma vaga desta empresa antes de recusar.
+    if ($ok && $affected === 0) {
+        $stmt_own = $conn->prepare(
+            "SELECT c.id FROM candidaturas c
+             JOIN   vagas v ON c.vaga_id = v.id
+             WHERE  c.id = ? AND v.empresa_id = ? LIMIT 1"
+        );
+        $stmt_own->bind_param("ii", $candidatura_id, $empresa_id);
+        $stmt_own->execute();
+        $affected = $stmt_own->get_result()->fetch_assoc() ? 1 : 0;
+        $stmt_own->close();
+    }
+
     if ($ok && $affected > 0) {
         echo json_encode(['ok' => true, 'status' => $novo_status]);
     } else {
@@ -102,6 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'
 
 // ── POST convencional (fallback sem JS) ──────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_require();
 
     $candidatura_id = intval($_POST['candidatura_id'] ?? 0);
     $novo_status    = trim($_POST['status']           ?? '');
@@ -161,6 +177,7 @@ $stmt_c->close();
     <link rel="stylesheet" href="../Assets/css/style.css">
 </head>
 <body>
+<?= csrf_js() ?>
 
 <!-- ============================================================
      NAVBAR INTERNA
@@ -323,6 +340,7 @@ $stmt_c->close();
                     <form method="POST" action="candidatos.php?vaga=<?= $vaga_id ?>">
                         <input type="hidden" name="candidatura_id" value="<?= $cand_id ?>">
                         <input type="hidden" name="status" value="Em análise">
+            <?= csrf_field() ?>
                         <button type="submit" class="btn btn-ghost btn-sm btn-full">
                             Salvar (sem JS)
                         </button>
@@ -356,11 +374,8 @@ $stmt_c->close();
 </main>
 </div><!-- /.dashboard-wrap -->
 
-<!-- FABs -->
-<div class="fab-stack">
-    <button class="fab fab-ai"   id="btnChat" title="Assistente IA"  aria-label="IA">✦</button>
-    <button class="fab fab-a11y" id="btnA11y" title="Acessibilidade" aria-label="Acessibilidade">♿</button>
-</div>
+<!-- FABs + Assistente + Acessibilidade (Stage 3: antes os botões não tinham painel nem script) -->
+<?php include dirname(__DIR__) . '/includes/assistente.php'; ?>
 
 <!-- ============================================================
      SCRIPTS
@@ -470,7 +485,11 @@ async function avaliarMatch(jovemId, vagaId, btn) {
             }),
         });
 
-        if (!res.ok) throw new Error('HTTP ' + res.status);
+        if (!res.ok) {
+            // Stage 3: guarda o motivo devolvido pelo servidor (ex.: "Servidor de IA indisponível.")
+            const corpo = await res.json().catch(() => ({}));
+            throw new Error(corpo.error || `HTTP ${res.status}`);
+        }
 
         const { score, analise } = await res.json();
 
@@ -488,9 +507,12 @@ async function avaliarMatch(jovemId, vagaId, btn) {
             linkAnalise.textContent = 'Ver análise completa →';
             btn.after(linkAnalise);
         }
-    } catch {
-        btn.innerHTML = '✦ Match com IA';
+    } catch (err) {
         btn.disabled  = false;
+        // Stage 3: antes o botão só voltava ao normal, sem explicar o que houve
+        btn.textContent = '✦ ' + (err?.message || 'Não foi possível avaliar agora.');
+        btn.title       = 'Clique para tentar novamente';
+        setTimeout(() => { btn.innerHTML = '✦ Match com IA'; btn.title = ''; }, 3500);
     }
 }
 </script>

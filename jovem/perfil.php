@@ -21,7 +21,7 @@
    8. Sem PRG → F5 resubmetia o formulário.
    9. include footer.php em página com HTML próprio.
    ============================================================ */
-session_start();
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
 require_once dirname(__DIR__) . "/includes/config.php";
 
 // ── Auth inline (não usa verificar_autenticacao pois atende jovem E empresa) ──
@@ -62,36 +62,84 @@ $saved = isset($_GET['saved']) ? intval($_GET['saved']) : 0;
    Usa ?action= para distinguir as operações.
    ============================================================ */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $eh_dono) {
+    csrf_require();
 
     $action = $_POST['action'] ?? 'update_perfil';
 
     // ── Atualização dos dados principais ─────────────────────────────────────
     if ($action === 'update_perfil') {
 
-        $nome               = trim($_POST['nome']               ?? '');
-        $email              = trim($_POST['email']              ?? '');
-        $cidade             = trim($_POST['cidade']             ?? '');
-        $estado             = strtoupper(trim($_POST['estado']  ?? ''));
-        $cep                = trim($_POST['cep']                ?? '');
+        // Stage 3: limites iguais ao tamanho das colunas (antes, texto longo = erro fatal)
+        $nome               = mb_substr(trim($_POST['nome']               ?? ''), 0, 100);
+        $email              = trim($_POST['email']              ?? '');   // validado abaixo (não cortado)
+        $cidade             = mb_substr(trim($_POST['cidade']             ?? ''), 0, 100);
+        $estado             = mb_substr(strtoupper(trim($_POST['estado']  ?? '')), 0, 2);
+        $cep                = mb_substr(preg_replace('/\D/', '', $_POST['cep'] ?? ''), 0, 8);
         $resumo             = trim($_POST['resumo_profissional'] ?? '');
-        $area_interesse     = trim($_POST['area_interesse']     ?? '');
+        $area_interesse     = mb_substr(trim($_POST['area_interesse']     ?? ''), 0, 100);
         $perfil_publico     = isset($_POST['perfil_publico']) ? 1 : 0;
 
-        if (empty($nome) || empty($email)) {
+        if (empty($nome) || mb_strlen($email) > 100 || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             header("Location: perfil.php?saved=2");
             exit;
         }
 
+        // Stage 3: e-mail já usado por outra conta → aviso (antes: erro fatal de chave única)
+        $stmt = $conn->prepare("SELECT id FROM jovens WHERE email = ? AND id <> ? LIMIT 1");
+        $stmt->bind_param("si", $email, $jovem_id);
+        $stmt->execute();
+        $email_em_uso = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        if ($email_em_uso) {
+            header("Location: perfil.php?saved=3");
+            exit;
+        }
+
+        $stmt = $conn->prepare(
+            "SELECT email, email_verificado, escolaridade_status, escolaridade_tipo,
+                    escolaridade_curso, formacao
+             FROM jovens WHERE id = ? LIMIT 1"
+        );
+        $stmt->bind_param("i", $jovem_id);
+        $stmt->execute();
+        $atual = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        // Stage 3: trocar o e-mail desfaz a verificação (o endereço novo não foi verificado)
+        $email_verificado = (mb_strtolower((string)$atual['email']) === mb_strtolower($email))
+                            ? (int)$atual['email_verificado'] : 0;
+
+        // Stage 3: escolaridade editável no perfil (antes só no cadastro; o Match usa esses campos).
+        // Mesmas regras do cadastro: status controlado; "técnico" quando há nome de curso.
+        $esc_status = $atual['escolaridade_status'];
+        $esc_tipo   = $atual['escolaridade_tipo'];
+        $esc_curso  = $atual['escolaridade_curso'];
+        $formacao   = $atual['formacao'];
+        if (isset($_POST['escolaridade_status'])) {
+            if (in_array($_POST['escolaridade_status'], ['cursando', 'completo'], true)) {
+                $esc_status = $_POST['escolaridade_status'];
+            }
+            // "Possuo curso técnico" é um checkbox, como no cadastro (um registro antigo
+            // marcado como técnico sem nome de curso não vira "regular" ao salvar)
+            $esc_tipo   = isset($_POST['escolaridade_tipo']) ? 'tecnico' : 'regular';
+            $curso      = mb_substr(trim($_POST['escolaridade_curso'] ?? ''), 0, 100);
+            $esc_curso  = ($esc_tipo === 'tecnico' && $curso !== '') ? $curso : null;
+            $formacao   = mb_substr(trim($_POST['formacao'] ?? ''), 0, 100);
+        }
+
         $stmt = $conn->prepare(
             "UPDATE jovens
-             SET nome = ?, email = ?, cidade = ?, estado = ?, cep = ?,
-                 resumo_profissional = ?, area_interesse = ?, perfil_publico = ?
+             SET nome = ?, email = ?, email_verificado = ?, cidade = ?, estado = ?, cep = ?,
+                 resumo_profissional = ?, area_interesse = ?, perfil_publico = ?,
+                 escolaridade_status = ?, escolaridade_tipo = ?, escolaridade_curso = ?,
+                 formacao = ?
              WHERE id = ?"
         );
         $stmt->bind_param(
-            "sssssssii",
-            $nome, $email, $cidade, $estado, $cep,
-            $resumo, $area_interesse, $perfil_publico, $jovem_id
+            "ssisssssissssi",
+            $nome, $email, $email_verificado, $cidade, $estado, $cep,
+            $resumo, $area_interesse, $perfil_publico,
+            $esc_status, $esc_tipo, $esc_curso, $formacao, $jovem_id
         );
         $stmt->execute();
         $stmt->close();
@@ -105,10 +153,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $eh_dono) {
 
     // ── Adicionar formação ────────────────────────────────────────────────────
     if ($action === 'add_formacao') {
-        $titulo      = trim($_POST['form_titulo']      ?? '');
-        $instituicao = trim($_POST['form_instituicao'] ?? '');
-        $conclusao   = trim($_POST['form_conclusao']   ?? '');
-        $area        = trim($_POST['form_area']        ?? '');
+        // Stage 3: limites das colunas (conclusao tem só 20 caracteres → antes, erro fatal)
+        $titulo      = mb_substr(trim($_POST['form_titulo']      ?? ''), 0, 150);
+        $instituicao = mb_substr(trim($_POST['form_instituicao'] ?? ''), 0, 150);
+        $conclusao   = mb_substr(trim($_POST['form_conclusao']   ?? ''), 0, 20);
+        $area        = mb_substr(trim($_POST['form_area']        ?? ''), 0, 100);
 
         if (!empty($titulo)) {
             $stmt = $conn->prepare(
@@ -138,14 +187,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $eh_dono) {
 
     // ── Adicionar habilidade ──────────────────────────────────────────────────
     if ($action === 'add_habilidade') {
-        $habilidade = trim($_POST['habilidade'] ?? '');
-        if (!empty($habilidade)) {
+        $habilidade = mb_substr(trim(preg_replace('/\s+/u', ' ', $_POST['habilidade'] ?? '')), 0, 80);
+        if ($habilidade !== '') {
+            // Stage 3: não duplica. Não há chave UNIQUE na tabela (o INSERT IGNORE
+            // nunca bloqueava nada); a comparação usa a collation da coluna
+            // (utf8mb4_unicode_ci): "excel básico" = "Excel Básico".
             $stmt = $conn->prepare(
-                "INSERT IGNORE INTO habilidades_jovem (jovem_id, habilidade) VALUES (?, ?)"
+                "SELECT id FROM habilidades_jovem WHERE jovem_id = ? AND habilidade = ? LIMIT 1"
             );
             $stmt->bind_param("is", $jovem_id, $habilidade);
             $stmt->execute();
+            $ja_tem = $stmt->get_result()->fetch_assoc();
             $stmt->close();
+
+            if (!$ja_tem) {
+                $stmt = $conn->prepare(
+                    "INSERT IGNORE INTO habilidades_jovem (jovem_id, habilidade) VALUES (?, ?)"
+                );
+                $stmt->bind_param("is", $jovem_id, $habilidade);
+                $stmt->execute();
+                $stmt->close();
+            }
         }
         header("Location: perfil.php#habilidades");
         exit;
@@ -166,9 +228,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $eh_dono) {
 
     // ── Adicionar experiência ─────────────────────────────────────────────────
     if ($action === 'add_experiencia') {
-        $titulo   = trim($_POST['exp_titulo']   ?? '');
-        $local    = trim($_POST['exp_local']    ?? '');
-        $periodo  = trim($_POST['exp_periodo']  ?? '');
+        $titulo   = mb_substr(trim($_POST['exp_titulo']   ?? ''), 0, 150);   // Stage 3: limites das colunas
+        $local    = mb_substr(trim($_POST['exp_local']    ?? ''), 0, 150);
+        $periodo  = mb_substr(trim($_POST['exp_periodo']  ?? ''), 0, 50);
         $descricao = trim($_POST['exp_descricao'] ?? '');
 
         if (!empty($titulo)) {
@@ -205,7 +267,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $eh_dono) {
 // Dados principais do jovem
 $stmt = $conn->prepare(
     "SELECT nome, email, cpf, data_nascimento, cidade, estado, cep,
-            escolaridade_status, escolaridade_tipo, escolaridade_curso,
+            escolaridade_status, escolaridade_tipo, escolaridade_curso, formacao,
             resumo_profissional, area_interesse, perfil_publico, curriculo,
             TIMESTAMPDIFF(YEAR, data_nascimento, CURDATE()) AS idade
      FROM   jovens
@@ -270,6 +332,25 @@ $local_parts = array_filter([
     htmlspecialchars($jovem['estado'] ?? ''),
 ]);
 $localizacao = implode(', ', $local_parts);
+
+// Stage 3: escolaridade informada no cadastro (antes não aparecia em lugar nenhum do perfil)
+$esc_resumo = ($jovem['escolaridade_status'] === 'completo') ? 'Concluído' : 'Cursando';
+if ($jovem['escolaridade_tipo'] === 'tecnico') {
+    $esc_resumo .= ' • Curso técnico' . (!empty($jovem['escolaridade_curso']) ? ': ' . $jovem['escolaridade_curso'] : '');
+}
+if (!empty($jovem['formacao'])) {
+    $esc_resumo .= ' • ' . $jovem['formacao'];
+}
+
+// Stage 3: currículo em PDF — só mostra link se o arquivo existir de fato
+$tem_curriculo = !empty($jovem['curriculo'])
+    && is_file(dirname(__DIR__) . '/uploads/curriculos/' . basename($jovem['curriculo']));
+$link_curriculo = '../uploads/ver_curriculo.php?id=' . $jovem_id;
+
+// Stage 3: mensagens gravadas por uploads/curriculos.php (antes nunca exibidas)
+$msg_upload_ok   = $eh_dono ? ($_SESSION['sucesso_upload'] ?? null) : null;
+$msg_upload_erro = $eh_dono ? ($_SESSION['erro_upload']    ?? null) : null;
+unset($_SESSION['sucesso_upload'], $_SESSION['erro_upload']);
 ?>
 <!DOCTYPE html>
 <html lang="pt-br" data-theme="dark">
@@ -282,6 +363,7 @@ $localizacao = implode(', ', $local_parts);
     <link rel="stylesheet" href="../Assets/css/style.css">
 </head>
 <body>
+<?= csrf_js() ?><!-- Stage 3: o IA Advisor usa fetch() em endpoint protegido por CSRF (antes: 403) -->
 
 <!-- ============================================================
      BARRA DE TOPO
@@ -308,10 +390,16 @@ $localizacao = implode(', ', $local_parts);
 </div>
 
 <!-- Toast de feedback (PRG) -->
-<?php if ($saved === 1): ?>
+<?php if ($msg_upload_ok): ?>
+<div id="toast" class="toast toast-success">✓ <?= htmlspecialchars($msg_upload_ok) ?></div>
+<?php elseif ($msg_upload_erro): ?>
+<div id="toast" class="toast toast-error">✕ <?= htmlspecialchars($msg_upload_erro) ?></div>
+<?php elseif ($saved === 1): ?>
 <div id="toast" class="toast toast-success">✓ Perfil atualizado com sucesso!</div>
 <?php elseif ($saved === 2): ?>
-<div id="toast" class="toast toast-error">✕ Preencha nome e e-mail antes de salvar.</div>
+<div id="toast" class="toast toast-error">✕ Preencha o nome e um e-mail válido antes de salvar.</div>
+<?php elseif ($saved === 3): ?>
+<div id="toast" class="toast toast-error">✕ Este e-mail já está em uso por outra conta.</div>
 <?php endif; ?>
 
 <!-- ============================================================
@@ -323,8 +411,15 @@ $localizacao = implode(', ', $local_parts);
 <!-- ============================================================
      VIEW 1: PRÓPRIO PERFIL (editável)
      ============================================================ -->
+<!-- Stage 3: este form antes envolvia a página inteira e "engolia" o form de
+     adicionar formação (forms aninhados são inválidos em HTML): "Salvar" era
+     bloqueado pelo campo obrigatório da formação ou enviava action=add_formacao.
+     Agora ele fica vazio aqui e os campos do perfil apontam para ele com
+     form="formPerfil"; os demais forms da página voltam a ser independentes. -->
 <form method="POST" action="perfil.php" id="formPerfil">
-<input type="hidden" name="action" value="update_perfil">
+    <input type="hidden" name="action" value="update_perfil">
+    <?= csrf_field() ?>
+</form>
 
 <div class="profile-page">
 
@@ -344,8 +439,8 @@ $localizacao = implode(', ', $local_parts);
             <div id="editNome" class="hidden w-full">
                 <div class="form-group" style="width:100%">
                     <label class="form-label">Nome Completo *</label>
-                    <input type="text" name="nome" class="form-control"
-                           value="<?= $nome_jovem ?>" required>
+                    <input type="text" name="nome" class="form-control" form="formPerfil"
+                           value="<?= $nome_jovem ?>" maxlength="100" required>
                 </div>
             </div>
         </div>
@@ -370,35 +465,59 @@ $localizacao = implode(', ', $local_parts);
         <div id="editDados" class="hidden">
             <div class="form-group">
                 <label class="form-label">E-mail *</label>
-                <input type="email" name="email" class="form-control"
-                       value="<?= htmlspecialchars($jovem['email']) ?>" required>
+                <input type="email" name="email" class="form-control" form="formPerfil"
+                       value="<?= htmlspecialchars($jovem['email']) ?>" maxlength="100" required>
             </div>
             <div class="form-row">
                 <div class="form-group">
                     <label class="form-label">Cidade</label>
-                    <input type="text" name="cidade" class="form-control"
-                           value="<?= htmlspecialchars($jovem['cidade'] ?? '') ?>">
+                    <input type="text" name="cidade" class="form-control" form="formPerfil"
+                           value="<?= htmlspecialchars($jovem['cidade'] ?? '') ?>" maxlength="100">
                 </div>
                 <div class="form-group">
                     <label class="form-label">UF</label>
-                    <input type="text" name="estado" class="form-control"
+                    <input type="text" name="estado" class="form-control" form="formPerfil"
                            value="<?= htmlspecialchars($jovem['estado'] ?? '') ?>"
                            maxlength="2" placeholder="SP">
                 </div>
             </div>
             <div class="form-group">
                 <label class="form-label">CEP</label>
-                <input type="text" name="cep" class="form-control"
+                <input type="text" name="cep" class="form-control" form="formPerfil"
                        value="<?= htmlspecialchars($jovem['cep'] ?? '') ?>"
                        placeholder="00000-000" maxlength="9">
             </div>
             <div class="form-group">
                 <label class="form-label">Área de Interesse</label>
-                <input type="text" name="area_interesse" class="form-control"
+                <input type="text" name="area_interesse" class="form-control" form="formPerfil"
                        value="<?= htmlspecialchars($jovem['area_interesse'] ?? '') ?>"
-                       placeholder="Ex: Administrativo, TI">
+                       placeholder="Ex: Administrativo, TI" maxlength="100">
             </div>
-            <button type="submit" class="btn btn-primary btn-full btn-sm mt-8">
+            <!-- Stage 3: escolaridade editável (antes só existia no cadastro) -->
+            <div class="form-group">
+                <label class="form-label">Escolaridade</label>
+                <select name="escolaridade_status" class="form-control" form="formPerfil">
+                    <option value="cursando" <?= $jovem['escolaridade_status'] !== 'completo' ? 'selected' : '' ?>>Cursando</option>
+                    <option value="completo" <?= $jovem['escolaridade_status'] === 'completo' ? 'selected' : '' ?>>Concluído</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Ano Escolar / Conclusão</label>
+                <input type="text" name="formacao" class="form-control" form="formPerfil"
+                       value="<?= htmlspecialchars($jovem['formacao'] ?? '') ?>"
+                       placeholder="Ex: 3º ano Ensino Médio" maxlength="100">
+            </div>
+            <div class="form-group">
+                <label class="form-check">
+                    <input type="checkbox" name="escolaridade_tipo" value="tecnico" form="formPerfil"
+                           <?= $jovem['escolaridade_tipo'] === 'tecnico' ? 'checked' : '' ?>>
+                    <span class="form-check-label">Possuo curso técnico</span>
+                </label>
+                <input type="text" name="escolaridade_curso" class="form-control mt-8" form="formPerfil"
+                       value="<?= htmlspecialchars($jovem['escolaridade_curso'] ?? '') ?>"
+                       placeholder="Nome do curso técnico (ex: Administração)" maxlength="100">
+            </div>
+            <button type="submit" form="formPerfil" class="btn btn-primary btn-full btn-sm mt-8">
                 Salvar Dados Básicos
             </button>
         </div>
@@ -432,23 +551,49 @@ $localizacao = implode(', ', $local_parts);
         <div class="profile-section fade-up">
             <div class="profile-section-head">
                 <h2 class="profile-section-title">📄 Currículo Automático</h2>
-                <a href="../uploads/curriculos/curriculo_<?= $jovem_id ?>.pdf"
-                   target="_blank"
+                <?php if ($tem_curriculo): ?>
+                <a href="<?= $link_curriculo ?>"
+                   target="_blank" rel="noopener"
                    class="btn btn-secondary btn-sm"
                    id="btnBaixarPDF">
                     ⬇ Baixar PDF
                 </a>
+                <?php endif; ?>
             </div>
 
             <div class="form-group">
                 <label class="form-label">Objetivo e Resumo Profissional</label>
-                <textarea name="resumo_profissional" class="form-control"
+                <textarea name="resumo_profissional" class="form-control" form="formPerfil"
                           rows="5"
                           placeholder="Escreva um resumo profissional claro: seus objetivos, área de interesse e diferenciais..."
                           ><?= htmlspecialchars($jovem['resumo_profissional'] ?? '') ?></textarea>
             </div>
 
-            <button type="submit" class="btn btn-primary btn-sm">Salvar Resumo</button>
+            <button type="submit" form="formPerfil" class="btn btn-primary btn-sm">Salvar Resumo</button>
+
+            <!-- Stage 3: envio do currículo em PDF. uploads/curriculos.php já existia
+                 (com validação de tipo/tamanho), mas nenhuma tela o usava. -->
+            <div class="form-group" id="curriculo" style="margin-top:20px;">
+                <label class="form-label">Currículo em PDF</label>
+                <p class="text-secondary" style="font-size:13px;margin-bottom:8px;">
+                    <?php if ($tem_curriculo): ?>
+                        ✓ Currículo enviado.
+                        <a href="<?= $link_curriculo ?>" target="_blank" rel="noopener">Ver PDF</a>
+                        — envie outro arquivo para substituir.
+                    <?php else: ?>
+                        Nenhum currículo enviado ainda.
+                    <?php endif; ?>
+                </p>
+                <form method="POST" action="../uploads/curriculos.php" enctype="multipart/form-data"
+                      style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="MAX_FILE_SIZE" value="5242880">
+                    <input type="file" name="curriculo" accept="application/pdf,.pdf" required
+                           class="form-control" style="flex:1;min-width:200px;">
+                    <button type="submit" class="btn btn-secondary btn-sm">Enviar PDF</button>
+                </form>
+                <p class="text-muted" style="font-size:11px;margin-top:6px;">Somente PDF, até 5 MB.</p>
+            </div>
         </div>
 
         <!-- Formação Acadêmica -->
@@ -464,32 +609,41 @@ $localizacao = implode(', ', $local_parts);
                  style="background:var(--bg-input);border-radius:var(--radius-sm);padding:16px;margin-bottom:16px;">
                 <form method="POST" action="perfil.php">
                     <input type="hidden" name="action" value="add_formacao">
+    <?= csrf_field() ?>
                     <div class="form-row">
                         <div class="form-group">
                             <label class="form-label">Curso / Nível *</label>
                             <input type="text" name="form_titulo" class="form-control"
-                                   placeholder="Ex: Ensino Médio, Técnico em Adm" required>
+                                   placeholder="Ex: Ensino Médio, Técnico em Adm" maxlength="150" required>
                         </div>
                         <div class="form-group">
                             <label class="form-label">Instituição</label>
                             <input type="text" name="form_instituicao" class="form-control"
-                                   placeholder="Nome da escola">
+                                   placeholder="Nome da escola" maxlength="150">
                         </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
                             <label class="form-label">Conclusão</label>
                             <input type="text" name="form_conclusao" class="form-control"
-                                   placeholder="Ex: Dezembro/2025 ou Em andamento">
+                                   placeholder="Ex: 12/2025 ou Em andamento" maxlength="20">
                         </div>
                         <div class="form-group">
                             <label class="form-label">Área (técnico)</label>
                             <input type="text" name="form_area" class="form-control"
-                                   placeholder="Ex: Administrativo">
+                                   placeholder="Ex: Administrativo" maxlength="100">
                         </div>
                     </div>
                     <button type="submit" class="btn btn-primary btn-sm">Adicionar</button>
                 </form>
+            </div>
+
+            <!-- Stage 3: escolaridade informada no cadastro (editável em "Editar Dados") -->
+            <div class="edu-item">
+                <div>
+                    <p class="edu-title">Escolaridade</p>
+                    <p class="edu-sub"><?= htmlspecialchars($esc_resumo) ?></p>
+                </div>
             </div>
 
             <!-- Lista de formações -->
@@ -506,6 +660,7 @@ $localizacao = implode(', ', $local_parts);
                     </div>
                     <form method="POST" action="perfil.php" style="display:inline;">
                         <input type="hidden" name="action"  value="del_formacao">
+    <?= csrf_field() ?>
                         <input type="hidden" name="form_id" value="<?= intval($f['id']) ?>">
                         <button type="submit" class="edu-delete" title="Remover">🗑</button>
                     </form>
@@ -529,23 +684,24 @@ $localizacao = implode(', ', $local_parts);
                  style="background:var(--bg-input);border-radius:var(--radius-sm);padding:16px;margin-bottom:16px;">
                 <form method="POST" action="perfil.php">
                     <input type="hidden" name="action" value="add_experiencia">
+    <?= csrf_field() ?>
                     <div class="form-row">
                         <div class="form-group">
                             <label class="form-label">Título / Função *</label>
                             <input type="text" name="exp_titulo" class="form-control"
-                                   placeholder="Ex: Estágio, Voluntariado" required>
+                                   placeholder="Ex: Estágio, Voluntariado" maxlength="150" required>
                         </div>
                         <div class="form-group">
                             <label class="form-label">Local</label>
                             <input type="text" name="exp_local" class="form-control"
-                                   placeholder="Nome da organização">
+                                   placeholder="Nome da organização" maxlength="150">
                         </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
                             <label class="form-label">Período</label>
                             <input type="text" name="exp_periodo" class="form-control"
-                                   placeholder="Jan/2024 – Mar/2024">
+                                   placeholder="Jan/2024 – Mar/2024" maxlength="50">
                         </div>
                         <div class="form-group">
                             <label class="form-label">Descrição</label>
@@ -569,6 +725,7 @@ $localizacao = implode(', ', $local_parts);
                     </div>
                     <form method="POST" action="perfil.php" style="display:inline;">
                         <input type="hidden" name="action" value="del_experiencia">
+    <?= csrf_field() ?>
                         <input type="hidden" name="exp_id" value="<?= intval($e['id']) ?>">
                         <button type="submit" class="edu-delete" title="Remover">🗑</button>
                     </form>
@@ -594,8 +751,29 @@ $localizacao = implode(', ', $local_parts);
                 <form method="POST" action="perfil.php"
                       style="display:flex;gap:8px;width:100%;">
                     <input type="hidden" name="action" value="add_habilidade">
+    <?= csrf_field() ?>
+                    <!-- Stage 3: escolha uma habilidade da lista ou digite uma personalizada -->
                     <input type="text" name="habilidade" class="form-control"
-                           placeholder="Ex: Excel Básico, Organização" required>
+                           list="habilidadesSugeridas" maxlength="80" autocomplete="off"
+                           placeholder="Escolha da lista ou digite (ex: Excel Básico)" required>
+                    <datalist id="habilidadesSugeridas">
+                        <option value="Boa Comunicação">
+                        <option value="Trabalho em Equipe">
+                        <option value="Organização">
+                        <option value="Pontualidade">
+                        <option value="Proatividade">
+                        <option value="Responsabilidade">
+                        <option value="Atendimento ao Cliente">
+                        <option value="Resolução de Problemas">
+                        <option value="Informática Básica">
+                        <option value="Excel Básico">
+                        <option value="Word">
+                        <option value="PowerPoint">
+                        <option value="Canva">
+                        <option value="Inglês Básico">
+                        <option value="Espanhol Básico">
+                        <option value="Digitação">
+                    </datalist>
                     <button type="submit" class="btn btn-primary btn-sm"
                             style="white-space:nowrap;">Adicionar</button>
                 </form>
@@ -608,6 +786,7 @@ $localizacao = implode(', ', $local_parts);
                         <span class="skill-chip"><?= htmlspecialchars($h['habilidade']) ?></span>
                         <form method="POST" action="perfil.php" style="display:inline;">
                             <input type="hidden" name="action" value="del_habilidade">
+    <?= csrf_field() ?>
                             <input type="hidden" name="hab_id" value="<?= intval($h['id']) ?>">
                             <button type="submit"
                                     class="text-muted"
@@ -638,20 +817,19 @@ $localizacao = implode(', ', $local_parts);
                     <span>Permitir que empresas encontrem seu currículo nas buscas.</span>
                 </div>
                 <label class="toggle">
-                    <input type="checkbox" name="perfil_publico" value="1"
+                    <input type="checkbox" name="perfil_publico" value="1" form="formPerfil"
                            <?= $jovem['perfil_publico'] ? 'checked' : '' ?>>
                     <span class="toggle-track"></span>
                 </label>
             </div>
             <div style="margin-top:16px;">
-                <button type="submit" class="btn btn-primary btn-sm">Salvar Visibilidade</button>
+                <button type="submit" form="formPerfil" class="btn btn-primary btn-sm">Salvar Visibilidade</button>
             </div>
         </div>
 
     </main><!-- /.profile-main -->
 
 </div><!-- /.profile-page -->
-</form>
 
 <?php else: ?>
 <!-- ============================================================
@@ -682,6 +860,12 @@ $localizacao = implode(', ', $local_parts);
             </p>
         </div>
         <?php endif; ?>
+
+        <!-- Stage 3: escolaridade do cadastro também visível para a empresa -->
+        <div class="profile-info-item">
+            <p class="profile-info-label">🎓 Escolaridade</p>
+            <p style="font-size:13px;color:var(--text-secondary);"><?= htmlspecialchars($esc_resumo) ?></p>
+        </div>
 
         <!-- Formação Acadêmica -->
         <?php if (!empty($formacoes)): ?>
@@ -732,12 +916,18 @@ $localizacao = implode(', ', $local_parts);
             <div class="pdf-card" style="margin-bottom:12px;">
                 <div class="pdf-icon">📄</div>
                 <p class="pdf-title">Currículo em PDF</p>
-                <a href="../uploads/curriculos/curriculo_<?= $jovem_id ?>.pdf"
-                   target="_blank"
+                <?php if ($tem_curriculo): ?>
+                <a href="<?= $link_curriculo ?>"
+                   target="_blank" rel="noopener"
                    class="btn btn-ghost btn-sm btn-full"
                    style="margin-top:10px;">
                     Ver documento
                 </a>
+                <?php else: ?>
+                <p class="text-muted" style="font-size:12px;margin-top:10px;">
+                    Este candidato ainda não enviou um currículo.
+                </p>
+                <?php endif; ?>
             </div>
 
             <!-- Agendar entrevista -->
@@ -778,12 +968,10 @@ $localizacao = implode(', ', $local_parts);
 
 
 <!-- ============================================================
-     FABs FLUTUANTES
+     FABs + Assistente + Acessibilidade
+     Stage 3: antes os botões ✦/♿ existiam sem painel nem script.
      ============================================================ -->
-<div class="fab-stack">
-    <button class="fab fab-ai"   id="btnChat" title="Assistente IA"  aria-label="IA">✦</button>
-    <button class="fab fab-a11y" id="btnA11y" title="Acessibilidade" aria-label="Acessibilidade">♿</button>
-</div>
+<?php include dirname(__DIR__) . '/includes/assistente.php'; ?>
 
 <!-- Modal de exclusão (só aparece para o dono) -->
 <?php if ($eh_dono): ?>
@@ -799,6 +987,7 @@ $localizacao = implode(', ', $local_parts);
         </p>
         <form method="POST" action="excluir_conta.php">
             <input type="hidden" name="confirmar" value="1">
+    <?= csrf_field() ?>
             <div class="d-flex gap-12" style="justify-content:center;">
                 <button type="button" class="btn btn-secondary" id="btnCancelarExcluir">Cancelar</button>
                 <button type="submit" class="btn btn-danger">Excluir Permanentemente</button>
@@ -829,6 +1018,16 @@ const btnEditar = document.getElementById('btnEditar');
 let editando = false;
 btnEditar?.addEventListener('click', () => {
     editando = !editando;
+    if (!editando) {
+        // Revisão Stage 3: "Cancelar" descarta o que foi digitado no modo edição —
+        // senão os outros botões "Salvar" do formPerfil enviariam essas alterações
+        document.querySelectorAll('#editNome input, #editNome select, #editDados input, #editDados select')
+            .forEach(el => {
+                if (el.type === 'checkbox' || el.type === 'radio') el.checked = el.defaultChecked;
+                else if (el.tagName === 'SELECT') [...el.options].forEach(o => { o.selected = o.defaultSelected; });
+                else el.value = el.defaultValue;
+            });
+    }
     ['viewNome','editNome','viewDados','editDados'].forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;

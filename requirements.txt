@@ -1,18 +1,21 @@
 # Requisitos do Sistema - JovemConnect v2.59
-
-[Ambiente]
-- Servidor: Apache 2.4+
-- Banco de Dados: MySQL 8.0+ / MariaDB
-- PHP: v8.0 ou superior (Obrigatório para suporte a Password Hash e Union Types)
-
-[Extensões PHP Necessárias]
-- mysqli (Conexão com Banco de Dados)
-- openssl (Segurança/Criptografia)
-- session (Gerenciamento de login)
-- json (Processamento de APIs)
-
-[Ferramenta Recomendada]
-- XAMPP v3.3.0+ (Já inclui PHP, Apache e MySQL configurados)
+#
+# Stage 3: as linhas de documentacao abaixo viraram comentarios ("#") para que
+# "pip install -r requirements.txt" funcione — antes o pip parava em "[Ambiente]".
+#
+# [Ambiente]
+# - Servidor: Apache 2.4+
+# - Banco de Dados: MySQL 8.0+ / MariaDB
+# - PHP: v8.0 ou superior (Obrigatório para suporte a Password Hash e Union Types)
+#
+# [Extensões PHP Necessárias]
+# - mysqli (Conexão com Banco de Dados)
+# - openssl (Segurança/Criptografia)
+# - session (Gerenciamento de login)
+# - json (Processamento de APIs)
+#
+# [Ferramenta Recomendada]
+# - XAMPP v3.3.0+ (Já inclui PHP, Apache e MySQL configurados)
 
 flask
 flask-cors          # Essencial para o PHP conseguir chamar o Flask sem erro de segurança

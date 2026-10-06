@@ -9,7 +9,7 @@
 
    Retorna JSON sempre — nunca HTML.
    ============================================================ */
-session_start();
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
 header('Content-Type: application/json; charset=utf-8');
 
 // Sem sessão → 401
@@ -27,6 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 require_once dirname(__DIR__) . "/includes/config.php";
+csrf_require(true);
 
 // Lê o body JSON
 $input = json_decode(file_get_contents('php://input'), true);

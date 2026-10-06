@@ -7,7 +7,7 @@
    Sem include de auth.php:   sessão verificada diretamente aqui.
    Sem include de footer.php: página tem sua própria estrutura HTML.
    ============================================================ */
-session_start();
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
 
 // Sessão ativa → redireciona sem mostrar o formulário
 if (isset($_SESSION['empresa_id'])) {
@@ -44,6 +44,24 @@ if (isset($_SESSION['jovem_id'])) {
     <p class="text-secondary" style="font-size:13px;text-align:center;margin-bottom:28px;">
         Entre para ver as novidades no seu feed
     </p>
+
+    <!-- ── Erro de login (gravado por processar_login.php) ───────────────────── -->
+    <!-- Stage 3: empresa/processar_login.php grava este erro, mas esta página
+         nunca o exibia — senha errada recarregava a tela sem nenhum aviso. -->
+    <?php if (!empty($_SESSION['erro_login'])): ?>
+    <div style="
+        background : rgba(239,68,68,.12);
+        border     : 1px solid rgba(239,68,68,.3);
+        border-radius: var(--radius-sm);
+        padding    : 12px 16px;
+        margin-bottom: 20px;
+        font-size  : 13px;
+        color      : #f87171;
+    ">
+        ⚠ <?= htmlspecialchars($_SESSION['erro_login']) ?>
+        <?php unset($_SESSION['erro_login']); ?>
+    </div>
+    <?php endif; ?>
 
     <!-- ── Sucesso (ex.: senha redefinida por recuperar_senha.php) ────────────── -->
     <?php if (!empty($_SESSION['sucesso_login'])): ?>
@@ -88,6 +106,7 @@ if (isset($_SESSION['jovem_id'])) {
 
         <!-- Campo oculto: define qual processar_login.php será usado -->
         <input type="hidden" name="tipo_usuario" id="tipo_usuario" value="empresa">
+        <?= csrf_field() ?>
 
         <!-- E-mail -->
         <div class="form-group">
