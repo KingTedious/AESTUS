@@ -81,7 +81,7 @@ if (isset($_SESSION['empresa_id'])) {
 <section class="hero-section">
 
     <div class="home-fundo hero-fundo" aria-hidden="true">
-        <img src="assets/img/home/pessoa-computador.jpg" alt="" width="275" height="183" decoding="async">
+        <img src="assets/img/home/pessoa-computador.jpg" alt="" width="1398" height="2097" decoding="async">
     </div>
 
     <div class="hero-text fade-up">

@@ -2738,3 +2738,194 @@ html:not([data-theme="light"]):not([data-high-contrast]) :is(.filter-chip, .ia-a
 }
 /* erro de campo no tema escuro: #ef4444 no card dava 4,4:1 → #f87171 dá 6,0:1 (claro e alto contraste claro têm regra própria) */
 html:not([data-theme="light"]) :is(.form-error, .text-danger) { color: #f87171; }
+
+/* ============================================================
+   28. STAGE 5.1 — AJUSTES FINAIS, LOCAL DE TRABALHO E MATCH
+   ============================================================ */
+
+/* ── Locais de trabalho (empresa/locais.php e "Criar vaga") ─────── */
+.local-endereco { font-size: 14px; line-height: 1.6; color: var(--text-secondary); }
+.locais-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.local-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+}
+.local-item-texto { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1 1 260px; }
+.local-item-texto .local-endereco { overflow-wrap: anywhere; }
+.local-item-acoes { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.local-item-acoes form { margin: 0; }
+.local-opcoes { border: 0; margin: 0 0 12px; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.local-opcoes legend { padding: 0; margin-bottom: 8px; }
+.local-opcao {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color var(--dur), background var(--dur);
+}
+.local-opcao:hover { border-color: var(--accent); }
+.local-opcao:has(input:checked) { border-color: var(--accent); background: var(--accent-subtle); }
+/* sobre o fundo destacado, o endereço usa a cor principal do texto (contraste ≥ 4,5:1) */
+.local-opcao:has(input:checked) .local-opcao-texto span { color: var(--text-primary); }
+.local-opcao:has(input:disabled) { opacity: .6; cursor: not-allowed; }
+.local-opcao input { margin-top: 3px; flex-shrink: 0; accent-color: var(--accent-fill); }
+.local-opcao-texto { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 14px; }
+.local-opcao-texto span { color: var(--text-secondary); font-size: 13px; overflow-wrap: anywhere; }
+.local-origem { font-size: 12px; font-weight: 600; color: var(--accent-light); }
+/* "Outro endereço" na criação da vaga (fieldset sem moldura) */
+.local-outro { border: 0; padding: 0; margin: 8px 0 0; min-width: 0; }
+
+/* ── Match: resultado e análise detalhada ───────────────────────── */
+/* botão do Match nos cards depois do cálculo: travado, mas legível */
+.btn-ia.match-resultado:disabled { opacity: 1; cursor: default; }
+.match-card { text-align: center; padding: 36px 24px 28px; }
+/* estados (carregando / resultado / erro) alternados pelo atributo hidden —
+   precisa vencer o display:flex de .match-estado */
+.match-card [hidden] { display: none !important; }
+.match-estado { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.match-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.match-eyebrow .i { color: var(--accent-light); font-size: 16px; }
+.match-score {
+  margin: 10px 0 4px;
+  font-size: 56px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -.02em;
+  color: var(--text-primary);
+}
+.match-score-max { font-size: 22px; font-weight: 700; color: var(--text-secondary); margin-left: 2px; }
+.match-barra {
+  position: relative;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.match-barra > span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0;
+  border-radius: inherit;
+  background: var(--accent-fill);
+  transition: width .5s ease;
+}
+.match-card .match-barra { max-width: 320px; margin: 14px auto 12px; }
+.match-rotulo {
+  display: inline-block;
+  padding: 4px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--accent-subtle);
+  color: var(--accent-light);
+}
+.match-texto { max-width: 520px; margin: 14px auto 0; font-size: 14px; line-height: 1.6; color: var(--text-secondary); }
+.match-acoes { margin-top: 22px; display: flex; justify-content: center; }
+.match-nota { margin-top: 14px; font-size: 12px; color: var(--text-muted); }
+.match-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.match-modal { max-width: 720px; }
+.match-modal .jc-modal-corpo h3 { display: flex; align-items: center; gap: 8px; }
+.match-modal .jc-modal-corpo h3 .i { color: var(--accent-light); }
+.match-resumo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  text-align: center;
+}
+.match-resumo .match-score { font-size: 40px; margin: 0; }
+.match-categorias { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 16px; }
+.match-cat-topo { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.match-cat-topo .i { color: var(--accent-light); font-size: 16px; }
+.match-cat-nome { font-weight: 700; color: var(--text-primary); }
+.match-cat-valor { margin-left: auto; font-weight: 800; color: var(--text-primary); white-space: nowrap; }
+.match-cat-pontos { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+.match-cat-exp { font-size: 13px; line-height: 1.55; margin-top: 4px; }
+.match-cat-ia {
+  margin-top: 6px;
+  padding: 8px 10px;
+  border-left: 3px solid var(--accent-fill);
+  border-radius: 0 6px 6px 0;
+  background: var(--accent-subtle);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-primary);
+}
+.match-ajuste {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+}
+.match-ajuste .i { color: var(--jc-aviso-texto, #facc15); font-size: 16px; margin-top: 1px; }
+.match-colunas { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.match-lista { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.6; list-style: disc; }
+.match-lista li::marker { color: var(--accent-light); }
+.match-lista .match-lista-vazia { list-style: none; }
+.match-lista li + li { margin-top: 6px; }
+.match-lista-vazia { font-size: 13px; color: var(--text-muted); }
+.match-bloco-ia {
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+}
+.match-selo-ia {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--accent-subtle);
+  color: var(--accent-light);
+}
+.match-carregando { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-secondary); }
+/* alto contraste e cores forçadas: a barra continua visível */
+html[data-high-contrast] .match-barra { border-color: var(--text-primary); }
+@media (forced-colors: active) {
+  .match-barra { forced-color-adjust: none; background: Canvas; border-color: CanvasText; }
+  .match-barra > span { background: Highlight; }
+}
+@media (max-width: 480px) {
+  .match-card { padding: 28px 16px 22px; }
+  .match-score { font-size: 48px; }
+  .match-resumo .match-score { font-size: 34px; }
+}

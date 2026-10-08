@@ -22,8 +22,10 @@ if (!isset($_SESSION['empresa_id'])) {
 }
 
 require_once dirname(__DIR__) . "/includes/config.php";
+require_once dirname(__DIR__) . "/includes/locais.php";   // Stage 5.1: local de trabalho
 
 $empresa_id = intval($_SESSION['empresa_id']);
+$tem_locais = jc_locais_disponiveis($conn);   // Stage 5.1: sem a migração, o formulário é o de antes
 
 /* ============================================================
    PROCESSAMENTO POST
@@ -55,28 +57,108 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ? substr($cep, 0, 5) . '-' . substr($cep, 5)
         : null;
 
-    // ── Insere a vaga ─────────────────────────────────────────────────────────
-    $stmt = $conn->prepare(
-        "INSERT INTO vagas
-             (empresa_id, titulo, descricao, cidade, estado, cep,
-              salario, carga_horaria, area, tipo_contrato)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-    );
-    $stmt->bind_param(
-        "isssssssss",
-        $empresa_id, $titulo, $descricao, $cidade, $estado, $cep_fmt,
-        $salario, $carga_horaria, $area, $tipo_contrato
-    );
+    // ── Stage 5.1: local de trabalho ──────────────────────────────────────────
+    // Padrão: endereço principal da empresa. Ou um local já cadastrado
+    // (escritório, filial...). Ou "outro endereço", que vira um local novo
+    // da empresa. A vaga guarda a referência + cópia de cidade/UF/CEP
+    // (a busca e as listas de vagas usam essas colunas).
+    $local_trabalho = null;
+    $local_id       = null;
+    $local_novo     = null;
+    $escolha        = is_string($_POST['local_trabalho'] ?? null) ? $_POST['local_trabalho'] : null;
+    if ($tem_locais && $escolha === null && ($cidade !== '' || $estado !== '')) {
+        // formulário antigo (página aberta antes da atualização): mantém o
+        // comportamento anterior — cidade/UF/CEP digitados na própria vaga
+        $tem_locais_form = false;
+    } else {
+        $tem_locais_form = $tem_locais;
+    }
+    if ($tem_locais_form) {
+        $escolha = $escolha ?? 'empresa';
+        if ($escolha === 'outro') {
+            $local_novo = jc_local_do_post($_POST, 'local_');
+            if (jc_local_erro($local_novo) !== null) {
+                header("Location: criar.php?error=local");
+                exit;
+            }
+            $local_trabalho = 'local';
+            $end_vaga       = $local_novo;
+        } elseif (preg_match('/^local:(\d+)$/', $escolha, $m)) {
+            $end_vaga = null;
+            foreach (jc_locais_da_empresa($conn, $empresa_id) as $l) {   // só locais da própria empresa
+                if (intval($l['id']) === intval($m[1])) {
+                    $end_vaga = jc_local_partes($l, '');
+                    $local_id = intval($l['id']);
+                }
+            }
+            if ($end_vaga === null) {
+                header("Location: criar.php?error=local");
+                exit;
+            }
+            $local_trabalho = 'local';
+        } else {
+            $local_trabalho = 'empresa';
+            $end_vaga       = jc_endereco_principal($conn, $empresa_id);
+            if ($end_vaga['cidade'] === '') {   // sem cidade no perfil: a opção nem aparece habilitada
+                header("Location: criar.php?error=local");
+                exit;
+            }
+        }
+        $cidade  = $end_vaga['cidade'];
+        $estado  = $end_vaga['estado'];
+        $cep_fmt = jc_cep_formatado($end_vaga['cep']);
+    }
 
-    if (!$stmt->execute()) {
-        error_log("[JovemConnect] Erro ao criar vaga: " . $conn->error);
+    // ── Insere a vaga ─────────────────────────────────────────────────────────
+    try {
+        if ($tem_locais_form) {
+            $conn->begin_transaction();
+            if ($local_novo !== null) {
+                $local_id = jc_local_inserir($conn, $empresa_id, $local_novo);
+                if ($local_id <= 0) {
+                    throw new RuntimeException('local de trabalho não gravado');
+                }
+            }
+            $stmt = $conn->prepare(
+                "INSERT INTO vagas
+                     (empresa_id, titulo, descricao, cidade, estado, cep, local_trabalho, local_id,
+                      salario, carga_horaria, area, tipo_contrato)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            );
+            $stmt->bind_param(
+                "issssssissss",
+                $empresa_id, $titulo, $descricao, $cidade, $estado, $cep_fmt, $local_trabalho, $local_id,
+                $salario, $carga_horaria, $area, $tipo_contrato
+            );
+        } else {
+            $stmt = $conn->prepare(
+                "INSERT INTO vagas
+                     (empresa_id, titulo, descricao, cidade, estado, cep,
+                      salario, carga_horaria, area, tipo_contrato)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            );
+            $stmt->bind_param(
+                "isssssssss",
+                $empresa_id, $titulo, $descricao, $cidade, $estado, $cep_fmt,
+                $salario, $carga_horaria, $area, $tipo_contrato
+            );
+        }
+        if (!$stmt->execute()) {
+            throw new RuntimeException($conn->error);
+        }
+        $vaga_id = intval($conn->insert_id);
         $stmt->close();
+        if ($tem_locais_form) {
+            $conn->commit();
+        }
+    } catch (Throwable $e) {
+        error_log("[JovemConnect] Erro ao criar vaga: " . $e->getMessage());
+        if ($tem_locais_form) {
+            try { $conn->rollback(); } catch (Throwable $e2) { /* sem transação aberta */ }
+        }
         header("Location: criar.php?error=db");
         exit;
     }
-
-    $vaga_id = intval($conn->insert_id);
-    $stmt->close();
 
     // ── Insere requisitos (tabela requisitos_vaga) ────────────────────────────
     if (!empty($requisitos_raw)) {
@@ -127,6 +209,8 @@ $error = $_GET['error'] ?? null;
 $erros_msg = [
     'missing' => 'Preencha os campos obrigatórios: Título, Descrição e Tipo de Contrato.',
     'db'      => 'Erro interno ao salvar a vaga. Tente novamente.',
+    // Stage 5.1
+    'local'   => 'Informe pelo menos a cidade e a UF do local de trabalho (ou escolha o endereço principal da empresa).',
 ];
 ?>
 <!DOCTYPE html>
@@ -236,7 +320,74 @@ $erros_msg = [
 
         <!-- ================================================================
              CARD 3 — Localização
+             Stage 5.1: com a migração, "Local de trabalho" (endereço principal
+             da empresa, um local cadastrado ou outro endereço). Sem ela, o
+             card antigo (CEP/cidade/UF) continua igual.
              ================================================================ -->
+        <?php if ($tem_locais):
+            $principal     = jc_endereco_principal($conn, $empresa_id);
+            $principal_txt = endereco_empresa_formatado($principal);
+            $locais_emp    = jc_locais_da_empresa($conn, $empresa_id);
+            $padrao        = $principal['cidade'] !== '' ? 'empresa' : ($locais_emp ? 'local:' . intval($locais_emp[0]['id']) : 'outro');
+            $form          = ['cep' => '', 'logradouro' => '', 'numero' => '', 'complemento' => '', 'bairro' => '', 'cidade' => '', 'estado' => ''];
+        ?>
+        <div class="form-card">
+            <div class="form-section-header">
+                <span class="i i-map-pin" aria-hidden="true"></span> Local de trabalho
+            </div>
+            <fieldset class="local-opcoes">
+                <legend class="form-label">Onde a pessoa vai trabalhar?</legend>
+                <label class="local-opcao">
+                    <input type="radio" name="local_trabalho" value="empresa"
+                           <?= $padrao === 'empresa' ? 'checked' : '' ?> <?= $principal['cidade'] === '' ? 'disabled' : '' ?>>
+                    <span class="local-opcao-texto">
+                        <strong>Endereço principal da empresa</strong>
+                        <span><?= $principal_txt !== '' ? htmlspecialchars($principal_txt) : 'A empresa ainda não tem cidade cadastrada no perfil.' ?></span>
+                    </span>
+                </label>
+                <?php foreach ($locais_emp as $l): $valor = 'local:' . intval($l['id']); ?>
+                <label class="local-opcao">
+                    <input type="radio" name="local_trabalho" value="<?= $valor ?>" <?= $padrao === $valor ? 'checked' : '' ?>>
+                    <span class="local-opcao-texto">
+                        <strong><?= htmlspecialchars(jc_local_rotulo($l['tipo'], $l['nome'])) ?></strong>
+                        <span><?= htmlspecialchars(endereco_empresa_formatado($l)) ?></span>
+                    </span>
+                </label>
+                <?php endforeach; ?>
+                <label class="local-opcao">
+                    <input type="radio" name="local_trabalho" value="outro" <?= $padrao === 'outro' ? 'checked' : '' ?>>
+                    <span class="local-opcao-texto">
+                        <strong>Outro endereço</strong>
+                        <span>Fica salvo nos locais da empresa para as próximas vagas.</span>
+                    </span>
+                </label>
+            </fieldset>
+
+            <!-- escondido = desabilitado: os campos só vão no envio quando "Outro endereço" está marcado -->
+            <fieldset id="localOutro" class="local-outro" <?= $padrao === 'outro' ? '' : 'hidden disabled' ?>>
+                <legend class="sr-only">Endereço do outro local</legend>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="vagaLocalTipo">Tipo de local</label>
+                        <select name="local_tipo" id="vagaLocalTipo" class="form-control">
+                            <?php foreach (jc_local_tipos() as $v => $tt): ?>
+                            <option value="<?= htmlspecialchars($v) ?>"><?= htmlspecialchars($tt) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="vagaLocalNome">Nome do local (opcional)</label>
+                        <input type="text" name="local_nome" id="vagaLocalNome" class="form-control" maxlength="100"
+                               placeholder="Ex: Unidade Augusta">
+                    </div>
+                </div>
+                <?php $campos_prefixo = 'vagaLocal'; $campos_nome = 'local_'; include dirname(__DIR__) . '/includes/locais_campos.php'; ?>
+            </fieldset>
+            <p style="font-size:13px;margin-top:4px;">
+                <a href="../empresa/locais.php" class="link-seta">Gerenciar locais de trabalho <span class="i i-arrow-right" aria-hidden="true"></span></a>
+            </p>
+        </div><!-- /.form-card local de trabalho -->
+        <?php else: ?>
         <div class="form-card">
             <div class="form-section-header">
                 <span class="i i-map-pin" aria-hidden="true"></span> Localização
@@ -274,6 +425,7 @@ $erros_msg = [
             </div>
 
         </div><!-- /.form-card localização -->
+        <?php endif; ?>
 
         <!-- ================================================================
              CARD 4 — Remuneração e Carga Horária
@@ -441,6 +593,28 @@ document.getElementById('btnBuscarCep')?.addEventListener('click', async functio
         this.innerHTML = '<span class="i i-search" aria-hidden="true"></span>';
         this.removeAttribute('aria-busy');
         this.disabled    = false;
+    }
+});
+
+/* ── Stage 5.1: "Outro endereço" mostra (e habilita) os campos do local ── */
+document.querySelectorAll('input[name="local_trabalho"]').forEach(r => r.addEventListener('change', () => {
+    const outro = document.querySelector('input[name="local_trabalho"][value="outro"]');
+    const bloco = document.getElementById('localOutro');
+    if (!bloco) return;
+    bloco.hidden   = !outro?.checked;
+    bloco.disabled = !outro?.checked;
+}));
+// "Outro endereço" precisa de cidade e UF (o servidor confere de novo)
+document.getElementById('formVaga')?.addEventListener('submit', e => {
+    const outro = document.querySelector('input[name="local_trabalho"][value="outro"]');
+    if (!outro?.checked) return;
+    const vazio = ['vagaLocalCidade', 'vagaLocalEstado']
+        .map(id => document.getElementById(id))
+        .find(el => el && !el.value.trim());
+    if (vazio) {
+        e.preventDefault();
+        window.jcAviso?.('Informe a cidade e a UF do local de trabalho.');
+        vazio.focus();
     }
 });
 

@@ -23,6 +23,7 @@
    ============================================================ */
 require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
 require_once dirname(__DIR__) . '/includes/config.php';
+require_once dirname(__DIR__) . '/includes/locais.php';   // Stage 5.1: local efetivo da vaga
 
 if (!isset($_SESSION['jovem_id']) && !isset($_SESSION['empresa_id'])) {
     header("Location: ../index.php");
@@ -93,6 +94,9 @@ if ($vaga_id <= 0) {
         }
     }
 }
+
+// Stage 5.1: local de trabalho efetivo (local da vaga → endereço principal da empresa)
+$local_vaga = (!$erroPagina && $vaga) ? jc_local_efetivo($conn, $vaga_id) : [];
 
 $perfilLink = ($tipo === 'empresa') ? '../empresa/perfil.php' : '../jovem/perfil.php';
 $voltarLink = ($tipo === 'empresa')
@@ -165,10 +169,11 @@ $voltarLink = ($tipo === 'empresa')
                 <span class="badge badge-area"><?= htmlspecialchars($vaga['area']) ?></span>
                 <?php endif; ?>
             </div>
-            <?php if (!empty($vaga['cidade'])): ?>
+            <?php if (($local_vaga['nivel'] ?? 'indisponivel') !== 'indisponivel'): ?>
+            <!-- Stage 5.1: local de trabalho efetivo (o mesmo usado no Match) -->
             <div class="job-card-location">
                 <span class="i i-map-pin" aria-hidden="true"></span>
-                <span><?= htmlspecialchars($vaga['cidade']) ?><?= !empty($vaga['estado']) ? ', ' . htmlspecialchars($vaga['estado']) : '' ?></span>
+                <span><?= htmlspecialchars($local_vaga['texto']) ?></span>
             </div>
             <?php endif; ?>
             <?php if (!empty($vaga['tipo_contrato'])): ?>
@@ -192,24 +197,85 @@ $voltarLink = ($tipo === 'empresa')
             <?php endif; ?>
         </div>
 
-        <!-- ── RESULTADO DA IA (preenchido via JS) ──────────────────────────── -->
-        <div class="card fade-up" id="cardResultado" style="text-align:center;padding:40px 24px;">
-            <div id="estadoCarregando">
+        <!-- ── RESULTADO (preenchido via JS) ───────────────────────────────────
+             Stage 5.1: nota centralizada (Match tradicional) + "Ver análise
+             detalhada" (modal com a composição da nota, o local de trabalho
+             usado e a análise contextual opcional do Gemini). -->
+        <section class="card fade-up match-card" id="cardResultado" aria-labelledby="matchTitulo" aria-live="polite">
+            <div id="estadoCarregando" class="match-estado">
                 <span class="loading-spinner"></span>
-                <p class="text-secondary" style="margin-top:12px;">Calculando compatibilidade...</p>
+                <p class="text-secondary">Calculando compatibilidade...</p>
             </div>
 
-            <div id="estadoSucesso" style="display:none;">
-                <div style="font-size:40px;font-weight:800;color:var(--accent);" id="scoreValor">--%</div>
-                <p class="text-secondary" style="margin:8px 0 20px;">de compatibilidade</p>
-                <p id="analiseTexto" style="text-align:left;line-height:1.6;font-size:14px;"></p>
-                <ul id="motivosLista" style="text-align:left;font-size:13px;margin-top:12px;padding-left:20px;"></ul>
+            <div id="estadoSucesso" hidden>
+                <p class="match-eyebrow" id="matchTitulo"><span class="i i-sparkles" aria-hidden="true"></span> Compatibilidade</p>
+                <p class="match-score"><span id="scoreValor">--</span><span class="match-score-max">/100</span></p>
+                <div class="match-barra" aria-hidden="true"><span id="scoreBarra"></span></div>
+                <p class="match-rotulo" id="scoreRotulo"></p>
+                <p class="match-texto" id="analiseTexto"></p>
+                <div class="match-acoes">
+                    <button type="button" class="btn btn-primary" id="btnAnaliseDetalhada" aria-haspopup="dialog">
+                        <span class="i i-list-checks" aria-hidden="true"></span> Ver análise detalhada
+                    </button>
+                </div>
+                <p class="match-nota">Nota calculada pelo Match do JovemConnect, com critérios objetivos.</p>
             </div>
 
-            <div id="estadoErro" style="display:none;">
+            <div id="estadoErro" hidden>
                 <div class="icone-destaque aviso" aria-hidden="true"><span class="i i-alert-triangle" aria-hidden="true"></span></div>
                 <p class="text-secondary" id="erroTexto">Não foi possível calcular a compatibilidade agora.</p>
                 <button class="btn btn-ghost btn-sm" style="margin-top:16px;" onclick="carregarAvaliacao()">Tentar novamente</button>
+            </div>
+        </section>
+
+        <!-- Stage 5.1: análise detalhada (mesmo padrão dos modais da Stage 5) -->
+        <div class="jc-modal" id="modalAnalise" role="dialog" aria-modal="true" aria-labelledby="modalAnaliseTitulo">
+            <div class="jc-modal-caixa match-modal">
+                <div class="jc-modal-topo">
+                    <h2 id="modalAnaliseTitulo"><span class="i i-sparkles" aria-hidden="true"></span> Análise detalhada</h2>
+                    <button type="button" class="jc-modal-fechar" data-jc-modal-fechar aria-label="Fechar análise detalhada"><span class="i i-x" aria-hidden="true"></span></button>
+                </div>
+                <div class="jc-modal-corpo">
+                    <div class="match-resumo">
+                        <p class="match-score"><span id="modalScore">--</span><span class="match-score-max">/100</span></p>
+                        <p class="match-rotulo" id="modalRotulo"></p>
+                    </div>
+
+                    <h3 id="secCategorias"><span class="i i-list-checks" aria-hidden="true"></span> Como a nota foi calculada</h3>
+                    <ul class="match-categorias" id="listaCategorias" aria-labelledby="secCategorias"></ul>
+                    <div id="blocoAjuste"></div>
+
+                    <div class="match-colunas">
+                        <section aria-labelledby="secFortes">
+                            <h3 id="secFortes"><span class="i i-check-circle" aria-hidden="true"></span> Pontos fortes</h3>
+                            <ul class="match-lista" id="listaFortes"></ul>
+                        </section>
+                        <section aria-labelledby="secReduziram">
+                            <h3 id="secReduziram"><span class="i i-alert-triangle" aria-hidden="true"></span> O que reduziu a nota</h3>
+                            <ul class="match-lista" id="listaReduziram"></ul>
+                        </section>
+                    </div>
+
+                    <section aria-labelledby="secLocal">
+                        <h3 id="secLocal"><span class="i i-map-pin" aria-hidden="true"></span> Local de trabalho considerado</h3>
+                        <p><strong id="localRotulo"></strong></p>
+                        <p id="localTexto"></p>
+                        <p class="text-muted" id="localAviso" style="font-size:12px;"></p>
+                    </section>
+
+                    <section aria-labelledby="secContexto" id="blocoContexto">
+                        <h3 id="secContexto"><span class="i i-sparkles" aria-hidden="true"></span> Análise contextual</h3>
+                        <div class="match-bloco-ia" id="contextoConteudo" aria-live="polite"></div>
+                    </section>
+
+                    <section aria-labelledby="secLimites">
+                        <h3 id="secLimites"><span class="i i-info" aria-hidden="true"></span> Limitações</h3>
+                        <ul class="match-lista" id="listaLimites"></ul>
+                    </section>
+                </div>
+                <div class="jc-modal-rodape">
+                    <button type="button" class="btn btn-secondary btn-sm" data-jc-modal-fechar>Fechar</button>
+                </div>
             </div>
         </div>
 
@@ -240,58 +306,177 @@ btnTheme?.addEventListener('click', () => {
 });
 
 <?php if (!$erroPagina): ?>
+/* ── Stage 5.1: resultado do Match + análise detalhada ─────────────────────
+   Todo texto vindo do servidor (inclusive da IA) entra com textContent —
+   nunca innerHTML. */
+const MATCH_IDS = { vaga_id: <?= (int) $vaga_id ?>, jovem_id: <?= (int) $jovem_id_avaliado ?> };
+let analiseAtual   = null;
+let contextoCarregado = false;
+
+function elemento(tag, classe, texto) {
+    const el = document.createElement(tag);
+    if (classe) el.className = classe;
+    if (texto !== undefined && texto !== null) el.textContent = String(texto);
+    return el;
+}
+function preencherLista(id, itens, vazio) {
+    const ul = document.getElementById(id);
+    ul.replaceChildren();
+    if (!Array.isArray(itens) || !itens.length) {
+        ul.replaceChildren(elemento('li', 'match-lista-vazia', vazio));
+        return;
+    }
+    itens.forEach(t => ul.appendChild(elemento('li', '', t)));
+}
+async function postarMatch(action) {
+    const res = await fetch('../IA/avaliar_ajax.php', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ action, ...MATCH_IDS }),
+    });
+    const data = await res.json().catch(() => ({}));
+    return { ok: res.ok, data };
+}
+
 async function carregarAvaliacao() {
     const carregando = document.getElementById('estadoCarregando');
-    const sucesso     = document.getElementById('estadoSucesso');
-    const erro        = document.getElementById('estadoErro');
-
-    carregando.style.display = '';
-    sucesso.style.display    = 'none';
-    erro.style.display       = 'none';
+    const sucesso    = document.getElementById('estadoSucesso');
+    const erro       = document.getElementById('estadoErro');
+    carregando.hidden = false; sucesso.hidden = true; erro.hidden = true;
 
     try {
-        const res = await fetch('../IA/avaliar_ajax.php', {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action:   'match',
-                vaga_id:  <?= (int) $vaga_id ?>,
-                jovem_id: <?= (int) $jovem_id_avaliado ?>
-            })
-        });
-
-        const data = await res.json();
-
-        if (!res.ok || typeof data.score === 'undefined') {
+        const { ok, data } = await postarMatch('analise');
+        if (!ok || typeof data.score !== 'number') {
             document.getElementById('erroTexto').textContent =
                 data.error || 'Não foi possível calcular a compatibilidade agora.';
-            carregando.style.display = 'none';
-            erro.style.display = '';
+            carregando.hidden = true; erro.hidden = false;
             return;
         }
-
-        document.getElementById('scoreValor').textContent = data.score + '%';
-        document.getElementById('analiseTexto').textContent = data.analise || '';
-
-        const listaMotivos = document.getElementById('motivosLista');
-        listaMotivos.innerHTML = '';
-        if (Array.isArray(data.motivos) && data.motivos.length > 0) {
-            data.motivos.forEach(m => {
-                const li = document.createElement('li');
-                li.textContent = m;
-                listaMotivos.appendChild(li);
-            });
-        }
-
-        carregando.style.display = 'none';
-        sucesso.style.display = '';
-
-    } catch (err) {
+        analiseAtual = data;
+        const score = Math.max(0, Math.min(100, data.score));
+        document.getElementById('scoreValor').textContent   = score;
+        document.getElementById('scoreBarra').style.width  = score + '%';
+        document.getElementById('scoreRotulo').textContent  = data.rotulo || '';
+        document.getElementById('analiseTexto').textContent = data.texto || '';
+        montarModal(data);
+        carregando.hidden = true; sucesso.hidden = false;
+    } catch (e) {
         document.getElementById('erroTexto').textContent = 'Não foi possível se conectar ao servidor de análise.';
-        carregando.style.display = 'none';
-        erro.style.display = '';
+        carregando.hidden = true; erro.hidden = false;
     }
 }
+
+function montarModal(d) {
+    document.getElementById('modalScore').textContent  = d.score;
+    document.getElementById('modalRotulo').textContent = d.rotulo || '';
+
+    const lista = document.getElementById('listaCategorias');
+    lista.replaceChildren();
+    (d.categorias || []).forEach(c => {
+        const li   = elemento('li', 'match-cat');
+        li.dataset.categoria = c.nome;
+        const topo = elemento('div', 'match-cat-topo');
+        topo.appendChild(jcIcone(c.icone || 'check'));
+        topo.appendChild(elemento('span', 'match-cat-nome', c.nome));
+        topo.appendChild(elemento('span', 'match-cat-valor', `${c.percentual}/100`));
+        const barra = elemento('div', 'match-barra');
+        barra.setAttribute('aria-hidden', 'true');
+        const fill = elemento('span');
+        fill.style.width = Math.max(0, Math.min(100, c.percentual)) + '%';
+        barra.appendChild(fill);
+        li.append(topo, barra,
+                  elemento('p', 'match-cat-pontos', `${c.pontos} de ${c.maximo} pontos`),
+                  elemento('p', 'match-cat-exp', c.explicacao));
+        lista.appendChild(li);
+    });
+
+    const blocoAjuste = document.getElementById('blocoAjuste');
+    blocoAjuste.replaceChildren();
+    if (d.ajuste) {
+        const aj = elemento('div', 'match-ajuste');
+        aj.appendChild(jcIcone('alert-triangle'));
+        const txt = elemento('p');
+        txt.append(elemento('strong', '', `${d.ajuste.nome}: ${d.ajuste.pontos} pontos. `), d.ajuste.explicacao || '');
+        aj.appendChild(txt);
+        blocoAjuste.appendChild(aj);
+    }
+
+    preencherLista('listaFortes', d.fortes, 'Nenhum critério com pontuação máxima.');
+    preencherLista('listaReduziram', d.reduziram, 'Nenhum critério perdeu pontos.');
+    preencherLista('listaLimites', d.limites, '');
+
+    const local = d.local || {};
+    document.getElementById('localRotulo').textContent = local.rotulo || 'Local de trabalho não informado';
+    document.getElementById('localTexto').textContent  = local.texto || '';
+    document.getElementById('localAviso').textContent  =
+        local.nivel === 'completo' ? '' :
+        local.nivel === 'parcial'  ? 'Endereço incompleto: ' + ((local.faltando || []).join(', ') || 'faltam dados') + ' não informado(s). Nada foi completado automaticamente.' :
+                                     'Sem endereço para a vaga: a localização não pôde ser avaliada.';
+    contextoCarregado = false;
+    document.getElementById('contextoConteudo').replaceChildren();
+}
+
+async function carregarContexto() {
+    if (contextoCarregado) return;
+    contextoCarregado = true;
+    const caixa = document.getElementById('contextoConteudo');
+    const carregando = elemento('p', 'match-carregando');
+    carregando.append(elemento('span', 'loading-spinner'), 'Gerando a análise contextual...');
+    caixa.replaceChildren(carregando);
+    caixa.setAttribute('aria-busy', 'true');
+    let data = {};
+    try {
+        data = (await postarMatch('contexto')).data;
+    } catch (e) {
+        data = {};
+    }
+    caixa.removeAttribute('aria-busy');
+    const a = data && data.disponivel === true ? data.analise : null;
+    if (!a || typeof a.resumo !== 'string') {
+        caixa.replaceChildren(elemento('p', 'text-secondary',
+            'A análise contextual por IA não está disponível agora. A nota e as categorias acima vêm do Match tradicional e continuam valendo.'));
+        contextoCarregado = false;   // permite tentar de novo ao reabrir
+        return;
+    }
+    const conf = { alta: 'alta', media: 'média', baixa: 'baixa' }[a.confianca] || 'baixa';
+    const selo = elemento('p', 'match-selo-ia');
+    selo.append(jcIcone('sparkles'), `Gerada por IA (Gemini) · confiança ${conf} · não altera a nota`);
+    const partes = [selo, elemento('p', 'match-cat-exp', a.resumo)];
+    const blocoLista = (titulo, itens) => {
+        if (!Array.isArray(itens) || !itens.length) return;
+        partes.push(elemento('p', 'match-cat-nome', titulo));
+        const ul = elemento('ul', 'match-lista');
+        itens.forEach(t => ul.appendChild(elemento('li', '', t)));
+        partes.push(ul);
+    };
+    blocoLista('Pontos fortes', a.pontos_fortes);
+    blocoLista('Pontos de atenção', a.pontos_fracos);
+    blocoLista('Observações', a.observacoes);
+    caixa.replaceChildren(...partes);
+
+    // comentários por categoria: só nas categorias do Match (os demais vão como observação)
+    (a.categorias || []).forEach(c => {
+        const li = [...document.querySelectorAll('#listaCategorias .match-cat')].find(el => el.dataset.categoria === c.nome);
+        if (li) {
+            const nota = elemento('p', 'match-cat-ia');
+            nota.append(elemento('strong', '', 'Contexto (IA): '), c.explicacao);
+            li.appendChild(nota);
+        } else {
+            const ul = caixa.querySelector('ul.match-lista-extra') || (() => {
+                caixa.appendChild(elemento('p', 'match-cat-nome', 'Outros aspectos'));
+                const novo = elemento('ul', 'match-lista match-lista-extra');
+                caixa.appendChild(novo);
+                return novo;
+            })();
+            ul.appendChild(elemento('li', '', `${c.nome}: ${c.explicacao}`));
+        }
+    });
+}
+
+document.getElementById('btnAnaliseDetalhada')?.addEventListener('click', function () {
+    jcModal.abrir(document.getElementById('modalAnalise'), this);
+    carregarContexto();
+});
 
 document.addEventListener('DOMContentLoaded', carregarAvaliacao);
 <?php endif; ?>

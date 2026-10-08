@@ -68,7 +68,8 @@ if ($user['email_verificado'] == 1 || $user['telefone_verificado'] == 1) {
 
 <?php include_once dirname(__DIR__) . '/includes/header.php'; ?>
 
-<main class="container" style="padding: 40px 16px; max-width: 560px; margin: 0 auto;">
+<!-- Stage 5.1: 60 px da barra fixa + 40 px de respiro (antes o topo ficava atrás da barra) -->
+<main class="container verificacao-main" style="padding: 100px 16px 40px; max-width: 560px; margin: 0 auto;">
     <div style="text-align: center; margin-bottom: 32px;">
         <h2>Como deseja verificar sua conta?</h2>
         <p class="text-muted">Escolha o método mais conveniente para receber o seu código de segurança.</p>

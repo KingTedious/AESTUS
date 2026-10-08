@@ -470,6 +470,7 @@ async function avaliarMatch(jovemId, vagaId, btn) {
 
         btn.replaceChildren(jcIcone('sparkles'), `Match: ${data.score}%`);   // Stage 5: ícone + texto
         btn.style.color = 'var(--accent)';
+        btn.classList.add('match-resultado');   // Stage 5.1: resultado legível (sem o esmaecido de desabilitado)
         btn.title       = data.analise ?? '';
 
         // Link para a análise completa (reaproveita Vagas/avaliar.php da Etapa 3) —

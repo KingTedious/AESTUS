@@ -361,7 +361,17 @@ async function avaliarMatch(vagaId, btn) {
         const { score, analise } = await res.json();
 
         btn.replaceChildren(jcIcone('sparkles'), `Match: ${score ?? '--'}%`);   // Stage 5: ícone + texto
+        // Stage 5.1: atalho para a análise detalhada (composição da nota, local, contexto)
+        const rodape = btn.closest('.job-card-footer');
+        if (rodape && !rodape.querySelector('.match-link')) {
+            const link = document.createElement('a');
+            link.className = 'match-link';
+            link.href = `../Vagas/avaliar.php?vaga_id=${vagaId}`;
+            link.append(jcIcone('list-checks'), ' Ver análise detalhada');
+            rodape.appendChild(link);
+        }
         btn.style.color = 'var(--accent)';
+        btn.classList.add('match-resultado');   // Stage 5.1: resultado legível (sem o esmaecido de desabilitado)
         btn.title       = analise ?? '';
 
     } catch (err) {

@@ -3,9 +3,11 @@ JovemConnect — IA/recomendar.py  v3.00
 Servidor Flask para compatibilidade de vagas e análise de currículo.
 
 Rotas:
-  POST /avaliar    → score de match jovem ↔ vaga
-  POST /curriculo  → sugestões de melhoria do perfil
-  GET  /ping       → health check
+  POST /avaliar             → score de match jovem ↔ vaga
+  POST /curriculo           → sugestões de melhoria do perfil
+  POST /analise_contextual  → (Stage 5.1) análise contextual do Match via
+                              Gemini, opcional; não altera o score
+  GET  /ping                → health check
 
 Gemini (opcional):
   Defina a variável de ambiente GEMINI_API_KEY para ativar análises
@@ -285,6 +287,258 @@ def analisar_curriculo():
     })
 
 
+# ── Stage 5.1: ANÁLISE CONTEXTUAL (Gemini, opcional) ─────────────────────────
+#
+# Camada OPCIONAL por cima do Match tradicional: o Gemini só escreve a
+# explicação/contexto do resultado. A nota continua sendo a do algoritmo
+# (rota /avaliar) — qualquer número devolvido pela IA é descartado.
+#
+# - Chamada REST direta (urllib, da biblioteca padrão): nenhuma dependência
+#   nova e nada do SDK antigo (google-generativeai / gemini-1.5-flash, que
+#   continua só nas rotas antigas e já foi desativado pelo Google).
+# - Configuração no .env da raiz do projeto (o mesmo do PHP) ou em variáveis
+#   de ambiente: GEMINI_API_KEY (obrigatória), GEMINI_MODEL (opcional),
+#   GEMINI_TIMEOUT (segundos, opcional). A chave nunca é exibida nem
+#   devolvida; vai só no cabeçalho x-goog-api-key.
+# - Sem chave, com erro, timeout, limite de uso ou resposta fora do formato:
+#   {"disponivel": false} — o PHP mostra o Match tradicional normalmente.
+import hashlib
+import json
+import socket
+import threading
+import time
+import urllib.error
+import urllib.request
+
+
+def _ler_env_projeto() -> dict:
+    """Lê o .env da raiz do projeto sem alterar os.environ (as rotas antigas não mudam)."""
+    caminho = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
+    valores = {}
+    try:
+        with open(caminho, encoding="utf-8") as arquivo:
+            for linha in arquivo:
+                linha = linha.strip()
+                if not linha or linha.startswith("#") or "=" not in linha:
+                    continue
+                chave, valor = linha.split("=", 1)
+                chave, valor = chave.strip(), valor.strip()
+                if len(valor) >= 2 and valor[0] == valor[-1] and valor[0] in "\"'":
+                    valor = valor[1:-1]
+                if chave:
+                    valores[chave] = valor
+    except OSError:
+        pass
+    return valores
+
+
+_ENV_PROJETO = _ler_env_projeto()
+
+
+def _config(nome: str, padrao: str = "") -> str:
+    return os.environ.get(nome) or _ENV_PROJETO.get(nome) or padrao
+
+
+CTX_CHAVE = _config("GEMINI_API_KEY").strip()
+CTX_MODELO = _config("GEMINI_MODEL", "gemini-3.5-flash-lite").strip()
+if not re.fullmatch(r"[a-z0-9][a-z0-9.\-]{1,60}", CTX_MODELO):
+    CTX_MODELO = "gemini-3.5-flash-lite"
+try:
+    CTX_TIMEOUT = max(3.0, min(30.0, float(_config("GEMINI_TIMEOUT", "12"))))
+except ValueError:
+    CTX_TIMEOUT = 12.0
+CTX_API = "https://generativelanguage.googleapis.com/v1beta"
+_api_teste = os.environ.get("JC_GEMINI_API_BASE", "")   # só para testes locais (servidor simulado)
+if _api_teste.startswith(("http://127.0.0.1:", "http://localhost:")):
+    CTX_API = _api_teste.rstrip("/")
+
+CTX_CATEGORIAS = ["Localização", "Área de interesse", "Curso técnico", "Escolaridade",
+                  "Tipo de contrato", "Habilidades", "Experiência"]
+
+CTX_INSTRUCOES = (
+    "Você é o analista de compatibilidade do JovemConnect, plataforma que conecta jovens "
+    "aprendizes e estagiários a empresas. Você recebe dados de um jovem e de uma vaga e o "
+    "resultado do Match tradicional: uma nota de 0 a 100 JÁ CALCULADA, com os pontos de cada "
+    "critério. Sua tarefa é explicar e contextualizar esse resultado, sem alterar a nota.\n"
+    "Regras obrigatórias:\n"
+    "1. Use somente os dados fornecidos. Não invente fatos, empresas, cursos ou experiências.\n"
+    "2. Não dê outra nota nem porcentagem e não contradiga a nota calculada.\n"
+    "3. Localização: o sistema NÃO calcula distância em quilômetros e NÃO tem dados de "
+    "transporte público, rotas, estações, trânsito ou tempo de deslocamento. Não afirme nada "
+    "sobre isso; se for relevante, diga que essa informação não está disponível.\n"
+    "4. Considere apenas o local de trabalho informado; não presuma outros endereços.\n"
+    "5. Habilidades, experiências e formações podem ser comparadas com a descrição e os "
+    "requisitos da vaga, de forma qualitativa.\n"
+    "6. Se os dados forem insuficientes, diga isso e use confiança \"baixa\".\n"
+    "7. Português do Brasil, frases curtas, tom respeitoso e encorajador, sem markdown.\n"
+    "8. Em \"categorias\", use só estes nomes: " + ", ".join(CTX_CATEGORIAS) + ".\n"
+    "9. Escreva para o leitor indicado em \"leitor\": se \"jovem\", fale com o jovem (você); "
+    "se \"empresa\", fale com quem recruta, sobre o candidato.\n"
+    "10. Responda apenas com o JSON pedido."
+)
+
+CTX_ESQUEMA = {
+    "type": "OBJECT",
+    "properties": {
+        "resumo": {"type": "STRING"},
+        "pontos_fortes": {"type": "ARRAY", "items": {"type": "STRING"}},
+        "pontos_fracos": {"type": "ARRAY", "items": {"type": "STRING"}},
+        "observacoes": {"type": "ARRAY", "items": {"type": "STRING"}},
+        "confianca": {"type": "STRING", "enum": ["alta", "media", "baixa"]},
+        "categorias": {
+            "type": "ARRAY",
+            "items": {
+                "type": "OBJECT",
+                "properties": {
+                    "nome": {"type": "STRING", "enum": CTX_CATEGORIAS},
+                    "explicacao": {"type": "STRING"},
+                },
+                "required": ["nome", "explicacao"],
+            },
+        },
+    },
+    "required": ["resumo", "pontos_fortes", "pontos_fracos", "confianca"],
+}
+
+_ctx_cache = {}
+_ctx_trava = threading.Lock()
+CTX_CACHE_SEGUNDOS = 6 * 3600
+CTX_CACHE_MAX = 256
+
+
+def _ctx_texto(valor, maximo: int) -> str:
+    if not isinstance(valor, str):
+        return ""
+    valor = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", valor)
+    valor = re.sub(r"\s+", " ", valor).strip()
+    for marca in ("**", "__", "##"):
+        valor = valor.replace(marca, "")
+    return valor[:maximo]
+
+
+def _ctx_lista(valor, quantos: int, maximo: int) -> list:
+    if not isinstance(valor, list):
+        return []
+    saida = []
+    for item in valor:
+        texto = _ctx_texto(item, maximo)
+        if texto and texto not in saida:
+            saida.append(texto)
+        if len(saida) >= quantos:
+            break
+    return saida
+
+
+def validar_contexto(obj):
+    """Confere tipos, tamanhos e a lista permitida de categorias. None = formato inválido."""
+    if not isinstance(obj, dict):
+        return None
+    resumo = _ctx_texto(obj.get("resumo"), 600)
+    if not resumo:
+        return None
+    confianca = _ctx_texto(obj.get("confianca"), 10).lower().replace("é", "e")
+    categorias, vistas = [], set()
+    for cat in obj.get("categorias") or []:
+        if not isinstance(cat, dict):
+            continue
+        nome = _ctx_texto(cat.get("nome"), 40)
+        explicacao = _ctx_texto(cat.get("explicacao"), 280)
+        if nome in CTX_CATEGORIAS and explicacao and nome not in vistas:
+            vistas.add(nome)
+            categorias.append({"nome": nome, "explicacao": explicacao})
+    return {
+        "resumo": resumo,
+        "pontos_fortes": _ctx_lista(obj.get("pontos_fortes"), 4, 200),
+        "pontos_fracos": _ctx_lista(obj.get("pontos_fracos"), 4, 200),
+        "observacoes": _ctx_lista(obj.get("observacoes"), 3, 240),
+        "confianca": confianca if confianca in ("alta", "media", "baixa") else "baixa",
+        "categorias": categorias,
+    }
+
+
+def _ctx_chamar_gemini(dados: dict, com_esquema: bool = True):
+    """Chama o generateContent. Retorna (objeto_json | None, motivo_da_falha | None)."""
+    config = {"temperature": 0.2, "maxOutputTokens": 1024, "responseMimeType": "application/json"}
+    if com_esquema:
+        config["responseSchema"] = CTX_ESQUEMA
+    corpo = {
+        "systemInstruction": {"parts": [{"text": CTX_INSTRUCOES}]},
+        "contents": [{"role": "user", "parts": [{"text": "Dados (JSON):\n" + json.dumps(dados, ensure_ascii=False)}]}],
+        "generationConfig": config,
+    }
+    pedido = urllib.request.Request(
+        f"{CTX_API}/models/{CTX_MODELO}:generateContent",
+        data=json.dumps(corpo).encode("utf-8"),
+        method="POST",
+        headers={"Content-Type": "application/json", "x-goog-api-key": CTX_CHAVE},
+    )
+    try:
+        with urllib.request.urlopen(pedido, timeout=CTX_TIMEOUT) as resposta:
+            bruto = resposta.read(400_000)
+    except urllib.error.HTTPError as erro:
+        try:
+            detalhe = erro.read(4000).decode("utf-8", "replace")   # só para classificar; nunca exibido
+        except Exception:
+            detalhe = ""
+        chave_ruim = "API_KEY" in detalhe or "API key" in detalhe
+        if erro.code == 400 and com_esquema and not chave_ruim:
+            return _ctx_chamar_gemini(dados, com_esquema=False)   # modelo sem suporte ao esquema
+        motivo = "chave_invalida" if chave_ruim else {
+            401: "chave_invalida", 403: "chave_invalida", 404: "modelo_indisponivel", 429: "limite",
+        }.get(erro.code, "indisponivel")
+        print(f"[Gemini] análise contextual indisponível: HTTP {erro.code} ({motivo})")
+        return None, motivo
+    except (urllib.error.URLError, socket.timeout, TimeoutError, OSError) as erro:
+        motivo = "timeout" if "timed out" in str(erro).lower() else "indisponivel"
+        print(f"[Gemini] análise contextual indisponível: {motivo}")
+        return None, motivo
+    try:
+        dados_resp = json.loads(bruto.decode("utf-8"))
+        partes = dados_resp["candidates"][0]["content"]["parts"]
+        texto = "".join(p.get("text", "") for p in partes if isinstance(p, dict)).strip()
+        texto = re.sub(r"^```(?:json)?\s*|\s*```$", "", texto)
+        return json.loads(texto), None
+    except (ValueError, KeyError, IndexError, TypeError, AttributeError):
+        print("[Gemini] análise contextual: resposta fora do formato esperado")
+        return None, "resposta_invalida"
+
+
+@app.route("/analise_contextual", methods=["POST"])
+def analise_contextual():
+    """
+    Recebe os dados mínimos do jovem e da vaga + o resultado do Match tradicional
+    (montados pelo PHP, sem nome, e-mail, CPF, telefone, IDs ou endereço completo)
+    e devolve a análise contextual validada — ou {"disponivel": false}.
+    """
+    dados = request.get_json(silent=True)
+    if not isinstance(dados, dict) or len(json.dumps(dados)) > 24_000:
+        return jsonify({"disponivel": False, "motivo": "entrada_invalida"}), 400
+    if not CTX_CHAVE:
+        return jsonify({"disponivel": False, "motivo": "sem_chave"})
+
+    chave_cache = hashlib.sha256(json.dumps(dados, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
+    agora = time.time()
+    with _ctx_trava:
+        guardado = _ctx_cache.get(chave_cache)
+        if guardado and guardado[0] > agora:
+            return jsonify({"disponivel": True, "analise": guardado[1], "do_cache": True})
+
+    bruto, motivo = _ctx_chamar_gemini(dados)
+    if bruto is None:
+        return jsonify({"disponivel": False, "motivo": motivo or "indisponivel"})
+    analise = validar_contexto(bruto)
+    if analise is None:
+        print("[Gemini] análise contextual: resposta sem os campos obrigatórios")
+        return jsonify({"disponivel": False, "motivo": "resposta_invalida"})
+
+    with _ctx_trava:
+        if len(_ctx_cache) >= CTX_CACHE_MAX:
+            for chave in sorted(_ctx_cache, key=lambda k: _ctx_cache[k][0])[: CTX_CACHE_MAX // 4]:
+                _ctx_cache.pop(chave, None)
+        _ctx_cache[chave_cache] = (agora + CTX_CACHE_SEGUNDOS, analise)
+    return jsonify({"disponivel": True, "analise": analise, "do_cache": False})
+
+
 # ── ROTA 3: HEALTH CHECK ─────────────────────────────────────────────────────
 
 @app.route("/ping", methods=["GET"])
@@ -293,6 +547,9 @@ def ping():
     return jsonify({
         "status": "ok",
         "gemini": gemini_model is not None,
+        # Stage 5.1: só diz SE há chave configurada — nunca a chave
+        "analise_contextual": bool(CTX_CHAVE),
+        "modelo_contextual": CTX_MODELO,
         "versao": "3.00"
     })
 
@@ -304,6 +561,7 @@ if __name__ == "__main__":
     print("  JovemConnect — Servidor de IA  v3.00")
     print("  http://127.0.0.1:5000")
     print(f"  Gemini: {'✓ Ativo' if gemini_model else '✗ Inativo (sem GEMINI_API_KEY)'}")
+    print(f"  Análise contextual (Stage 5.1): {'✓ ' + CTX_MODELO if CTX_CHAVE else '✗ sem GEMINI_API_KEY no .env'}")
     print("=" * 50)
     # Etapa 4 (V3.10): debug nunca fica ligado por padrão no fluxo normal de
     # execução (iniciar_ia.bat). Para depuração local, defina a variável de

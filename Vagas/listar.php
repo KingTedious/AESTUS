@@ -25,6 +25,7 @@ if (!isset($_SESSION['jovem_id'])) {
 }
 
 require_once dirname(__DIR__) . "/includes/config.php";
+require_once dirname(__DIR__) . "/includes/locais.php";   // Stage 5.1: local efetivo da vaga
 
 $jovem_id = intval($_SESSION['jovem_id']);
 
@@ -66,6 +67,8 @@ if (isset($_GET['id']) && intval($_GET['id']) > 0) {
         header("Location: listar.php");
         exit;
     }
+    // Stage 5.1: local de trabalho efetivo (local da vaga → endereço da empresa)
+    $local_vaga = jc_local_efetivo($conn, $vaga_id);
 
     // ── Requisitos ────────────────────────────────────────────────────────────
     $stmt_r = $conn->prepare(
@@ -246,15 +249,16 @@ if (isset($_GET['id']) && intval($_GET['id']) > 0) {
             </div>
             <div class="map-info">
                 <strong><?= htmlspecialchars($vaga['nome_empresa']) ?></strong>
-                <span><?= htmlspecialchars($vaga['cidade'] ?? '') ?><?= !empty($vaga['estado']) ? ', ' . htmlspecialchars($vaga['estado']) : '' ?></span>
-                <?php if (!empty($vaga['cep'])): ?>
-                <span class="text-muted" style="font-size:11px;"><?= htmlspecialchars($vaga['cep']) ?></span>
+                <!-- Stage 5.1: local de trabalho efetivo, com o endereço completo quando existir -->
+                <span class="local-origem"><?= htmlspecialchars($local_vaga['rotulo'] ?? '') ?></span>
+                <?php if (($local_vaga['texto'] ?? '') !== ''): ?>
+                <span><?= htmlspecialchars($local_vaga['texto']) ?></span>
                 <?php endif; ?>
             </div>
         </div>
 
-        <?php if (!empty($vaga['cidade'])): ?>
-        <a href="https://www.google.com/maps/search/<?= urlencode($vaga['nome_empresa'] . ' ' . $vaga['cidade']) ?>"
+        <?php if (($local_vaga['nivel'] ?? 'indisponivel') !== 'indisponivel'): ?>
+        <a href="https://www.google.com/maps/search/<?= urlencode(($local_vaga['nivel'] === 'completo' ? '' : $vaga['nome_empresa'] . ' ') . $local_vaga['texto']) ?>"
            target="_blank" rel="noopener"
            class="btn btn-secondary btn-sm btn-full"
            style="margin-bottom:10px;">
@@ -701,7 +705,17 @@ async function avaliarMatch(vagaId, btn) {
         }
         const { score } = await res.json();
         btn.replaceChildren(jcIcone('sparkles'), `Match: ${score ?? '--'}%`);   // Stage 5: ícone + texto
+        // Stage 5.1: atalho para a análise detalhada (composição da nota, local, contexto)
+        const rodape = btn.closest('.job-card-footer');
+        if (rodape && !rodape.querySelector('.match-link')) {
+            const link = document.createElement('a');
+            link.className = 'match-link';
+            link.href = `avaliar.php?vaga_id=${vagaId}`;
+            link.append(jcIcone('list-checks'), ' Ver análise detalhada');
+            rodape.appendChild(link);
+        }
         btn.style.color = 'var(--accent)';
+        btn.classList.add('match-resultado');   // Stage 5.1: resultado legível (sem o esmaecido de desabilitado)
     } catch (err) {
         btn.disabled  = false;
         // Stage 3: antes o botão só voltava ao normal, sem explicar o que houve

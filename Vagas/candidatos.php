@@ -521,6 +521,7 @@ async function avaliarMatch(jovemId, vagaId, btn) {
         btn.replaceChildren(jcIcone('sparkles'), `Match: ${score ?? '--'}%`);   // Stage 5: ícone + texto
         btn.title       = analise ?? '';
         btn.style.color = 'var(--accent)';
+        btn.classList.add('match-resultado');   // Stage 5.1: resultado legível (sem o esmaecido de desabilitado)
 
         // Link para a análise completa (Vagas/avaliar.php, Etapa 3) — o botão só
         // mostra o score; motivos individuais só existem na tooltip do title.

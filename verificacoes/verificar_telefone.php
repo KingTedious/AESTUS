@@ -90,7 +90,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_validar_codigo']
 
 <?php include_once dirname(__DIR__) . '/includes/header.php'; ?>
 
-<main class="container" style="padding: 40px 16px; max-width: 480px; margin: 0 auto;">
+<!-- Stage 5.1: 60 px da barra fixa + 40 px de respiro (antes o topo ficava atrás da barra) -->
+<main class="container verificacao-main" style="padding: 100px 16px 40px; max-width: 480px; margin: 0 auto;">
     <div class="card" style="text-align: center; padding: 32px 24px;">
         <div class="icone-destaque" aria-hidden="true"><span class="i i-smartphone" aria-hidden="true"></span></div>
         

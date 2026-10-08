@@ -405,3 +405,33 @@ ALTER TABLE `empresas`
   ADD COLUMN `numero`      VARCHAR(10)  DEFAULT NULL AFTER `logradouro`,
   ADD COLUMN `complemento` VARCHAR(100) DEFAULT NULL AFTER `numero`,
   ADD COLUMN `bairro`      VARCHAR(100) DEFAULT NULL AFTER `complemento`;
+
+-- Stage 5.1: locais de trabalho das vagas (migração aditiva — mesma de
+-- migrations/2026-10-08_stage51_locais_trabalho.sql)
+CREATE TABLE IF NOT EXISTS `empresa_locais` (
+  `id`            INT(11)      NOT NULL AUTO_INCREMENT,
+  `empresa_id`    INT(11)      NOT NULL,
+  `tipo`          ENUM('escritorio','filial','unidade','outro') NOT NULL DEFAULT 'escritorio',
+  `nome`          VARCHAR(100) DEFAULT NULL COMMENT 'Ex: Unidade Augusta',
+  `cep`           VARCHAR(9)   DEFAULT NULL COMMENT 'Somente dígitos',
+  `logradouro`    VARCHAR(150) DEFAULT NULL,
+  `numero`        VARCHAR(10)  DEFAULT NULL,
+  `complemento`   VARCHAR(100) DEFAULT NULL,
+  `bairro`        VARCHAR(100) DEFAULT NULL,
+  `cidade`        VARCHAR(100) DEFAULT NULL,
+  `estado`        VARCHAR(50)  DEFAULT NULL,
+  `criado_em`     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `atualizado_em` TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_local_empresa` (`empresa_id`),
+  CONSTRAINT `fk_local_empresa`
+    FOREIGN KEY (`empresa_id`) REFERENCES `empresas` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+ALTER TABLE `vagas`
+  ADD COLUMN `local_trabalho` ENUM('empresa','local') DEFAULT NULL
+      COMMENT 'empresa = endereço principal; local = vagas.local_id; NULL = vaga antiga' AFTER `cep`,
+  ADD COLUMN `local_id`       INT(11) DEFAULT NULL AFTER `local_trabalho`,
+  ADD KEY `idx_vaga_local` (`local_id`),
+  ADD CONSTRAINT `fk_vaga_local`
+    FOREIGN KEY (`local_id`) REFERENCES `empresa_locais` (`id`) ON DELETE SET NULL;

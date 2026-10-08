@@ -11,6 +11,7 @@ if (!isset($_SESSION['empresa_id'])) {
 
 require_once dirname(__DIR__) . "/includes/config.php";
 require_once dirname(__DIR__) . "/includes/endereco_empresa.php";   // Stage 3: endereço completo
+require_once dirname(__DIR__) . "/includes/locais.php";             // Stage 5.1: locais de trabalho
 
 $empresa_id = intval($_SESSION['empresa_id']);
 
@@ -98,6 +99,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($ok) {
+        // Stage 5.1: vagas que usam o endereço principal acompanham a mudança (cidade/UF/CEP)
+        jc_vagas_sincronizar_empresa($conn, $empresa_id);
         $_SESSION['empresa_nome'] = $nome_empresa;
         header("Location: perfil.php?saved=1");
         exit;
@@ -231,6 +234,16 @@ $inicial = strtoupper(mb_substr($emp['nome_empresa'], 0, 1));
             <div class="profile-info-item">
                 <p class="profile-info-label">Endereço</p>
                 <p class="profile-info-value"><span class="i i-map-pin" aria-hidden="true"></span> <?= htmlspecialchars($endereco_txt) ?></p>
+            </div>
+            <?php endif; ?>
+            <?php if (jc_locais_disponiveis($conn)): $n_locais = count(jc_locais_da_empresa($conn, $empresa_id)); ?>
+            <!-- Stage 5.1: sede + outros locais (escritório, filial...) escolhidos em cada vaga -->
+            <div class="profile-info-item">
+                <p class="profile-info-label">Locais de trabalho</p>
+                <p class="profile-info-value">
+                    Sede<?= $n_locais > 0 ? ' + ' . $n_locais . ($n_locais === 1 ? ' outro local' : ' outros locais') : '' ?> ·
+                    <a href="locais.php">Gerenciar locais</a>
+                </p>
             </div>
             <?php endif; ?>
         </div>
