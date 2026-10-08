@@ -187,13 +187,22 @@ if (isset($_GET['reenviar'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Recuperar Senha | JovemConnect</title>
     <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/img/marca/jovemconnect-icone-32.png">
+    <link rel="apple-touch-icon" href="assets/img/marca/jovemconnect-icone-180.png">
+    <script>
+        (function () {   // Stage 4: aplica o tema salvo, como nas outras telas
+            try { var t = localStorage.getItem('jc-theme'); if (t) document.documentElement.setAttribute('data-theme', t); } catch (e) {}
+        }());
+    </script>
     
-    <!-- Estilos identicos ao design da imagem -->
+    <!-- Estilos identicos ao design da imagem.
+         Stage 4: cores pelas variáveis do style.css (antes fixas em hexadecimal —
+         a página ficava sempre escura e o alto contraste/dislexia não funcionavam) -->
     <style>
         body {
-            background-color: #121214;
-            color: #ffffff;
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-primary);
+            font-family: var(--font);
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -202,52 +211,37 @@ if (isset($_GET['reenviar'])) {
         }
 
         .auth-card {
-            background-color: #1e1e24;
+            background-color: var(--bg-card);
             width: 100%;
             max-width: 440px;
             padding: 40px 32px;
             border-radius: 16px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            box-shadow: var(--shadow-md);
             text-align: center;
             box-sizing: border-box;
         }
 
-        .brand-icon {
-            width: 52px;
-            height: 52px;
-            background-color: #3b82f6;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 16px auto;
-            color: #ffffff;
-            font-size: 22px;
-        }
-
-        .brand-title {
-            font-size: 22px;
-            font-weight: 700;
+        /* Stage 5: marca oficial (versão vertical) no lugar do ícone 💼 + texto */
+        .brand-marca {
             margin: 0 0 24px 0;
-            color: #ffffff;
         }
 
         .page-title {
             font-size: 20px;
             font-weight: 700;
             margin: 0 0 8px 0;
-            color: #ffffff;
+            color: var(--text-primary);
         }
 
         .page-desc {
             font-size: 14px;
-            color: #a1a1aa;
+            color: var(--text-secondary);
             line-height: 1.5;
             margin: 0 0 28px 0;
         }
 
         .highlight-email {
-            color: #3b82f6;
+            color: var(--accent);
             font-weight: 600;
             word-break: break-all;
         }
@@ -260,7 +254,7 @@ if (isset($_GET['reenviar'])) {
         .form-label {
             display: block;
             font-size: 13px;
-            color: #a1a1aa;
+            color: var(--text-secondary);
             margin-bottom: 8px;
             font-weight: 500;
         }
@@ -269,22 +263,26 @@ if (isset($_GET['reenviar'])) {
             position: relative;
         }
 
-        .input-wrapper i {
+        /* Stage 4: os ícones são <span> (o seletor só pegava <i>) — ficavam
+           numa linha separada, acima do campo */
+        .input-wrapper i,
+        .input-wrapper > span {
             position: absolute;
             left: 14px;
             top: 50%;
             transform: translateY(-50%);
-            color: #71717a;
+            color: var(--text-muted);
             font-size: 14px;
+            pointer-events: none;
         }
 
         .form-control {
             width: 100%;
             padding: 12px 14px 12px 40px;
-            background-color: #27272a;
-            border: 1px solid #3f3f46;
+            background-color: var(--bg-input);
+            border: 1px solid var(--border);
             border-radius: 8px;
-            color: #ffffff;
+            color: var(--text-primary);
             font-size: 14px;
             box-sizing: border-box;
             outline: none;
@@ -292,14 +290,15 @@ if (isset($_GET['reenviar'])) {
         }
 
         .form-control:focus {
-            border-color: #3b82f6;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-subtle);
         }
 
         .btn-primary {
             width: 100%;
             padding: 12px;
-            background-color: #3b82f6;
-            color: #ffffff;
+            background-color: var(--accent-fill);   /* Stage 5: azul da marca + texto escuro (5,5:1) */
+            color: var(--on-accent);
             border: none;
             border-radius: 8px;
             font-size: 15px;
@@ -312,15 +311,20 @@ if (isset($_GET['reenviar'])) {
         }
 
         .btn-primary:hover {
-            background-color: #2563eb;
+            background-color: var(--accent-fill-hover);
+        }
+
+        .btn-primary:disabled {
+            opacity: .7;
+            cursor: wait;
         }
 
         .btn-secondary {
             width: 100%;
             padding: 12px;
             background-color: transparent;
-            color: #a1a1aa;
-            border: 1px solid #3f3f46;
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
             border-radius: 8px;
             font-size: 14px;
             font-weight: 500;
@@ -332,14 +336,14 @@ if (isset($_GET['reenviar'])) {
         }
 
         .btn-secondary:hover {
-            background-color: #27272a;
-            color: #ffffff;
+            background-color: var(--bg-hover);
+            color: var(--text-primary);
         }
 
         .back-link {
             display: inline-block;
             margin-top: 24px;
-            color: #3b82f6;
+            color: var(--accent);
             font-size: 14px;
             font-weight: 500;
             text-decoration: none;
@@ -359,20 +363,19 @@ if (isset($_GET['reenviar'])) {
             margin-bottom: 20px;
             text-align: left;
         }
+
+        [data-theme="light"] .alert-error { color: #b91c1c; }
     </style>
 </head>
 <body>
 
     <div class="auth-card">
-        <!-- Ícone + Nome da Marca -->
-        <div class="brand-icon">
-            <span aria-hidden="true">💼</span>
-        </div>
-        <h1 class="brand-title">JovemConnect</h1>
+        <!-- Stage 5: marca oficial (vertical) -->
+        <h1 class="brand-marca marca marca-vertical"><img src="assets/img/marca/jovemconnect-vertical.png" alt="JovemConnect" width="546" height="420"></h1>
 
         <?php if ($mensagemErro): ?>
-            <div class="alert-error">
-                <span aria-hidden="true">⚠️</span> <?= htmlspecialchars($mensagemErro) ?>
+            <div class="alert-error" role="alert">
+                <span class="i i-alert-triangle" aria-hidden="true"></span> <?= htmlspecialchars($mensagemErro) ?>
             </div>
         <?php endif; ?>
 
@@ -381,14 +384,15 @@ if (isset($_GET['reenviar'])) {
             <h2 class="page-title">Recuperar senha</h2>
             <p class="page-desc">Informe seu e-mail para receber as instruções de redefinição.</p>
 
-            <form action="recuperar_senha.php" method="POST">
+            <!-- Stage 4: envio único — um 2º clique mandava outro código e o 1º e-mail deixava de valer -->
+            <form action="recuperar_senha.php" method="POST" data-envio-unico="Enviando...">
                 <input type="hidden" name="acao_solicitar_codigo" value="1">
                 <?= csrf_field() ?>
                 <div class="form-group">
-                    <label class="form-label">E-mail</label>
+                    <label class="form-label" for="recEmail">E-mail</label>
                     <div class="input-wrapper">
-                        <span aria-hidden="true">✉️</span>
-                        <input type="email" name="email" class="form-control" placeholder="seu@email.com" required autofocus>
+                        <span class="i i-mail" aria-hidden="true"></span>
+                        <input type="email" name="email" id="recEmail" class="form-control" placeholder="seu@email.com" required autofocus autocomplete="email">
                     </div>
                 </div>
                 <button type="submit" class="btn-primary">Enviar e-mail</button>
@@ -403,14 +407,14 @@ if (isset($_GET['reenviar'])) {
                 Mandamos um código para <span class="highlight-email"><?= htmlspecialchars($emailMascarado) ?></span>. Digite-o abaixo para continuar.
             </p>
 
-            <form action="recuperar_senha.php" method="POST">
+            <form action="recuperar_senha.php" method="POST" data-envio-unico="Confirmando...">
                 <input type="hidden" name="acao_validar_codigo_recuperacao" value="1">
                 <?= csrf_field() ?>
                 <div class="form-group">
-                    <label class="form-label">Código de verificação</label>
+                    <label class="form-label" for="recCodigo">Código de verificação</label>
                     <div class="input-wrapper">
-                        <span aria-hidden="true">🔑</span>
-                        <input type="text" name="codigo" class="form-control" placeholder="000000" maxlength="6" inputmode="numeric" pattern="[0-9]{6}" required autofocus>
+                        <span class="i i-key" aria-hidden="true"></span>
+                        <input type="text" name="codigo" id="recCodigo" class="form-control" placeholder="000000" maxlength="6" inputmode="numeric" pattern="[0-9]{6}" required autofocus autocomplete="one-time-code" title="Digite os 6 números do código">
                     </div>
                 </div>
                 <button type="submit" class="btn-primary">Confirmar código</button>
@@ -429,27 +433,33 @@ if (isset($_GET['reenviar'])) {
             <h2 class="page-title">Defina sua nova senha</h2>
             <p class="page-desc">Escolha uma nova senha para acessar sua conta.</p>
 
-            <form action="recuperar_senha.php" method="POST">
+            <form action="recuperar_senha.php" method="POST" data-envio-unico="Salvando...">
                 <input type="hidden" name="acao_definir_nova_senha" value="1">
                 <?= csrf_field() ?>
                 <div class="form-group">
-                    <label class="form-label">Nova senha</label>
+                    <label class="form-label" for="recNovaSenha">Nova senha</label>
                     <div class="input-wrapper">
-                        <span aria-hidden="true">🔒</span>
-                        <input type="password" name="nova_senha" class="form-control" placeholder="Mínimo de 8 caracteres" minlength="8" required autofocus>
+                        <span class="i i-lock" aria-hidden="true"></span>
+                        <input type="password" name="nova_senha" id="recNovaSenha" class="form-control" placeholder="Mínimo de 8 caracteres" minlength="8" required autofocus autocomplete="new-password">
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Confirmar nova senha</label>
+                    <label class="form-label" for="recConfirmarSenha">Confirmar nova senha</label>
                     <div class="input-wrapper">
-                        <span aria-hidden="true">🔒</span>
-                        <input type="password" name="confirmar_senha" class="form-control" placeholder="Repita a nova senha" minlength="8" required>
+                        <span class="i i-lock" aria-hidden="true"></span>
+                        <input type="password" name="confirmar_senha" id="recConfirmarSenha" class="form-control" placeholder="Repita a nova senha" minlength="8" required autocomplete="new-password">
                     </div>
                 </div>
                 <button type="submit" class="btn-primary">Redefinir senha</button>
             </form>
+
+            <!-- Stage 4: a última etapa não tinha caminho de volta -->
+            <a href="jovem/login.php" class="back-link">Voltar para o login</a>
         <?php endif; ?>
     </div>
+
+    <!-- Stage 4: assistente + acessibilidade (as preferências do usuário passam a valer aqui também) -->
+    <?php include __DIR__ . '/includes/assistente.php'; ?>
 
 </body>
 </html>

@@ -21,11 +21,19 @@ if (isset($_SESSION['jovem_id'])) {
     header("Location: ../dashboard/jovem.php");
     exit;
 }
+// Stage 4: empresa logada também vai para o painel dela (antes via o formulário
+// e, ao enviar, a sessão ficava com jovem E empresa ao mesmo tempo)
+if (isset($_SESSION['empresa_id'])) {
+    header("Location: ../dashboard/empresa.php");
+    exit;
+}
 
 require_once dirname(__DIR__) . "/includes/config.php";
+require_once dirname(__DIR__) . "/includes/formacao.php";   // Stage 5: nível → curso/ano → situação
 
 $erros  = [];
 $campos = [];
+$form_formacao = null;
 
 /* ============================================================
    PROCESSAMENTO POST (todo PHP antes de qualquer output HTML)
@@ -70,6 +78,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                      ? trim($_POST['curso_outro'] ?? '')
                      : $pred;
         if (empty($esc_curso)) $erros[] = 'Informe o nome do curso técnico.';
+    }
+
+    // Stage 5: formulário novo (nível → curso/ano → situação). Um POST no formato
+    // antigo (sem "formacao_nivel") continua com as regras acima, como antes.
+    $form_formacao = jc_formacao_ler_post($_POST, $erros, '', 'escolaridade_status', true, true);
+    if ($form_formacao !== null) {
+        $campos['formacao'] = $form_formacao['rotulo'];
+        $esc_status = $form_formacao['situacao'];
+        $esc_tipo   = $form_formacao['tipo'];
+        $esc_curso  = ($form_formacao['curso_tecnico'] !== '') ? $form_formacao['curso_tecnico'] : null;
+        $campos['escolaridade_status'] = $esc_status;
+        $campos['escolaridade_tipo']   = $esc_tipo;
     }
 
     // ── Validações ────────────────────────────────────────────────────────────
@@ -154,6 +174,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cadastro | JovemConnect</title>
     <link rel="stylesheet" href="../Assets/css/style.css">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/img/marca/jovemconnect-icone-32.png">
+    <link rel="apple-touch-icon" href="../assets/img/marca/jovemconnect-icone-180.png">
 </head>
 <body>
 
@@ -163,28 +185,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <div class="form-page">
 <div class="form-container">
 
-    <!-- ── Logo ────────────────────────────────────────────────────────────── -->
+    <!-- Stage 5: marca oficial vertical (antes: texto improvisado "JovemAprendiz Conecta") -->
     <div class="form-page-logo">
-        <div class="logo-inner">
-            <span class="logo-box">💼</span>
-            <span class="logo-jovem">JovemAprendiz</span>
-            <span class="logo-connect"> Conecta</span>
-        </div>
+        <a href="../index.php" class="marca marca-vertical nav-logo" aria-label="JovemConnect — página inicial">
+            <img src="../assets/img/marca/jovemconnect-vertical.png" alt="JovemConnect" width="546" height="420">
+        </a>
     </div>
 
     <!-- Stage 3: volta para a escolha Jovem/Empresa -->
-    <p style="margin:0 0 12px;"><a href="../comecar.php" class="back-link">← Voltar</a></p>
+    <p style="margin:0 0 12px;"><a href="../comecar.php" class="back-link"><span class="i i-arrow-left" aria-hidden="true"></span> Voltar</a></p>
 
     <!-- ── Alertas de erro ─────────────────────────────────────────────────── -->
     <?php if (!empty($erros)): ?>
-    <div class="form-card" style="border-color:rgba(239,68,68,.4);margin-bottom:0;">
+    <!-- Stage 4: anunciado e focado ao abrir (antes o leitor de tela não sabia do erro) -->
+    <div class="form-card" id="errosCadastro" role="alert" tabindex="-1"
+         style="border-color:rgba(239,68,68,.4);margin-bottom:0;">
         <?php foreach ($erros as $erro): ?>
-        <p class="form-error">⚠ <?= htmlspecialchars($erro) ?></p>
+        <p class="form-error"><span class="i i-alert-triangle" aria-hidden="true"></span> <?= htmlspecialchars($erro) ?></p>
         <?php endforeach; ?>
     </div>
     <?php endif; ?>
 
-    <form method="POST" id="formCadastroJovem" novalidate>
+    <!-- Stage 4: data-envio-unico evita cadastro em dobro com duplo clique -->
+    <form method="POST" id="formCadastroJovem" novalidate data-envio-unico="Cadastrando...">
         <?= csrf_field() ?>
 
         <!-- ================================================================
@@ -192,12 +215,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
              ================================================================ -->
         <div class="form-card">
             <div class="form-page-title">
-                <span style="font-size:22px;">🎓</span>
+                <span class="i i-graduation-cap" aria-hidden="true"></span>
                 <h2>Cadastro de Jovem</h2>
             </div>
             <p class="form-page-subtitle">
                 Crie sua conta para encontrar as melhores vagas de Jovem Aprendiz.
             </p>
+            <!-- Stage 4: antes nada indicava quais campos eram obrigatórios -->
+            <p class="text-secondary" style="font-size:12px;margin-top:6px;">Campos com * são obrigatórios.</p>
         </div>
 
         <!-- ================================================================
@@ -205,20 +230,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
              ================================================================ -->
         <div class="form-card">
             <div class="form-section-header">
-                <span>👤</span> Informações Pessoais
+                <span class="i i-user" aria-hidden="true"></span> Informações Pessoais
             </div>
 
             <!-- Nome + CPF -->
             <div class="form-row">
                 <div class="form-group">
-                    <label class="form-label" for="nome">Nome Completo</label>
+                    <label class="form-label" for="nome">Nome Completo *</label>
                     <input type="text" id="nome" name="nome" class="form-control"
                            placeholder="Seu nome aqui"
                            value="<?= htmlspecialchars($campos['nome'] ?? '') ?>"
                            required autocomplete="name">
                 </div>
                 <div class="form-group">
-                    <label class="form-label" for="cpf">CPF</label>
+                    <label class="form-label" for="cpf">CPF *</label>
                     <input type="text" id="cpf" name="cpf" class="form-control"
                            placeholder="000.000.000-00" maxlength="14"
                            value="<?= htmlspecialchars($campos['cpf'] ?? '') ?>"
@@ -229,9 +254,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <!-- Data de nascimento + Idade (calculada) -->
             <div class="form-row">
                 <div class="form-group">
-                    <label class="form-label" for="dataNasc">Data de Nascimento</label>
+                    <label class="form-label" for="dataNasc">Data de Nascimento *</label>
                     <div class="input-group">
-                        <span class="input-icon">📅</span>
+                        <span class="input-icon i i-calendar" aria-hidden="true"></span>
                         <input type="date" id="dataNasc" name="data_nascimento"
                                class="form-control"
                                value="<?= htmlspecialchars($campos['data_nasc'] ?? '') ?>"
@@ -255,7 +280,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
              ================================================================ -->
         <div class="form-card">
             <div class="form-section-header">
-                <span>📍</span> Localização
+                <span class="i i-map-pin" aria-hidden="true"></span> Localização
             </div>
 
             <div class="form-row">
@@ -265,11 +290,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                            placeholder="00000-000" maxlength="9"
                            value="<?= htmlspecialchars($campos['cep'] ?? '') ?>"
                            autocomplete="postal-code">
+                    <small id="cepStatusJovem" class="text-muted" style="font-size:12px;" aria-live="polite"></small>
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="cidadeEstado">Cidade / Estado</label>
                     <div class="input-group">
-                        <span class="input-icon">📍</span>
+                        <span class="input-icon i i-map-pin" aria-hidden="true"></span>
                         <input type="text" id="cidadeEstado" class="form-control"
                                placeholder="Ex: São Paulo - SP"
                                value="<?= htmlspecialchars(
@@ -294,74 +320,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
              ================================================================ -->
         <div class="form-card">
             <div class="form-section-header">
-                <span>🎓</span> Escolaridade
+                <span class="i i-graduation-cap" aria-hidden="true"></span> Escolaridade
             </div>
 
-            <!-- Ano escolar / Conclusão -->
-            <div class="form-group">
-                <label class="form-label" for="formacao">Ano Escolar / Conclusão</label>
-                <input type="text" id="formacao" name="formacao" class="form-control"
-                       placeholder="Ex: 3º ano Ensino Médio"
-                       value="<?= htmlspecialchars($campos['formacao'] ?? '') ?>">
-            </div>
+            <!-- Stage 5: nível → curso/ano → situação (antes: texto livre "Ano Escolar /
+                 Conclusão" + checkbox "Possuo curso técnico"). As áreas técnicas são as
+                 mesmas de antes; o Match recebe os mesmos campos (tipo, curso, situação). -->
+            <?= jc_formacao_campos([
+                'id' => 'cad', 'nome' => '', 'form' => '', 'situacao' => 'escolaridade_status',
+                'em_tecnico' => true, 'obrigatorio' => true,
+                'valores' => $form_formacao['valores'] ?? [],
+            ]) ?>
 
-            <!-- Status: cursando ou completo (radios) -->
-            <div class="form-group">
-                <div class="form-checks-group" style="flex-direction:row;gap:28px;flex-wrap:wrap;">
-                    <label class="form-check">
-                        <input type="radio" name="escolaridade_status" value="cursando"
-                               <?= ($campos['escolaridade_status'] ?? 'cursando') === 'cursando' ? 'checked' : '' ?>>
-                        <span class="form-check-label">Cursando</span>
-                    </label>
-                    <label class="form-check">
-                        <input type="radio" name="escolaridade_status" value="completo"
-                               <?= ($campos['escolaridade_status'] ?? '') === 'completo' ? 'checked' : '' ?>>
-                        <span class="form-check-label">Concluído</span>
-                    </label>
-                </div>
-            </div>
-
-            <!-- Checkboxes adicionais -->
             <div class="form-checks-group" style="margin-top:4px;">
-                <label class="form-check">
-                    <input type="checkbox" id="chkTecnico"
-                           name="escolaridade_tipo" value="tecnico"
-                           <?= (($campos['escolaridade_tipo'] ?? '') === 'tecnico') ? 'checked' : '' ?>>
-                    <span class="form-check-label">Possuo curso técnico</span>
-                </label>
                 <label class="form-check">
                     <input type="checkbox" name="clt" value="1"
                            <?= !empty($campos['clt']) ? 'checked' : '' ?>>
                     <span class="form-check-label">Já trabalhei em regime CLT anteriormente</span>
                 </label>
             </div>
-
-            <!-- Campo condicional: área e nome do curso técnico -->
-            <div id="campoTecnico"
-                 style="display:<?= (($campos['escolaridade_tipo'] ?? '') === 'tecnico') ? 'block' : 'none' ?>;
-                        margin-top:18px;">
-
-                <div class="form-group">
-                    <label class="form-label" for="cursoPredefinido">Área do Curso Técnico</label>
-                    <select id="cursoPredefinido" name="curso_predefinido" class="form-control">
-                        <option value="Administração">Administração</option>
-                        <option value="TI">Tecnologia da Informação (TI)</option>
-                        <option value="Logística">Logística</option>
-                        <option value="Enfermagem">Enfermagem</option>
-                        <option value="Mecânica">Mecânica</option>
-                        <option value="Contabilidade">Contabilidade</option>
-                        <option value="Marketing">Marketing</option>
-                        <option value="Outro">Outro (especificar)</option>
-                    </select>
-                </div>
-
-                <div class="form-group" id="campoCursoOutro" style="display:none;">
-                    <label class="form-label" for="cursoOutro">Nome do Curso</label>
-                    <input type="text" id="cursoOutro" name="curso_outro"
-                           class="form-control" placeholder="Digite o nome do curso">
-                </div>
-
-            </div><!-- /#campoTecnico -->
 
         </div><!-- /.form-card escolaridade -->
 
@@ -371,14 +348,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
              ================================================================ -->
         <div class="form-card">
             <div class="form-section-header">
-                <span>🔒</span> Segurança
+                <span class="i i-lock" aria-hidden="true"></span> Segurança
             </div>
 
             <!-- E-mail -->
             <div class="form-group">
-                <label class="form-label" for="email">E-mail</label>
+                <label class="form-label" for="email">E-mail *</label>
                 <div class="input-group">
-                    <span class="input-icon">✉</span>
+                    <span class="input-icon i i-mail" aria-hidden="true"></span>
                     <input type="email" id="email" name="email" class="form-control"
                            placeholder="seu@email.com"
                            value="<?= htmlspecialchars($campos['email'] ?? '') ?>"
@@ -389,18 +366,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <!-- Senha + Confirmar -->
             <div class="form-row">
                 <div class="form-group">
-                    <label class="form-label" for="senha">Senha</label>
+                    <label class="form-label" for="senha">Senha *</label>
                     <div class="input-group">
-                        <span class="input-icon">🔒</span>
+                        <span class="input-icon i i-lock" aria-hidden="true"></span>
                         <input type="password" id="senha" name="senha"
                                class="form-control" placeholder="••••••••"
-                               minlength="8" required autocomplete="new-password">
+                               minlength="8" required autocomplete="new-password"
+                               aria-describedby="senhaAjuda">
                     </div>
+                    <!-- Stage 4: a regra só aparecia depois do erro -->
+                    <small id="senhaAjuda" class="text-secondary" style="font-size:12px;">Mínimo de 8 caracteres.</small>
                 </div>
                 <div class="form-group">
-                    <label class="form-label" for="confirmarSenha">Confirmar Senha</label>
+                    <label class="form-label" for="confirmarSenha">Confirmar Senha *</label>
                     <div class="input-group">
-                        <span class="input-icon">🔒</span>
+                        <span class="input-icon i i-lock" aria-hidden="true"></span>
                         <input type="password" id="confirmarSenha" name="confirmar_senha"
                                class="form-control" placeholder="••••••••"
                                minlength="8" required autocomplete="new-password">
@@ -429,10 +409,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </div><!-- /.form-container -->
 </div><!-- /.form-page -->
 
-<!-- FAB -->
-<div class="fab-stack">
-    <button class="fab fab-a11y" id="btnA11y" title="Acessibilidade" aria-label="Acessibilidade">♿</button>
-</div>
+<!-- FABs + Assistente + Acessibilidade (Stage 4: antes o botão ♿ não tinha painel nem script) -->
+<?php include dirname(__DIR__) . '/includes/assistente.php'; ?>
 
 
 <!-- ============================================================
@@ -442,6 +420,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 /* ── Tema ───────────────────────────────────────────────────── */
 const savedTheme = localStorage.getItem('jc-theme');
 if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
+
+/* Stage 4: com erro de validação, o foco vai para a lista de erros no topo */
+document.getElementById('errosCadastro')?.focus();
 
 /* ── Máscara CPF ────────────────────────────────────────────── */
 document.getElementById('cpf')?.addEventListener('input', function () {
@@ -460,19 +441,28 @@ document.getElementById('cep')?.addEventListener('input', function () {
 });
 
 /* ── Busca CEP via ViaCEP ───────────────────────────────────── */
+// Stage 4: a busca era silenciosa — sem "buscando", sem aviso de CEP não
+// encontrado ou de falha. O status aparece embaixo do campo (aria-live).
 document.getElementById('cep')?.addEventListener('blur', async function () {
-    const raw = this.value.replace(/\D/g, '');
+    const raw    = this.value.replace(/\D/g, '');
+    const status = document.getElementById('cepStatusJovem');
     if (raw.length !== 8) return;
+    if (status) status.textContent = 'Buscando cidade pelo CEP...';
     try {
         const res  = await fetch(`https://viacep.com.br/ws/${raw}/json/`);
         const data = await res.json();
-        if (data.erro) return;
+        if (data.erro) {
+            if (status) status.textContent = 'CEP não encontrado — preencha a cidade manualmente.';
+            return;
+        }
         const cidEl = document.getElementById('cidadeEstado');
         if (cidEl) cidEl.value = `${data.localidade} - ${data.uf}`;
         document.getElementById('hidCidade').value = data.localidade || '';
         document.getElementById('hidEstado').value  = data.uf         || '';
+        if (status) status.replaceChildren(jcIcone('check-circle'), ' Cidade preenchida pelo CEP.');
     } catch {
-        // falha silenciosa — o usuário preenche manualmente
+        // o usuário preenche manualmente
+        if (status) status.textContent = 'Não foi possível buscar o CEP agora — preencha a cidade manualmente.';
     }
 });
 
@@ -488,16 +478,8 @@ document.getElementById('dataNasc')?.addEventListener('change', function () {
     if (el) el.value = idade > 0 ? `${idade} anos` : '';
 });
 
-/* ── Toggle campo técnico ───────────────────────────────────── */
-document.getElementById('chkTecnico')?.addEventListener('change', function () {
-    const campo = document.getElementById('campoTecnico');
-    if (campo) campo.style.display = this.checked ? 'block' : 'none';
-});
-
-document.getElementById('cursoPredefinido')?.addEventListener('change', function () {
-    const campo = document.getElementById('campoCursoOutro');
-    if (campo) campo.style.display = this.value === 'Outro' ? 'block' : 'none';
-});
+/* Stage 5: os campos de formação (nível → curso/ano → situação) são controlados
+   pelo script de includes/formacao.php */
 
 /* ── Extrai cidade/estado e valida antes do submit ──────────── */
 document.getElementById('formCadastroJovem')?.addEventListener('submit', function (e) {

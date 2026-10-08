@@ -70,14 +70,56 @@ if (!function_exists('csrf_token')) {
             return;
         }
         http_response_code(403);
+        // Stage 4: mesma recusa, mensagem compreensível (antes: texto técnico,
+        // sem acentos, numa página sem nenhum link para sair dela)
         if ($ajax) {
             header('Content-Type: application/json; charset=utf-8');
-            echo json_encode(['error' => 'Token de seguranca (CSRF) invalido ou ausente.']);
+            echo json_encode(['error' => 'Sua sessão expirou ou a página está desatualizada. '
+                                       . 'Recarregue a página e tente novamente.']);
         } else {
-            echo 'Requisicao recusada: token de seguranca invalido ou ausente. '
-               . 'Recarregue a pagina e tente novamente.';
+            if (!headers_sent()) {
+                header('Content-Type: text/html; charset=utf-8');
+            }
+            $inicio = htmlspecialchars(_csrf_url_inicio(), ENT_QUOTES, 'UTF-8');
+            $voltar = _csrf_url_voltar();
+            $link_voltar = $voltar !== null
+                ? '<p><a href="' . htmlspecialchars($voltar, ENT_QUOTES, 'UTF-8') . '">Abrir a página de novo</a></p>'
+                : '';
+            echo '<!DOCTYPE html><html lang="pt-br"><head><meta charset="UTF-8">'
+               . '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
+               . '<title>Não foi possível concluir | JovemConnect</title></head>'
+               . '<body style="font-family:system-ui,sans-serif;max-width:520px;margin:48px auto;padding:0 16px;line-height:1.6;">'
+               . '<h1 style="font-size:20px;">Não foi possível concluir</h1>'
+               . '<p>Sua sessão expirou ou a página ficou desatualizada. Por segurança, nada foi enviado.</p>'
+               . '<p>Abra a página de novo e tente outra vez.</p>'
+               . $link_voltar
+               . '<p><a href="' . $inicio . '">Ir para a página inicial</a></p>'
+               . '</body></html>';
         }
         exit;
+    }
+
+    /** Stage 4: index.php do projeto, relativo ao script atual (ex.: "../index.php"). */
+    function _csrf_url_inicio(): string {
+        $raiz   = realpath(dirname(__DIR__));
+        $script = realpath($_SERVER['SCRIPT_FILENAME'] ?? '');
+        if ($raiz && $script && stripos($script, $raiz) === 0) {
+            $rel   = trim(str_replace('\\', '/', substr(dirname($script), strlen($raiz))), '/');
+            $nivel = ($rel === '') ? 0 : substr_count($rel, '/') + 1;
+            return str_repeat('../', $nivel) . 'index.php';
+        }
+        return '/';
+    }
+
+    /** Stage 4: página de onde veio o envio — só se for deste mesmo site (link, nunca redirect). */
+    function _csrf_url_voltar(): ?string {
+        $ref = $_SERVER['HTTP_REFERER'] ?? '';
+        $p   = is_string($ref) ? parse_url($ref) : false;
+        if (!$p || !in_array(strtolower($p['scheme'] ?? ''), ['http', 'https'], true) || empty($p['host'])) {
+            return null;
+        }
+        $host = $p['host'] . (isset($p['port']) ? ':' . $p['port'] : '');
+        return (strcasecmp($host, (string)($_SERVER['HTTP_HOST'] ?? '')) === 0) ? $ref : null;
     }
 
     /**

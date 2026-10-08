@@ -14,12 +14,17 @@
 require_once dirname(__DIR__) . '/includes/session.php';
 jc_session_start();
 
+// Stage 4: repassa o aviso de conta verificada (verificacoes/*.php mandam
+// ?verified=1 / ?phone_verified=1, mas o aviso se perdia neste redirecionamento)
+$aviso = isset($_GET['verified']) ? '?verificado=email'
+       : (isset($_GET['phone_verified']) ? '?verificado=telefone' : '');
+
 if (isset($_SESSION['jovem_id'])) {
-    header('Location: jovem.php');      // mesmo diretorio /dashboard/
+    header('Location: jovem.php' . $aviso);      // mesmo diretorio /dashboard/
     exit;
 }
 if (isset($_SESSION['empresa_id'])) {
-    header('Location: empresa.php');    // mesmo diretorio /dashboard/
+    header('Location: empresa.php' . $aviso);    // mesmo diretorio /dashboard/
     exit;
 }
 

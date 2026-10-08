@@ -106,19 +106,24 @@ $voltarLink = ($tipo === 'empresa')
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Análise de Compatibilidade | JovemConnect</title>
     <link rel="stylesheet" href="../Assets/css/style.css">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/img/marca/jovemconnect-icone-32.png">
+    <link rel="apple-touch-icon" href="../assets/img/marca/jovemconnect-icone-180.png">
 </head>
 <body>
 <?= csrf_js() ?>
 
 <nav class="navbar-inner">
-    <a href="../index.php" class="nav-logo">
-        <span class="logo-box">💼</span>
-        <span class="logo-jovem">Jovem</span><span class="logo-connect">Connect</span>
+    <a href="<?= $tipo === 'empresa' ? '../dashboard/empresa.php' : '../dashboard/jovem.php' ?>" class="nav-logo"
+       aria-label="JovemConnect — meu painel">
+        <picture class="marca marca-nav">
+            <source media="(max-width: 480px)" srcset="../assets/img/marca/jovemconnect-simbolo.png" width="192" height="192">
+            <img src="../assets/img/marca/jovemconnect-horizontal.png" alt="JovemConnect" width="493" height="160">
+        </picture>
     </a>
     <div class="navbar-inner-right">
         <button class="icon-btn btn-theme" id="btnTheme" title="Alternar tema" aria-label="Alternar tema">🌙</button>
-        <a href="<?= htmlspecialchars($perfilLink) ?>" class="icon-btn" title="Meu Perfil">👤</a>
-        <a href="../logout.php" class="icon-btn text-danger" title="Sair" aria-label="Sair">↪</a>
+        <a href="<?= htmlspecialchars($perfilLink) ?>" class="icon-btn" title="Meu Perfil" aria-label="Meu Perfil"><span class="i i-user" aria-hidden="true"></span></a>
+        <a href="../logout.php" class="icon-btn text-danger" title="Sair" aria-label="Sair"><span class="i i-log-out" aria-hidden="true"></span></a>
     </div>
 </nav>
 
@@ -129,7 +134,7 @@ $voltarLink = ($tipo === 'empresa')
 
         <!-- ── ESTADO: NÃO AUTORIZADO / DADOS INVÁLIDOS ─────────────────────── -->
         <div class="card fade-up" style="text-align:center;padding:56px 32px;max-width:460px;margin:40px auto;">
-            <div style="font-size:44px;margin-bottom:18px;">🔒</div>
+            <div class="icone-destaque neutro" aria-hidden="true"><span class="i i-lock" aria-hidden="true"></span></div>
             <h3 style="font-size:18px;font-weight:700;margin-bottom:8px;">Não foi possível abrir esta análise</h3>
             <p class="text-secondary" style="font-size:14px;line-height:1.6;margin-bottom:28px;">
                 <?= htmlspecialchars($erroPagina) ?>
@@ -162,13 +167,13 @@ $voltarLink = ($tipo === 'empresa')
             </div>
             <?php if (!empty($vaga['cidade'])): ?>
             <div class="job-card-location">
-                <span>📍</span>
+                <span class="i i-map-pin" aria-hidden="true"></span>
                 <span><?= htmlspecialchars($vaga['cidade']) ?><?= !empty($vaga['estado']) ? ', ' . htmlspecialchars($vaga['estado']) : '' ?></span>
             </div>
             <?php endif; ?>
             <?php if (!empty($vaga['tipo_contrato'])): ?>
             <div class="job-card-meta-item" style="margin-top:8px;">
-                <span>📄</span><span><?= htmlspecialchars($vaga['tipo_contrato']) ?></span>
+                <span class="i i-file-text" aria-hidden="true"></span><span><?= htmlspecialchars($vaga['tipo_contrato']) ?></span>
             </div>
             <?php endif; ?>
 
@@ -202,20 +207,23 @@ $voltarLink = ($tipo === 'empresa')
             </div>
 
             <div id="estadoErro" style="display:none;">
-                <div style="font-size:36px;margin-bottom:12px;">⚠️</div>
+                <div class="icone-destaque aviso" aria-hidden="true"><span class="i i-alert-triangle" aria-hidden="true"></span></div>
                 <p class="text-secondary" id="erroTexto">Não foi possível calcular a compatibilidade agora.</p>
                 <button class="btn btn-ghost btn-sm" style="margin-top:16px;" onclick="carregarAvaliacao()">Tentar novamente</button>
             </div>
         </div>
 
-        <a href="<?= htmlspecialchars($voltarLink) ?>" class="back-link" style="display:block;text-align:center;margin-top:20px;">
-            ← Voltar
+        <a href="<?= htmlspecialchars($voltarLink) ?>" class="back-link" style="display:flex;justify-content:center;margin-top:20px;">
+            <span class="i i-arrow-left" aria-hidden="true"></span> Voltar
         </a>
 
     <?php endif; ?>
 
 </main>
 </div>
+
+<!-- Stage 4: assistente + acessibilidade (esta página não tinha os botões ✦/♿) -->
+<?php include dirname(__DIR__) . '/includes/assistente.php'; ?>
 
 <script>
 const html     = document.documentElement;

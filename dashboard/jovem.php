@@ -80,6 +80,8 @@ $noticias = [
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vagas Disponíveis | JovemConnect</title>
     <link rel="stylesheet" href="../Assets/css/style.css">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/img/marca/jovemconnect-icone-32.png">
+    <link rel="apple-touch-icon" href="../assets/img/marca/jovemconnect-icone-180.png">
 </head>
 <body>
 <?= csrf_js() ?>
@@ -88,14 +90,16 @@ $noticias = [
      NAVBAR INTERNA
      ============================================================ -->
 <nav class="navbar-inner">
-    <a href="../index.php" class="nav-logo">
-        <span class="logo-box">💼</span>
-        <span class="logo-jovem">Jovem</span><span class="logo-connect">Connect</span>
+    <a href="jovem.php" class="nav-logo" aria-label="JovemConnect — meu painel">
+        <picture class="marca marca-nav">
+            <source media="(max-width: 480px)" srcset="../assets/img/marca/jovemconnect-simbolo.png" width="192" height="192">
+            <img src="../assets/img/marca/jovemconnect-horizontal.png" alt="JovemConnect" width="493" height="160">
+        </picture>
     </a>
 
     <div class="navbar-inner-center">
         <div class="search-bar">
-            <span class="search-icon">⌕</span>
+            <span class="search-icon i i-search" aria-hidden="true"></span>
             <input
                 type="search"
                 id="searchVagas"
@@ -108,10 +112,10 @@ $noticias = [
     <div class="navbar-inner-right">
         <button class="icon-btn btn-theme" id="btnTheme" title="Alternar tema" aria-label="Alternar tema">🌙</button>
         <!-- Stage 3: páginas existentes que não tinham nenhum link de acesso -->
-        <a href="../candidaturas/minhas.php" class="icon-btn" title="Minhas candidaturas" aria-label="Minhas candidaturas">📋</a>
-        <a href="../Vagas/favoritos.php" class="icon-btn" title="Vagas favoritas" aria-label="Vagas favoritas">⭐</a>
-        <a href="../jovem/perfil.php"  class="icon-btn" title="Meu Perfil">👤</a>
-        <a href="../logout.php"        class="icon-btn text-danger" title="Sair" aria-label="Sair">↪</a>
+        <a href="../candidaturas/minhas.php" class="icon-btn" title="Minhas candidaturas" aria-label="Minhas candidaturas"><span class="i i-clipboard-list" aria-hidden="true"></span></a>
+        <a href="../Vagas/favoritos.php" class="icon-btn" title="Vagas favoritas" aria-label="Vagas favoritas"><span class="i i-star" aria-hidden="true"></span></a>
+        <a href="../jovem/perfil.php"  class="icon-btn" title="Meu Perfil" aria-label="Meu Perfil"><span class="i i-user" aria-hidden="true"></span></a>
+        <a href="../logout.php"        class="icon-btn text-danger" title="Sair" aria-label="Sair"><span class="i i-log-out" aria-hidden="true"></span></a>
     </div>
 </nav>
 
@@ -125,7 +129,7 @@ $noticias = [
 
         <!-- Filtros de Área -->
         <div class="sidebar-card">
-            <p class="sidebar-section-title">⚡ Filtros de Área</p>
+            <p class="sidebar-section-title"><span class="i i-filter" aria-hidden="true"></span> Filtros de Área</p>
             <div class="filter-wrap">
 
                 <a href="jovem.php"
@@ -146,21 +150,22 @@ $noticias = [
 
         <!-- Notícias & Dicas -->
         <div class="sidebar-card">
-            <p class="sidebar-section-title">📰 Notícias & Dicas</p>
+            <p class="sidebar-section-title"><span class="i i-newspaper" aria-hidden="true"></span> Notícias & Dicas</p>
             <div class="news-list">
 
                 <?php foreach ($noticias as $noticia): ?>
                 <div class="news-item">
                     <div class="news-meta">
                         <span class="news-tag"><?= htmlspecialchars($noticia['tag']) ?></span>
-                        <span class="news-date">📅 <?= htmlspecialchars($noticia['data']) ?></span>
+                        <span class="news-date"><span class="i i-calendar" aria-hidden="true"></span> <?= htmlspecialchars($noticia['data']) ?></span>
                     </div>
                     <p class="news-title"><?= htmlspecialchars($noticia['titulo']) ?></p>
                     <p class="news-excerpt"><?= htmlspecialchars($noticia['resumo']) ?></p>
                 </div>
                 <?php endforeach; ?>
 
-                <a href="#" class="news-see-all">Ver todas as notícias</a>
+                <!-- Stage 4: era um link para "#" (não levava a lugar nenhum); as notícias ainda são fixas -->
+                <span class="news-see-all" style="cursor:default;opacity:.75;">Mais notícias em breve</span>
 
             </div>
         </div>
@@ -190,14 +195,20 @@ $noticias = [
             <div class="job-card"
                  data-titulo="<?=  strtolower(htmlspecialchars($vaga['titulo'])) ?>"
                  data-empresa="<?= strtolower(htmlspecialchars($vaga['nome_empresa'])) ?>"
-                 onclick="location.href='../Vagas/listar.php?id=<?= intval($vaga['id']) ?>'"
+                 onclick="location.href='../Vagas/listar.php?id=<?= intval($vaga['id']) ?>&amp;voltar=painel'"
                  style="cursor:pointer;"
                  title="Ver detalhes da vaga">
 
                 <!-- Título + badge de área -->
                 <div class="job-card-top">
                     <h3 class="job-card-title">
-                        <?= htmlspecialchars($vaga['titulo']) ?>
+                        <!-- Stage 4: link de verdade — antes só o clique do mouse no card abria a vaga
+                             (pelo teclado não havia como chegar aos detalhes) -->
+                        <a href="../Vagas/listar.php?id=<?= intval($vaga['id']) ?>&amp;voltar=painel"
+                           onclick="event.stopPropagation()"
+                           style="color:inherit;text-decoration:none;">
+                            <?= htmlspecialchars($vaga['titulo']) ?>
+                        </a>
                     </h3>
                     <?php if (!empty($vaga['area'])): ?>
                     <span class="badge badge-area"><?= htmlspecialchars($vaga['area']) ?></span>
@@ -206,7 +217,7 @@ $noticias = [
 
                 <!-- Empresa -->
                 <div class="job-card-company">
-                    <span>🏢</span>
+                    <span class="i i-building" aria-hidden="true"></span>
                     <?= htmlspecialchars($vaga['nome_empresa']) ?>
                 </div>
 
@@ -214,14 +225,14 @@ $noticias = [
                 <div class="job-card-meta">
                     <?php if (!empty($vaga['salario'])): ?>
                     <div class="job-card-meta-item">
-                        <span>💰</span>
+                        <span class="i i-banknote" aria-hidden="true"></span>
                         <span>R$ <?= htmlspecialchars($vaga['salario']) ?></span>
                     </div>
                     <?php endif; ?>
 
                     <?php if (!empty($vaga['carga_horaria'])): ?>
                     <div class="job-card-meta-item">
-                        <span>🕐</span>
+                        <span class="i i-clock" aria-hidden="true"></span>
                         <span><?= htmlspecialchars($vaga['carga_horaria']) ?></span>
                     </div>
                     <?php endif; ?>
@@ -230,7 +241,7 @@ $noticias = [
                 <!-- Localização -->
                 <?php if (!empty($vaga['cidade'])): ?>
                 <div class="job-card-location">
-                    <span>📍</span>
+                    <span class="i i-map-pin" aria-hidden="true"></span>
                     <span>
                         <?= htmlspecialchars($vaga['cidade']) ?>
                         <?= !empty($vaga['estado']) ? ', ' . htmlspecialchars($vaga['estado']) : '' ?>
@@ -244,7 +255,7 @@ $noticias = [
                         class="btn btn-ia"
                         onclick="avaliarMatch(<?= intval($vaga['id']) ?>, this)"
                         data-vaga="<?= intval($vaga['id']) ?>">
-                        ✦ Avaliar Match com IA
+                        <span class="i i-sparkles" aria-hidden="true"></span> Avaliar Match com IA
                     </button>
                 </div>
 
@@ -258,7 +269,7 @@ $noticias = [
         <!-- Estado vazio -->
         <div class="card fade-up"
              style="text-align:center;padding:56px 32px;max-width:460px;margin:0 auto;">
-            <div style="font-size:44px;margin-bottom:18px;">💼</div>
+            <div class="icone-destaque" aria-hidden="true"><span class="i i-briefcase" aria-hidden="true"></span></div>
             <h3 style="font-size:18px;font-weight:700;margin-bottom:8px;">
                 Nenhuma vaga encontrada
             </h3>
@@ -283,118 +294,17 @@ $noticias = [
 
 
 <!-- ============================================================
-     FABs FLUTUANTES
+     ASSISTENTE + ACESSIBILIDADE + FABs
+     Stage 4: este painel tinha uma cópia própria do chat e do painel de
+     acessibilidade, com outras chaves no localStorage (a preferência ligada
+     aqui se perdia nas outras páginas). Agora usa o mesmo componente de
+     todas as páginas.
      ============================================================ -->
-<div class="fab-stack">
-    <button class="fab fab-ai"   id="btnChat" title="Assistente IA"  aria-label="Abrir assistente IA">✦</button>
-    <button class="fab fab-a11y" id="btnA11y" title="Acessibilidade" aria-label="Abrir acessibilidade">♿</button>
-</div>
-
-<div class="chat-widget" id="chatWidget" role="dialog"
-     aria-label="Assistente JovemConnect" aria-modal="false">
-    <div class="chat-header">
-        <div class="chat-header-left">
-            <span>✦</span><span>Assistente JovemConnect</span>
-        </div>
-        <button class="chat-close" id="chatClose" aria-label="Fechar">✕</button>
-    </div>
-    <div class="chat-body" id="chatBody">
-        <div class="chat-msg">
-            Oi! 👋 Posso te ajudar a entender como funcionam as vagas,
-            a avaliação de compatibilidade da IA, ou qualquer dúvida sobre o JovemConnect.
-            Como posso ajudar?
-        </div>
-    </div>
-    <div class="chat-footer">
-        <input type="text" class="chat-input" id="chatInput"
-               placeholder="Pergunte algo..." aria-label="Mensagem">
-        <button class="chat-send" id="chatSend" aria-label="Enviar">✈</button>
-    </div>
-</div>
-
-<!-- ============================================================
-     PAINEL DE ACESSIBILIDADE
-     ============================================================ -->
-<div class="a11y-panel" id="a11yPanel" role="dialog"
-     aria-label="Acessibilidade" aria-modal="false">
-
-    <div class="a11y-header">
-        <h3>♿ Acessibilidade</h3>
-        <button class="a11y-reset" id="a11yReset" title="Restaurar" aria-label="Restaurar padrões">↺</button>
-    </div>
-
-    <div class="a11y-body">
-
-        <div class="a11y-item">
-            <label class="a11y-label" id="lblFs">
-                T Tamanho do Texto (<span id="fontSizeVal">100</span>%)
-            </label>
-            <input type="range" id="rangeFontSize" min="80" max="140" value="100"
-                   aria-labelledby="lblFs">
-        </div>
-
-        <hr class="a11y-divider">
-
-        <div class="a11y-row">
-            <label class="a11y-label" for="togDislexia">⋮ᴬ Fonte para Dislexia</label>
-            <label class="toggle">
-                <input type="checkbox" id="togDislexia">
-                <span class="toggle-track"></span>
-            </label>
-        </div>
-
-        <hr class="a11y-divider">
-
-        <div class="a11y-item">
-            <label class="a11y-label" for="selDaltonismo">🎨 Filtro de Daltonismo</label>
-            <select id="selDaltonismo" class="form-control">
-                <option value="">Nenhum</option>
-                <option value="protanopia">Protanopia</option>
-                <option value="deuteranopia">Deuteranopia</option>
-                <option value="tritanopia">Tritanopia</option>
-            </select>
-        </div>
-
-        <hr class="a11y-divider">
-
-        <div class="a11y-row">
-            <label class="a11y-label" for="togContraste">⊙ Alto Contraste</label>
-            <label class="toggle">
-                <input type="checkbox" id="togContraste">
-                <span class="toggle-track"></span>
-            </label>
-        </div>
-
-        <hr class="a11y-divider">
-
-        <div class="a11y-row">
-            <label class="a11y-label" for="togCinza">👁 Tons de Cinza</label>
-            <label class="toggle">
-                <input type="checkbox" id="togCinza">
-                <span class="toggle-track"></span>
-            </label>
-        </div>
-
-    </div>
-</div>
-
-<!-- SVG filters daltonismo -->
-<svg width="0" height="0" style="position:absolute" aria-hidden="true">
-    <defs>
-        <filter id="protanopia">
-            <feColorMatrix type="matrix"
-                values="0.567,0.433,0,0,0 0.558,0.442,0,0,0 0,0.242,0.758,0,0 0,0,0,1,0"/>
-        </filter>
-        <filter id="deuteranopia">
-            <feColorMatrix type="matrix"
-                values="0.625,0.375,0,0,0 0.7,0.3,0,0,0 0,0.3,0.7,0,0 0,0,0,1,0"/>
-        </filter>
-        <filter id="tritanopia">
-            <feColorMatrix type="matrix"
-                values="0.95,0.05,0,0,0 0,0.433,0.567,0,0 0,0.475,0.525,0,0 0,0,0,1,0"/>
-        </filter>
-    </defs>
-</svg>
+<?php
+$assistente_boas_vindas = 'Oi! 👋 Posso te ajudar a entender como funcionam as vagas, a avaliação de '
+    . 'compatibilidade da IA, ou qualquer dúvida sobre o JovemConnect. Como posso ajudar?';
+include dirname(__DIR__) . '/includes/assistente.php';
+?>
 
 <!-- ============================================================
      SCRIPTS
@@ -444,170 +354,35 @@ async function avaliarMatch(vagaId, btn) {
         if (!res.ok) {
             // Stage 3: guarda o motivo devolvido pelo servidor (ex.: "Servidor de IA indisponível.")
             const corpo = await res.json().catch(() => ({}));
-            throw new Error(corpo.error || `HTTP ${res.status}`);
+            // Stage 4: sem motivo do servidor, mensagem amigável (antes aparecia "HTTP 500")
+            throw Object.assign(new Error(corpo.error || 'Não foi possível avaliar agora.'), { amigavel: true });
         }
 
         const { score, analise } = await res.json();
 
-        btn.innerHTML = `✦ Match: ${score ?? '--'}%`;
+        btn.replaceChildren(jcIcone('sparkles'), `Match: ${score ?? '--'}%`);   // Stage 5: ícone + texto
         btn.style.color = 'var(--accent)';
         btn.title       = analise ?? '';
 
     } catch (err) {
         btn.disabled  = false;
         // Stage 3: antes o botão só voltava ao normal, sem explicar o que houve
-        btn.textContent = '✦ ' + (err?.message || 'Não foi possível avaliar agora.');
+        // Stage 4: erro de rede/resposta inválida não aparece em inglês ("Failed to fetch")
+        btn.replaceChildren(jcIcone('sparkles'), err?.amigavel ? err.message : 'Não foi possível avaliar agora. Tente de novo.');
         btn.title       = 'Clique para tentar novamente';
-        setTimeout(() => { btn.innerHTML = '✦ Avaliar Match com IA'; btn.title = ''; }, 3500);
+        setTimeout(() => { btn.innerHTML = '<span class="i i-sparkles" aria-hidden="true"></span> Avaliar Match com IA'; btn.title = ''; }, 3500);
         console.error('Erro no match IA:', err);
     }
 }
 
-/* ── Assistente + Acessibilidade (mesma implementação de index.php) ──── */
-const chatWidget = document.getElementById('chatWidget');
-const chatBody   = document.getElementById('chatBody');
-const chatInput  = document.getElementById('chatInput');
-const a11yPanel  = document.getElementById('a11yPanel');
+/* Stage 4: chat e acessibilidade agora vêm de includes/assistente.php */
 
-document.getElementById('btnChat')?.addEventListener('click', () => {
-    chatWidget.classList.toggle('is-open');
-    a11yPanel?.classList.remove('is-open');
-    if (chatWidget.classList.contains('is-open')) chatInput?.focus();
-    atualizarVisibilidadeFabs();
-});
-document.getElementById('chatClose')?.addEventListener('click', () => {
-    chatWidget.classList.remove('is-open');
-    atualizarVisibilidadeFabs();
-});
-
-// Evita sobreposicao visual: enquanto um painel esta aberto, esconde o FAB
-// do OUTRO (o FAB do painel aberto continua visivel, para dar para fechar).
-function atualizarVisibilidadeFabs() {
-    const chatAberto = chatWidget.classList.contains('is-open');
-    const a11yAberto  = a11yPanel.classList.contains('is-open');
-    const btnChatEl = document.getElementById('btnChat');
-    const btnA11yEl = document.getElementById('btnA11y');
-    if (btnChatEl) btnChatEl.style.display = a11yAberto ? 'none' : '';
-    if (btnA11yEl) btnA11yEl.style.display = chatAberto ? 'none' : '';
-}
-
-function addMsg(html, fromUser = false) {
-    const d = document.createElement('div');
-    d.className = 'chat-msg';
-    if (fromUser) d.style.cssText =
-        'background:var(--accent-subtle);border:1px solid var(--accent);margin-left:24px;';
-    // Stage 3: o texto digitado pelo usuário nunca é interpretado como HTML
-    if (fromUser) d.textContent = html; else d.innerHTML = html;
-    chatBody.appendChild(d);
-    chatBody.scrollTop = chatBody.scrollHeight;
-    return d;
-}
-
-const respostas = {
-    jovem:   'Para se cadastrar como jovem, clique em <strong>Sou Jovem</strong>. O processo e rapido e gratuito! 🎓',
-    empresa: 'Para publicar vagas, clique em <strong>Sou Empresa</strong>. Use nossa IA para encontrar candidatos compativeis! 💼',
-    vaga:    'As vagas aparecem no dashboard apos o login. A IA calcula automaticamente a compatibilidade com seu perfil! ✦',
-    ia:      'Nossa IA analisa formacao, localizacao e area de interesse para gerar um score de 0-100% de compatibilidade. ✦',
-    aprendiz:'O Jovem Aprendiz e um programa que permite a jovens entre 14 e 24 anos seu primeiro emprego com carteira assinada. 📋',
-};
-
-async function sendChat() {
-    const msg = chatInput.value.trim();
-    if (!msg) return;
-    chatInput.value = '';
-    addMsg(msg, true);
-    const spinner = addMsg('<span class="loading-spinner"></span>');
-
-    // Stage 3: removido o fetch ao /ping do Flask — o resultado era ignorado
-    // (respostas são predefinidas) e gerava erro no console com o Flask desligado.
-    await new Promise(r => setTimeout(r, 350));
-
-    spinner.remove();
-
-    // Stage 3: casa PALAVRAS inteiras, sem acento — "bom dia" não dispara a
-    // resposta de "ia"; "aprendiz" é testado antes de "jovem"; aceita plural.
-    const palavras = msg.toLowerCase().normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '').split(/[^a-z0-9]+/);
-    const radicais = { aprendiz: 'aprendiz', empresa: 'empresa', vaga: 'vaga', ia: 'ia', jovem: 'jove' };
-    const key = Object.keys(radicais).find(k => palavras.some(p =>
-        radicais[k].length <= 2 ? p === radicais[k] : p.startsWith(radicais[k])));
-    addMsg(key
-        ? respostas[key]
-        : 'Boa pergunta! Para mais informacoes, explore o site ou entre em contato. 😊');
-}
-
-document.getElementById('chatSend')?.addEventListener('click', sendChat);
-chatInput?.addEventListener('keydown', e => { if (e.key === 'Enter') sendChat(); });
-
-/* -- Painel de Acessibilidade -- */
-document.getElementById('btnA11y')?.addEventListener('click', () => {
-    a11yPanel.classList.toggle('is-open');
-    chatWidget.classList.remove('is-open');
-    atualizarVisibilidadeFabs();
-});
-
-const rangeFs = document.getElementById('rangeFontSize');
-rangeFs?.addEventListener('input', function () {
-    document.getElementById('fontSizeVal').textContent = this.value;
-    html.style.fontSize = (this.value / 100) + 'rem';
-    localStorage.setItem('jc-fontsize', this.value);
-});
-
-document.getElementById('togDislexia')?.addEventListener('change', function () {
-    html.style.fontFamily = this.checked ? '"OpenDyslexic","Comic Sans MS",cursive' : '';
-    localStorage.setItem('jc-dyslexia', this.checked ? '1' : '0');
-});
-
-document.getElementById('selDaltonismo')?.addEventListener('change', function () {
-    const f = { protanopia:'url(#protanopia)', deuteranopia:'url(#deuteranopia)', tritanopia:'url(#tritanopia)' };
-    html.style.filter = f[this.value] || '';
-    localStorage.setItem('jc-daltonismo', this.value);
-});
-
-document.getElementById('togContraste')?.addEventListener('change', function () {
-    html.classList.toggle('high-contrast', this.checked);
-    localStorage.setItem('jc-contraste', this.checked ? '1' : '0');
-});
-
-document.getElementById('togCinza')?.addEventListener('change', function () {
-    html.style.filter = this.checked ? 'grayscale(100%)' : '';
-    localStorage.setItem('jc-cinza', this.checked ? '1' : '0');
-});
-
-document.getElementById('a11yReset')?.addEventListener('click', () => {
-    html.style.fontSize = html.style.fontFamily = html.style.filter = '';
-    html.classList.remove('high-contrast');
-    if (rangeFs) rangeFs.value = 100;
-    document.getElementById('fontSizeVal').textContent = '100';
-    ['togDislexia','togContraste','togCinza'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.checked = false;
-    });
-    document.getElementById('selDaltonismo').value = '';
-    ['jc-fontsize','jc-dyslexia','jc-daltonismo','jc-contraste','jc-cinza']
-        .forEach(k => localStorage.removeItem(k));
-});
-
-// Restaura preferencias salvas
-;(function() {
-    const fs = localStorage.getItem('jc-fontsize');
-    if (fs && rangeFs) {
-        rangeFs.value = fs;
-        document.getElementById('fontSizeVal').textContent = fs;
-        html.style.fontSize = (fs / 100) + 'rem';
-    }
-    if (localStorage.getItem('jc-dyslexia') === '1') {
-        document.getElementById('togDislexia').checked = true;
-        html.style.fontFamily = '"OpenDyslexic","Comic Sans MS",cursive';
-    }
-    if (localStorage.getItem('jc-contraste') === '1') {
-        document.getElementById('togContraste').checked = true;
-        html.classList.add('high-contrast');
-    }
-    if (localStorage.getItem('jc-cinza') === '1') {
-        document.getElementById('togCinza').checked = true;
-        html.style.filter = 'grayscale(100%)';
-    }
+/* Stage 4: confirmação depois da verificação da conta (o aviso se perdia no caminho) */
+(function () {
+    const v = new URLSearchParams(location.search).get('verificado');
+    if (v !== 'email' && v !== 'telefone') return;
+    window.jcAviso?.(v === 'email' ? 'E-mail verificado com sucesso!' : 'Telefone verificado com sucesso!', 'sucesso');
+    history.replaceState(null, '', location.pathname);   // F5 não repete o aviso
 })();
 
 </script>

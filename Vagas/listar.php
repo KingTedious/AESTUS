@@ -35,6 +35,18 @@ if (isset($_GET['id']) && intval($_GET['id']) > 0) {
 
     $vaga_id = intval($_GET['id']);
 
+    // Stage 4: o "←" voltava sempre para a listagem, mesmo vindo do painel, dos
+    // favoritos ou das candidaturas. Agora volta para a origem — lista FIXA de
+    // destinos (qualquer outro valor cai na listagem, nunca numa URL externa).
+    $destinos_voltar = [
+        'painel'       => ['../dashboard/jovem.php',     'Voltar ao painel'],
+        'favoritos'    => ['favoritos.php',              'Voltar aos favoritos'],
+        'candidaturas' => ['../candidaturas/minhas.php', 'Voltar às minhas candidaturas'],
+    ];
+    $voltar_chave = is_string($_GET['voltar'] ?? null) && isset($destinos_voltar[$_GET['voltar']]) ? $_GET['voltar'] : '';
+    [$voltar_url, $voltar_rotulo] = $destinos_voltar[$voltar_chave] ?? ['listar.php', 'Voltar para a lista de vagas'];
+    $voltar_qs = ($voltar_chave !== '') ? '&voltar=' . $voltar_chave : '';
+
     // ── Dados da vaga + empresa ───────────────────────────────────────────────
     $stmt_v = $conn->prepare(
         "SELECT v.id, v.titulo, v.descricao, v.cidade, v.estado,
@@ -101,20 +113,24 @@ if (isset($_GET['id']) && intval($_GET['id']) > 0) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= htmlspecialchars($vaga['titulo']) ?> | JovemConnect</title>
     <link rel="stylesheet" href="../Assets/css/style.css">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/img/marca/jovemconnect-icone-32.png">
+    <link rel="apple-touch-icon" href="../assets/img/marca/jovemconnect-icone-180.png">
 </head>
 <body>
 <?= csrf_js() ?>
 
 <div class="detail-bar">
     <div class="d-flex align-center gap-12">
-        <a href="listar.php" class="icon-btn" title="Voltar">←</a>
+        <a href="<?= htmlspecialchars($voltar_url) ?>" class="icon-btn"
+           title="<?= htmlspecialchars($voltar_rotulo) ?>" aria-label="<?= htmlspecialchars($voltar_rotulo) ?>"><span class="i i-arrow-left" aria-hidden="true"></span></a>
+        <span class="marca marca-compacta"><img src="../assets/img/marca/jovemconnect-simbolo.png" alt="JovemConnect" width="192" height="192"></span>
         <span class="detail-bar-title">Detalhes da Vaga</span>
     </div>
     <?php if (!$ja_candidatado): ?>
-    <a href="candidatar.php?vaga=<?= $vaga_id ?>"
-       class="btn btn-primary btn-sm">✈ Candidatar-se</a>
+    <a href="candidatar.php?vaga=<?= $vaga_id ?><?= htmlspecialchars($voltar_qs) ?>"
+       class="btn btn-primary btn-sm"><span class="i i-send" aria-hidden="true"></span> Candidatar-se</a>
     <?php else: ?>
-    <span class="badge badge-success" style="padding:10px 16px;">✓ Candidatura Enviada</span>
+    <span class="badge badge-success" style="padding:10px 16px;gap:6px;"><span class="i i-check" aria-hidden="true"></span> Candidatura Enviada</span>
     <?php endif; ?>
 </div>
 
@@ -134,7 +150,7 @@ if (isset($_GET['id']) && intval($_GET['id']) > 0) {
             <h1 class="detail-vaga-title"><?= htmlspecialchars($vaga['titulo']) ?></h1>
 
             <div class="detail-vaga-company">
-                <span>🏢</span>
+                <span class="i i-building" aria-hidden="true"></span>
                 <span><?= htmlspecialchars($vaga['nome_empresa']) ?></span>
             </div>
 
@@ -143,7 +159,7 @@ if (isset($_GET['id']) && intval($_GET['id']) > 0) {
                 <div class="detail-meta-item">
                     <span class="detail-meta-label">SALÁRIO</span>
                     <span class="detail-meta-value">
-                        <span style="color:#4ade80;">💰</span>
+                        <span class="i i-banknote" aria-hidden="true"></span>
                         R$ <?= htmlspecialchars($vaga['salario']) ?>
                     </span>
                 </div>
@@ -153,7 +169,7 @@ if (isset($_GET['id']) && intval($_GET['id']) > 0) {
                 <div class="detail-meta-item">
                     <span class="detail-meta-label">CARGA HORÁRIA</span>
                     <span class="detail-meta-value">
-                        <span>🕐</span>
+                        <span class="i i-clock" aria-hidden="true"></span>
                         <?= htmlspecialchars($vaga['carga_horaria']) ?>
                     </span>
                 </div>
@@ -163,7 +179,7 @@ if (isset($_GET['id']) && intval($_GET['id']) > 0) {
                 <div class="detail-meta-item">
                     <span class="detail-meta-label">LOCAL</span>
                     <span class="detail-meta-value">
-                        <span style="color:#f87171;">📍</span>
+                        <span class="i i-map-pin" aria-hidden="true"></span>
                         <?= htmlspecialchars($vaga['cidade']) ?>
                         <?= !empty($vaga['estado']) ? ', ' . htmlspecialchars($vaga['estado']) : '' ?>
                     </span>
@@ -175,7 +191,7 @@ if (isset($_GET['id']) && intval($_GET['id']) > 0) {
                 <div class="detail-meta-item">
                     <span class="detail-meta-label">CONTRATO</span>
                     <span class="detail-meta-value">
-                        <span>📋</span>
+                        <span class="i i-clipboard-list" aria-hidden="true"></span>
                         <?= htmlspecialchars($vaga['tipo_contrato']) ?>
                     </span>
                 </div>
@@ -185,7 +201,7 @@ if (isset($_GET['id']) && intval($_GET['id']) > 0) {
 
         <!-- Descrição -->
         <div class="detail-section">
-            <h2 class="detail-section-title">ℹ Descrição da Vaga</h2>
+            <h2 class="detail-section-title"><span class="i i-file-text" aria-hidden="true"></span> Descrição da Vaga</h2>
             <p class="text-secondary" style="font-size:14px;line-height:1.8;">
                 <?= nl2br(htmlspecialchars($vaga['descricao'] ?? '')) ?>
             </p>
@@ -194,11 +210,11 @@ if (isset($_GET['id']) && intval($_GET['id']) > 0) {
         <!-- Requisitos -->
         <?php if (!empty($requisitos)): ?>
         <div class="detail-section">
-            <h2 class="detail-section-title">✦ Requisitos</h2>
+            <h2 class="detail-section-title"><span class="i i-list-checks" aria-hidden="true"></span> Requisitos</h2>
             <div class="req-grid">
                 <?php foreach ($requisitos as $r): ?>
                 <div class="req-item">
-                    <span style="color:var(--accent);flex-shrink:0;">✓</span>
+                    <span class="i i-check" aria-hidden="true" style="color:var(--accent);"></span>
                     <?= htmlspecialchars($r['requisito']) ?>
                 </div>
                 <?php endforeach; ?>
@@ -209,7 +225,7 @@ if (isset($_GET['id']) && intval($_GET['id']) > 0) {
         <!-- Benefícios -->
         <?php if (!empty($beneficios)): ?>
         <div class="detail-section">
-            <h2 class="detail-section-title">✈ Benefícios</h2>
+            <h2 class="detail-section-title"><span class="i i-gift" aria-hidden="true"></span> Benefícios</h2>
             <div style="display:flex;flex-wrap:wrap;gap:8px;">
                 <?php foreach ($beneficios as $b): ?>
                 <span class="benefit-chip"><?= htmlspecialchars($b['beneficio']) ?></span>
@@ -226,7 +242,7 @@ if (isset($_GET['id']) && intval($_GET['id']) > 0) {
         <!-- Localização -->
         <div class="map-card">
             <div class="map-visual">
-                <span>📍</span>
+                <span class="i i-map-pin" aria-hidden="true"></span>
             </div>
             <div class="map-info">
                 <strong><?= htmlspecialchars($vaga['nome_empresa']) ?></strong>
@@ -242,26 +258,27 @@ if (isset($_GET['id']) && intval($_GET['id']) > 0) {
            target="_blank" rel="noopener"
            class="btn btn-secondary btn-sm btn-full"
            style="margin-bottom:10px;">
-            ✈ Ver no Google Maps
+            <span class="i i-external-link" aria-hidden="true"></span> Ver no Google Maps<span class="sr-only"> (abre em nova aba)</span>
         </a>
         <?php endif; ?>
 
         <?php if (!$ja_candidatado): ?>
-        <a href="candidatar.php?vaga=<?= $vaga_id ?>"
+        <a href="candidatar.php?vaga=<?= $vaga_id ?><?= htmlspecialchars($voltar_qs) ?>"
            class="btn btn-primary btn-sm btn-full"
            style="margin-bottom:12px;">
-            ✈ Candidatar-se Agora
+            <span class="i i-send" aria-hidden="true"></span> Candidatar-se Agora
         </a>
         <?php else: ?>
-        <div class="btn btn-secondary btn-sm btn-full"
-             style="margin-bottom:12px;cursor:default;opacity:.6;">
-            ✓ Já Candidatado
-        </div>
+        <!-- Stage 4: antes era um "botão" que não fazia nada; agora leva ao acompanhamento -->
+        <a href="../candidaturas/minhas.php" class="btn btn-secondary btn-sm btn-full"
+           style="margin-bottom:12px;">
+            <span class="i i-check-circle" aria-hidden="true"></span> Já candidatado · ver status
+        </a>
         <?php endif; ?>
 
         <!-- IA Dica -->
         <div class="ia-dica-card">
-            <span class="ia-dica-icon">✦</span>
+            <span class="ia-dica-icon i i-sparkles" aria-hidden="true"></span>
             <p class="ia-dica-title">IA Dica</p>
             <?php if ($ia_cache): ?>
             <p class="ia-dica-text">
@@ -278,7 +295,7 @@ if (isset($_GET['id']) && intval($_GET['id']) > 0) {
             </p>
             <a href="avaliar.php?vaga_id=<?= $vaga_id ?>"
                class="btn btn-ghost btn-sm btn-full" style="margin-top:10px;">
-                ✦ Avaliar Compatibilidade
+                <span class="i i-sparkles" aria-hidden="true"></span> Avaliar Compatibilidade
             </a>
             <?php endif; ?>
         </div>
@@ -372,15 +389,19 @@ $areas_result = $conn->query(
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vagas Disponíveis | JovemConnect</title>
     <link rel="stylesheet" href="../Assets/css/style.css">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/img/marca/jovemconnect-icone-32.png">
+    <link rel="apple-touch-icon" href="../assets/img/marca/jovemconnect-icone-180.png">
 </head>
 <body>
 <?= csrf_js() ?>
 
 <!-- Navbar interna -->
 <nav class="navbar-inner">
-    <a href="../index.php" class="nav-logo">
-        <span class="logo-box">💼</span>
-        <span class="logo-jovem">Jovem</span><span class="logo-connect">Connect</span>
+    <a href="../dashboard/jovem.php" class="nav-logo" aria-label="JovemConnect — meu painel">
+        <picture class="marca marca-nav">
+            <source media="(max-width: 480px)" srcset="../assets/img/marca/jovemconnect-simbolo.png" width="192" height="192">
+            <img src="../assets/img/marca/jovemconnect-horizontal.png" alt="JovemConnect" width="493" height="160">
+        </picture>
     </a>
 
     <!-- Busca centralizada -->
@@ -391,7 +412,7 @@ $areas_result = $conn->query(
             <input type="hidden" name="area" value="<?= htmlspecialchars($area) ?>">
             <?php endif; ?>
             <div class="search-bar">
-                <span class="search-icon">⌕</span>
+                <span class="search-icon i i-search" aria-hidden="true"></span>
                 <input
                     type="search" name="busca"
                     placeholder="Buscar vagas..."
@@ -403,9 +424,12 @@ $areas_result = $conn->query(
     </div>
 
     <div class="navbar-inner-right">
-        <button class="icon-btn btn-theme" id="btnTheme" title="Alternar tema">🌙</button>
-        <a href="../jovem/perfil.php" class="icon-btn" title="Perfil">👤</a>
-        <a href="../logout.php" class="icon-btn text-danger" title="Sair">↪</a>
+        <button class="icon-btn btn-theme" id="btnTheme" title="Alternar tema" aria-label="Alternar tema">🌙</button>
+        <!-- Stage 4: mesmos atalhos do painel do jovem -->
+        <a href="../candidaturas/minhas.php" class="icon-btn" title="Minhas candidaturas" aria-label="Minhas candidaturas"><span class="i i-clipboard-list" aria-hidden="true"></span></a>
+        <a href="favoritos.php" class="icon-btn" title="Vagas favoritas" aria-label="Vagas favoritas"><span class="i i-star" aria-hidden="true"></span></a>
+        <a href="../jovem/perfil.php" class="icon-btn" title="Meu Perfil" aria-label="Meu Perfil"><span class="i i-user" aria-hidden="true"></span></a>
+        <a href="../logout.php" class="icon-btn text-danger" title="Sair" aria-label="Sair"><span class="i i-log-out" aria-hidden="true"></span></a>
     </div>
 </nav>
 
@@ -416,7 +440,7 @@ $areas_result = $conn->query(
 
         <!-- Filtros avançados -->
         <div class="sidebar-card">
-            <p class="sidebar-section-title">⚡ Filtros de Área</p>
+            <p class="sidebar-section-title"><span class="i i-filter" aria-hidden="true"></span> Filtros de Área</p>
             <div class="filter-wrap">
                 <a href="listar.php<?= !empty($busca) ? '?busca='.urlencode($busca) : '' ?>"
                    class="filter-chip <?= empty($area) ? 'active' : '' ?>">
@@ -433,7 +457,7 @@ $areas_result = $conn->query(
 
         <!-- Filtro cidade/estado -->
         <div class="sidebar-card">
-            <p class="sidebar-section-title">📍 Localização</p>
+            <p class="sidebar-section-title"><span class="i i-map-pin" aria-hidden="true"></span> Localização</p>
             <form method="GET" action="listar.php">
                 <?php if (!empty($busca)): ?>
                 <input type="hidden" name="busca" value="<?= htmlspecialchars($busca) ?>">
@@ -442,14 +466,14 @@ $areas_result = $conn->query(
                 <input type="hidden" name="area" value="<?= htmlspecialchars($area) ?>">
                 <?php endif; ?>
                 <div class="form-group">
-                    <label class="form-label">Cidade</label>
-                    <input type="text" name="cidade" class="form-control"
+                    <label class="form-label" for="filtroCidade">Cidade</label>
+                    <input type="text" name="cidade" id="filtroCidade" class="form-control"
                            placeholder="Ex: São Paulo"
                            value="<?= htmlspecialchars($cidade) ?>">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Estado (UF)</label>
-                    <input type="text" name="estado" class="form-control"
+                    <label class="form-label" for="filtroEstado">Estado (UF)</label>
+                    <input type="text" name="estado" id="filtroEstado" class="form-control"
                            placeholder="SP" maxlength="2"
                            value="<?= htmlspecialchars($estado) ?>">
                 </div>
@@ -469,6 +493,9 @@ $areas_result = $conn->query(
 
     <!-- Conteúdo principal -->
     <main class="dashboard-main">
+
+        <!-- Stage 4: caminho de volta explícito -->
+        <p style="margin:0 0 12px;"><a href="../dashboard/jovem.php" class="back-link"><span class="i i-arrow-left" aria-hidden="true"></span> Voltar ao painel</a></p>
 
         <div class="page-heading fade-up">
             <h1>Vagas Disponíveis</h1>
@@ -521,17 +548,17 @@ $areas_result = $conn->query(
                             style="
                                 background:none;border:none;cursor:pointer;
                                 font-size:18px;line-height:1;
-                                color:<?= $eh_favorito ? '#facc15' : 'var(--text-muted)' ?>;
+                                color:<?= $eh_favorito ? 'var(--jc-favorito, #facc15)' : 'var(--text-muted)' ?>;
                                 transition:color var(--dur),transform var(--dur);
                             ">
-                            <?= $eh_favorito ? '⭐' : '☆' ?>
+                            <span class="i <?= $eh_favorito ? 'i-star-cheia' : 'i-star' ?>" aria-hidden="true"></span>
                         </button>
                     </div>
                 </div>
 
                 <!-- Empresa -->
                 <div class="job-card-company">
-                    <span>🏢</span>
+                    <span class="i i-building" aria-hidden="true"></span>
                     <?= htmlspecialchars($vaga['nome_empresa']) ?>
                 </div>
 
@@ -539,13 +566,13 @@ $areas_result = $conn->query(
                 <div class="job-card-meta">
                     <?php if (!empty($vaga['salario'])): ?>
                     <div class="job-card-meta-item">
-                        <span>💰</span>
+                        <span class="i i-banknote" aria-hidden="true"></span>
                         <span>R$ <?= htmlspecialchars($vaga['salario']) ?></span>
                     </div>
                     <?php endif; ?>
                     <?php if (!empty($vaga['carga_horaria'])): ?>
                     <div class="job-card-meta-item">
-                        <span>🕐</span>
+                        <span class="i i-clock" aria-hidden="true"></span>
                         <span><?= htmlspecialchars($vaga['carga_horaria']) ?></span>
                     </div>
                     <?php endif; ?>
@@ -554,7 +581,7 @@ $areas_result = $conn->query(
                 <!-- Localização -->
                 <?php if (!empty($vaga['cidade'])): ?>
                 <div class="job-card-location">
-                    <span>📍</span>
+                    <span class="i i-map-pin" aria-hidden="true"></span>
                     <span>
                         <?= htmlspecialchars($vaga['cidade']) ?>
                         <?= !empty($vaga['estado']) ? ', ' . htmlspecialchars($vaga['estado']) : '' ?>
@@ -573,7 +600,7 @@ $areas_result = $conn->query(
                             class="btn btn-ia"
                             style="flex:1;"
                             onclick="avaliarMatch(<?= $vaga_id ?>, this)">
-                            ✦ Match IA
+                            <span class="i i-sparkles" aria-hidden="true"></span> Match IA
                         </button>
                     </div>
                 </div>
@@ -587,7 +614,7 @@ $areas_result = $conn->query(
 
         <div class="card fade-up"
              style="text-align:center;padding:56px 32px;max-width:460px;margin:0 auto;">
-            <div style="font-size:44px;margin-bottom:18px;">🔍</div>
+            <div class="icone-destaque" aria-hidden="true"><span class="i i-search" aria-hidden="true"></span></div>
             <h3 style="font-size:18px;font-weight:700;margin-bottom:8px;">
                 Nenhuma vaga encontrada
             </h3>
@@ -625,6 +652,9 @@ btnTheme?.addEventListener('click', () => {
 
 /* ── Toggle favorito (AJAX POST) ───────────────────────────── */
 async function toggleFavorito(vagaId, btn) {
+    if (btn.disabled) return;                  // Stage 4: ignora cliques repetidos durante a requisição
+    btn.disabled = true;
+    btn.setAttribute('aria-busy', 'true');
     btn.style.transform = 'scale(.8)';
     const fd = new FormData();
     fd.append('vaga_id', vagaId);
@@ -634,22 +664,29 @@ async function toggleFavorito(vagaId, btn) {
             headers: { 'X-Requested-With': 'XMLHttpRequest' },
             body: fd,
         });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const data = await res.json();
-        btn.textContent = data.favorito ? '⭐' : '☆';
-        btn.style.color = data.favorito ? '#facc15' : 'var(--text-muted)';
-        btn.title       = data.favorito ? 'Remover dos favoritos' : 'Salvar nos favoritos';
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || typeof data.favorito !== 'boolean')   // resposta inesperada também é erro
+            throw Object.assign(new Error(data.error || ''), { amigavel: !!data.error });
+        const rotulo = data.favorito ? 'Remover dos favoritos' : 'Salvar nos favoritos';
+        btn.replaceChildren(jcIcone(data.favorito ? 'star-cheia' : 'star'));   // Stage 5: ícone (antes ⭐/☆)
+        btn.style.color = data.favorito ? 'var(--jc-favorito, #facc15)' : 'var(--text-muted)';
+        btn.title       = rotulo;
+        btn.setAttribute('aria-label', rotulo);  // Stage 4: o leitor de tela acompanha o estado
     } catch (err) {
         console.error('Erro ao favoritar:', err);
+        // Stage 4: antes o erro só ia para o console — o usuário não sabia que não salvou
+        window.jcAviso?.(err?.amigavel ? err.message : 'Não foi possível atualizar os favoritos. Tente de novo.');
     } finally {
         btn.style.transform = '';
+        btn.disabled = false;
+        btn.removeAttribute('aria-busy');
     }
 }
 
 /* ── Avaliar Match IA ──────────────────────────────────────── */
 async function avaliarMatch(vagaId, btn) {
     btn.disabled  = true;
-    btn.innerHTML = '<span class="loading-spinner"></span>';
+    btn.innerHTML = '<span class="loading-spinner"></span> Analisando...';   // Stage 4: antes só o spinner
     try {
         const res = await fetch('../IA/avaliar_ajax.php', {
             method: 'POST',
@@ -659,17 +696,19 @@ async function avaliarMatch(vagaId, btn) {
         if (!res.ok) {
             // Stage 3: guarda o motivo devolvido pelo servidor (ex.: "Servidor de IA indisponível.")
             const corpo = await res.json().catch(() => ({}));
-            throw new Error(corpo.error || `HTTP ${res.status}`);
+            // Stage 4: sem motivo do servidor, mensagem amigável (antes aparecia "HTTP 500")
+            throw Object.assign(new Error(corpo.error || 'Não foi possível avaliar agora.'), { amigavel: true });
         }
         const { score } = await res.json();
-        btn.innerHTML   = `✦ Match: ${score ?? '--'}%`;
+        btn.replaceChildren(jcIcone('sparkles'), `Match: ${score ?? '--'}%`);   // Stage 5: ícone + texto
         btn.style.color = 'var(--accent)';
     } catch (err) {
         btn.disabled  = false;
         // Stage 3: antes o botão só voltava ao normal, sem explicar o que houve
-        btn.textContent = '✦ ' + (err?.message || 'Não foi possível avaliar agora.');
+        // Stage 4: erro de rede/resposta inválida não aparece em inglês ("Failed to fetch")
+        btn.replaceChildren(jcIcone('sparkles'), err?.amigavel ? err.message : 'Não foi possível avaliar agora. Tente de novo.');
         btn.title       = 'Clique para tentar novamente';
-        setTimeout(() => { btn.innerHTML = '✦ Match IA'; btn.title = ''; }, 3500);
+        setTimeout(() => { btn.innerHTML = '<span class="i i-sparkles" aria-hidden="true"></span> Match IA'; btn.title = ''; }, 3500);
     }
 }
 </script>

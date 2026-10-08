@@ -52,7 +52,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'
     exit;
 }
 
-$deleted = isset($_GET['deleted']);
+$deleted   = isset($_GET['deleted']);
+$publicada = isset($_GET['publicada']);   // Stage 4: retorno de Vagas/criar.php
 
 /* ============================================================
    GET: busca vagas da empresa com contagem de candidatos
@@ -82,19 +83,25 @@ $stmt->close();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Minhas Vagas | JovemConnect</title>
     <link rel="stylesheet" href="../Assets/css/style.css">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/img/marca/jovemconnect-icone-32.png">
+    <link rel="apple-touch-icon" href="../assets/img/marca/jovemconnect-icone-180.png">
 </head>
 <body>
 
 <!-- Navbar interna -->
 <nav class="navbar-inner">
-    <a href="../index.php" class="nav-logo">
-        <span class="logo-box">💼</span>
-        <span class="logo-jovem">Jovem</span><span class="logo-connect">Connect</span>
+    <a href="../dashboard/empresa.php" class="nav-logo" aria-label="JovemConnect — meu painel">
+        <picture class="marca marca-nav">
+            <source media="(max-width: 480px)" srcset="../assets/img/marca/jovemconnect-simbolo.png" width="192" height="192">
+            <img src="../assets/img/marca/jovemconnect-horizontal.png" alt="JovemConnect" width="493" height="160">
+        </picture>
     </a>
     <div class="navbar-inner-right">
-        <button class="icon-btn btn-theme" id="btnTheme" title="Alternar tema">🌙</button>
-        <a href="../empresa/perfil.php" class="icon-btn" title="Perfil">👤</a>
-        <a href="../logout.php" class="icon-btn text-danger" title="Sair">↪</a>
+        <button class="icon-btn btn-theme" id="btnTheme" title="Alternar tema" aria-label="Alternar tema">🌙</button>
+        <!-- Stage 4: mesmo atalho do painel da empresa -->
+        <a href="minhas.php" class="icon-btn" title="Minhas vagas" aria-label="Minhas vagas" aria-current="page"><span class="i i-briefcase" aria-hidden="true"></span></a>
+        <a href="../empresa/perfil.php" class="icon-btn" title="Meu Perfil" aria-label="Meu Perfil"><span class="i i-user" aria-hidden="true"></span></a>
+        <a href="../logout.php" class="icon-btn text-danger" title="Sair" aria-label="Sair"><span class="i i-log-out" aria-hidden="true"></span></a>
     </div>
 </nav>
 
@@ -103,20 +110,25 @@ $stmt->close();
 
     <!-- Toast de feedback -->
     <?php if ($deleted): ?>
-    <div id="toast" class="toast toast-success">✓ Vaga removida com sucesso.</div>
+    <div id="toast" class="toast toast-success"><span class="i i-check-circle" aria-hidden="true"></span>Vaga removida com sucesso.</div>
+    <?php elseif ($publicada): ?>
+    <div id="toast" class="toast toast-success"><span class="i i-check-circle" aria-hidden="true"></span>Vaga publicada! Ela já aparece para os jovens.</div>
     <?php endif; ?>
+
+    <!-- Stage 4: caminho de volta também no topo (antes só no fim da lista) -->
+    <p style="margin:0 0 12px;"><a href="../dashboard/empresa.php" class="back-link"><span class="i i-arrow-left" aria-hidden="true"></span> Voltar ao painel</a></p>
 
     <!-- Cabeçalho -->
     <div class="page-heading fade-up">
         <div class="d-flex align-center justify-between" style="flex-wrap:wrap;gap:12px;">
             <div>
-                <h1>💼 Minhas Vagas</h1>
+                <h1><span class="i i-briefcase" aria-hidden="true"></span> Minhas Vagas</h1>
                 <p class="text-secondary" style="margin-top:4px;font-size:14px;">
                     <?= $total_vagas ?> vaga<?= $total_vagas !== 1 ? 's' : '' ?> publicada<?= $total_vagas !== 1 ? 's' : '' ?>.
                     Gerencie candidatos e acompanhe o desempenho.
                 </p>
             </div>
-            <a href="criar.php" class="btn btn-primary btn-sm">+ Criar Nova Vaga</a>
+            <a href="criar.php" class="btn btn-primary btn-sm"><span class="i i-plus" aria-hidden="true"></span> Criar Nova Vaga</a>
         </div>
     </div>
 
@@ -151,21 +163,21 @@ $stmt->close();
                     </div>
                     <p class="text-muted" style="font-size:12px;">
                         <?php if (!empty($row['cidade'])): ?>
-                        📍 <?= htmlspecialchars($row['cidade']) ?>
+                        <span class="i i-map-pin" aria-hidden="true"></span> <?= htmlspecialchars($row['cidade']) ?>
                         <?= !empty($row['estado']) ? ', ' . htmlspecialchars($row['estado']) : '' ?>
                         <?php endif; ?>
                         <?php if (!empty($row['salario'])): ?>
-                        • 💰 R$ <?= htmlspecialchars($row['salario']) ?>
+                        • <span class="i i-banknote" aria-hidden="true"></span> R$ <?= htmlspecialchars($row['salario']) ?>
                         <?php endif; ?>
                         <?php if (!empty($row['carga_horaria'])): ?>
-                        • 🕐 <?= htmlspecialchars($row['carga_horaria']) ?>
+                        • <span class="i i-clock" aria-hidden="true"></span> <?= htmlspecialchars($row['carga_horaria']) ?>
                         <?php endif; ?>
-                        • 📅 Publicada em <?= $criado_em ?>
+                        • <span class="i i-calendar" aria-hidden="true"></span> Publicada em <?= $criado_em ?>
                     </p>
                 </div>
 
                 <!-- Badge de candidatos -->
-                <div style="
+                <div class="contagem-candidatos" style="
                     background:var(--accent-subtle);
                     border:1px solid var(--accent);
                     border-radius:var(--radius);
@@ -196,9 +208,9 @@ $stmt->close();
                 border-top:1px solid var(--border);
                 padding-top:16px;
             ">
-                <a href="candidatos.php?vaga=<?= $vaga_id ?>"
+                <a href="candidatos.php?vaga=<?= $vaga_id ?>&amp;voltar=minhas"
                    class="btn btn-primary btn-sm">
-                    👥 Ver Candidatos<?= $n_cands > 0 ? " ({$n_cands})" : '' ?>
+                    <span class="i i-users" aria-hidden="true"></span> Ver Candidatos<?= $n_cands > 0 ? " ({$n_cands})" : '' ?>
                 </a>
 
                 <!-- Stage 3: o botão "✏ Editar" foi removido — criar.php ignora ?editar=
@@ -210,7 +222,7 @@ $stmt->close();
                     type="button"
                     class="btn btn-danger btn-sm"
                     onclick="confirmarDelete(<?= $vaga_id ?>, '<?= htmlspecialchars(addslashes($row['titulo'])) ?>')">
-                    Remover
+                    <span class="i i-trash" aria-hidden="true"></span> Remover
                 </button>
             </div>
 
@@ -224,7 +236,7 @@ $stmt->close();
 
     <div class="card fade-up"
          style="text-align:center;padding:60px 32px;max-width:460px;margin:0 auto;">
-        <div style="font-size:44px;margin-bottom:18px;">💼</div>
+        <div class="icone-destaque" aria-hidden="true"><span class="i i-briefcase" aria-hidden="true"></span></div>
         <h3 style="font-size:18px;font-weight:700;margin-bottom:8px;">
             Nenhuma vaga publicada ainda
         </h3>
@@ -240,9 +252,9 @@ $stmt->close();
     <?php endif; ?>
 
     <div style="margin-top:20px;">
-        <a href="../dashboard/empresa.php" class="text-secondary"
+        <a href="../dashboard/empresa.php" class="text-secondary link-seta"
            style="font-size:13px;text-decoration:none;">
-            ← Voltar ao Painel
+            <span class="i i-arrow-left" aria-hidden="true"></span> Voltar ao Painel
         </a>
     </div>
 
@@ -250,13 +262,13 @@ $stmt->close();
 </div><!-- /.dashboard-wrap -->
 
 <!-- Modal de confirmação de exclusão -->
-<div id="modalDelete"
-     style="position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:2000;
-            display:none;align-items:center;justify-content:center;">
+<div id="modalDelete" class="jc-modal" role="dialog" aria-modal="true" aria-labelledby="modalDeleteTitulo">
     <div class="card"
-         style="max-width:400px;width:90%;text-align:center;padding:36px 28px;">
-        <p style="font-size:36px;margin-bottom:12px;">⚠️</p>
-        <h3 style="font-weight:700;margin-bottom:10px;">Remover Vaga</h3>
+         style="max-width:400px;width:100%;text-align:center;padding:36px 28px;">
+        <!-- Stage 5: fechar pelo × (antes só Cancelar, Esc ou clique fora) -->
+        <button type="button" class="jc-modal-fechar" aria-label="Fechar" onclick="fecharModal()"><span class="i i-x" aria-hidden="true"></span></button>
+        <div class="icone-destaque aviso" aria-hidden="true"><span class="i i-alert-triangle" aria-hidden="true"></span></div>
+        <h3 id="modalDeleteTitulo" style="font-weight:700;margin-bottom:10px;">Remover Vaga</h3>
         <p class="text-secondary" id="modalDeleteMsg"
            style="font-size:14px;margin-bottom:24px;line-height:1.6;">
         </p>
@@ -264,7 +276,7 @@ $stmt->close();
             Todas as candidaturas e dados associados serão apagados automaticamente.
         </p>
         <!-- Form POST — sem GET, sem excluir.php separado -->
-        <form method="POST" action="minhas.php" id="formDelete">
+        <form method="POST" action="minhas.php" id="formDelete" data-envio-unico="Removendo...">
             <?= csrf_field() ?>
             <input type="hidden" name="action"   value="delete">
             <input type="hidden" name="vaga_id"  id="deleteVagaId" value="">
@@ -299,26 +311,42 @@ btnTheme?.addEventListener('click', () => {
 /* ── Toast ─────────────────────────────────────────────────── */
 const toast = document.getElementById('toast');
 if (toast) {
-    setTimeout(() => toast.classList.add('toast-visible'), 100);
-    setTimeout(() => toast.classList.remove('toast-visible'), 3500);
+    // Stage 4: mensagens de erro ficam mais tempo (antes sumiam em 3,5 s) e são anunciadas:
+    // o texto volta um instante depois do role — região "viva" que já nasce com texto não é lida
+    const ehErro = toast.classList.contains('toast-error');
+    const conteudo = [...toast.childNodes];   // Stage 5: ícone + texto (antes só o texto)
+    toast.replaceChildren();
+    toast.setAttribute('role', ehErro ? 'alert' : 'status');
+    setTimeout(() => { toast.replaceChildren(...conteudo); toast.classList.add('toast-visible'); }, 100);
+    setTimeout(() => toast.classList.remove('toast-visible'), ehErro ? 7000 : 4000);
 }
 
 /* ── Modal de exclusão ─────────────────────────────────────── */
 const modal = document.getElementById('modalDelete');
 
+// Stage 4: ao abrir, o foco vai para "Cancelar"; ao fechar, volta para o botão
+// "Remover" que abriu o modal. Esc também fecha (antes só clique fora/Cancelar).
+let modalOrigem = null;
+
 function confirmarDelete(vagaId, titulo) {
+    modalOrigem = document.activeElement;
     document.getElementById('deleteVagaId').value = vagaId;
     document.getElementById('modalDeleteMsg').textContent =
         `Tem certeza que deseja remover "${titulo}"? Esta ação não pode ser desfeita.`;
     modal.style.display = 'flex';
+    modal.querySelector('form button[type="button"]')?.focus();   // "Cancelar" (o × vem antes no HTML)
 }
 
 function fecharModal() {
     modal.style.display = 'none';
+    modalOrigem?.focus?.();
 }
 
 modal?.addEventListener('click', e => {
     if (e.target === modal) fecharModal();
+});
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && modal?.style.display === 'flex') fecharModal();
 });
 </script>
 

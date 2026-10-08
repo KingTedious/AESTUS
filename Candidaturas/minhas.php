@@ -14,6 +14,7 @@ if (!isset($_SESSION['jovem_id'])) {
 }
 
 include("../includes/config.php");
+$page_title = 'Minhas Candidaturas';   // Stage 4: a aba mostrava só o título genérico do site
 include("../includes/header.php");
 
 $jovem_id = intval($_SESSION['jovem_id']);
@@ -60,6 +61,9 @@ function statusBadge(string $status): string {
 <div class="dashboard-wrap">
   <main class="dashboard-main">
 
+    <!-- Stage 4: caminho de volta explícito -->
+    <p style="margin:0 0 12px;"><a href="../dashboard/jovem.php" class="back-link"><span class="i i-arrow-left" aria-hidden="true"></span> Voltar ao painel</a></p>
+
     <div class="page-heading fade-up">
       <h1>Minhas Candidaturas</h1>
       <p>Acompanhe o andamento dos seus processos seletivos.</p>
@@ -78,14 +82,14 @@ function statusBadge(string $status): string {
             </div>
 
             <div class="job-card-company">
-              <span>🏢</span>
+              <span class="i i-building" aria-hidden="true"></span>
               <?= htmlspecialchars($row['nome_empresa']) ?>
             </div>
 
             <div class="job-card-meta">
               <?php if (!empty($row['salario'])): ?>
               <div class="job-card-meta-item">
-                <span>💰</span>
+                <span class="i i-banknote" aria-hidden="true"></span>
                 <!-- salario é VARCHAR no banco — exibir direto, sem number_format() -->
                 <span>R$ <?= htmlspecialchars($row['salario']) ?></span>
               </div>
@@ -93,7 +97,7 @@ function statusBadge(string $status): string {
 
               <?php if (!empty($row['tipo_contrato'])): ?>
               <div class="job-card-meta-item">
-                <span>📄</span>
+                <span class="i i-file-text" aria-hidden="true"></span>
                 <span><?= htmlspecialchars($row['tipo_contrato']) ?></span>
               </div>
               <?php endif; ?>
@@ -101,7 +105,7 @@ function statusBadge(string $status): string {
 
             <?php if (!empty($row['vaga_cidade'])): ?>
             <div class="job-card-location">
-              <span>📍</span>
+              <span class="i i-map-pin" aria-hidden="true"></span>
               <span>
                 <?= htmlspecialchars($row['vaga_cidade']) ?>
                 <?php if (!empty($row['vaga_estado'])): ?>
@@ -120,7 +124,7 @@ function statusBadge(string $status): string {
             </p>
 
             <div class="job-card-footer">
-              <a href="../Vagas/listar.php?id=<?= intval($row['vaga_id']) ?>"
+              <a href="../Vagas/listar.php?id=<?= intval($row['vaga_id']) ?>&amp;voltar=candidaturas"
                  class="btn btn-ghost btn-sm btn-full">
                 Ver Detalhes
               </a>
@@ -134,7 +138,7 @@ function statusBadge(string $status): string {
     <?php else: ?>
 
       <div class="card fade-up" style="text-align:center;padding:56px 32px;max-width:480px;margin:0 auto;">
-        <div style="font-size:44px;margin-bottom:18px;">📋</div>
+        <div class="icone-destaque" aria-hidden="true"><span class="i i-clipboard-list" aria-hidden="true"></span></div>
         <h3 style="font-size:18px;font-weight:700;margin-bottom:8px;">Nenhuma candidatura ainda</h3>
         <p class="text-secondary" style="font-size:14px;line-height:1.6;margin-bottom:28px;">
           Explore as vagas disponíveis e candidate-se às que mais combinam com o seu perfil.

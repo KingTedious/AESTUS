@@ -57,20 +57,27 @@ $stmt->close();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vagas Favoritas | JovemConnect</title>
     <link rel="stylesheet" href="../Assets/css/style.css">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/img/marca/jovemconnect-icone-32.png">
+    <link rel="apple-touch-icon" href="../assets/img/marca/jovemconnect-icone-180.png">
 </head>
 <body>
 <?= csrf_js() ?>
 
 <!-- Navbar interna -->
 <nav class="navbar-inner">
-    <a href="../index.php" class="nav-logo">
-        <span class="logo-box">💼</span>
-        <span class="logo-jovem">Jovem</span><span class="logo-connect">Connect</span>
+    <a href="../dashboard/jovem.php" class="nav-logo" aria-label="JovemConnect — meu painel">
+        <picture class="marca marca-nav">
+            <source media="(max-width: 480px)" srcset="../assets/img/marca/jovemconnect-simbolo.png" width="192" height="192">
+            <img src="../assets/img/marca/jovemconnect-horizontal.png" alt="JovemConnect" width="493" height="160">
+        </picture>
     </a>
     <div class="navbar-inner-right">
-        <button class="icon-btn btn-theme" id="btnTheme" title="Alternar tema">🌙</button>
-        <a href="../jovem/perfil.php" class="icon-btn" title="Perfil">👤</a>
-        <a href="../logout.php" class="icon-btn text-danger" title="Sair">↪</a>
+        <button class="icon-btn btn-theme" id="btnTheme" title="Alternar tema" aria-label="Alternar tema">🌙</button>
+        <!-- Stage 4: mesmos atalhos do painel do jovem -->
+        <a href="../candidaturas/minhas.php" class="icon-btn" title="Minhas candidaturas" aria-label="Minhas candidaturas"><span class="i i-clipboard-list" aria-hidden="true"></span></a>
+        <a href="favoritos.php" class="icon-btn" title="Vagas favoritas" aria-label="Vagas favoritas" aria-current="page"><span class="i i-star" aria-hidden="true"></span></a>
+        <a href="../jovem/perfil.php" class="icon-btn" title="Meu Perfil" aria-label="Meu Perfil"><span class="i i-user" aria-hidden="true"></span></a>
+        <a href="../logout.php" class="icon-btn text-danger" title="Sair" aria-label="Sair"><span class="i i-log-out" aria-hidden="true"></span></a>
     </div>
 </nav>
 
@@ -79,21 +86,24 @@ $stmt->close();
 
     <!-- Toast de feedback -->
     <?php if ($removido): ?>
-    <div id="toast" class="toast toast-success">✓ Vaga removida dos favoritos.</div>
+    <div id="toast" class="toast toast-success"><span class="i i-check-circle" aria-hidden="true"></span>Vaga removida dos favoritos.</div>
     <?php endif; ?>
+
+    <!-- Stage 4: caminho de volta explícito -->
+    <p style="margin:0 0 12px;"><a href="../dashboard/jovem.php" class="back-link"><span class="i i-arrow-left" aria-hidden="true"></span> Voltar ao painel</a></p>
 
     <!-- Cabeçalho da página -->
     <div class="page-heading fade-up">
         <div class="d-flex align-center justify-between" style="flex-wrap:wrap;gap:12px;">
             <div>
-                <h1>⭐ Vagas Favoritas</h1>
+                <h1><span class="i i-star" aria-hidden="true"></span> Vagas Favoritas</h1>
                 <p class="text-secondary" style="margin-top:4px;font-size:14px;">
                     <?= $total ?> vaga<?= $total !== 1 ? 's' : '' ?> salva<?= $total !== 1 ? 's' : '' ?>
                     para revisar mais tarde.
                 </p>
             </div>
             <a href="../dashboard/jovem.php" class="btn btn-ghost btn-sm">
-                Ver todas as vagas →
+                Ver todas as vagas <span class="i i-arrow-right" aria-hidden="true"></span>
             </a>
         </div>
     </div>
@@ -111,7 +121,11 @@ $stmt->close();
             <!-- Título + área -->
             <div class="job-card-top">
                 <h3 class="job-card-title">
-                    <?= htmlspecialchars($row['titulo']) ?>
+                    <!-- Stage 4: antes não havia como abrir os detalhes da vaga a partir dos favoritos -->
+                    <a href="listar.php?id=<?= $vaga_id ?>&amp;voltar=favoritos"
+                       style="color:inherit;text-decoration:none;">
+                        <?= htmlspecialchars($row['titulo']) ?>
+                    </a>
                 </h3>
                 <?php if (!empty($row['area'])): ?>
                 <span class="badge badge-area"><?= htmlspecialchars($row['area']) ?></span>
@@ -120,7 +134,7 @@ $stmt->close();
 
             <!-- Empresa -->
             <div class="job-card-company">
-                <span>🏢</span>
+                <span class="i i-building" aria-hidden="true"></span>
                 <?= htmlspecialchars($row['nome_empresa']) ?>
             </div>
 
@@ -128,13 +142,13 @@ $stmt->close();
             <div class="job-card-meta">
                 <?php if (!empty($row['salario'])): ?>
                 <div class="job-card-meta-item">
-                    <span>💰</span>
+                    <span class="i i-banknote" aria-hidden="true"></span>
                     <span>R$ <?= htmlspecialchars($row['salario']) ?></span>
                 </div>
                 <?php endif; ?>
                 <?php if (!empty($row['carga_horaria'])): ?>
                 <div class="job-card-meta-item">
-                    <span>🕐</span>
+                    <span class="i i-clock" aria-hidden="true"></span>
                     <span><?= htmlspecialchars($row['carga_horaria']) ?></span>
                 </div>
                 <?php endif; ?>
@@ -143,7 +157,7 @@ $stmt->close();
             <!-- Localização -->
             <?php if (!empty($row['cidade'])): ?>
             <div class="job-card-location">
-                <span>📍</span>
+                <span class="i i-map-pin" aria-hidden="true"></span>
                 <span>
                     <?= htmlspecialchars($row['cidade']) ?>
                     <?= !empty($row['estado']) ? ', ' . htmlspecialchars($row['estado']) : '' ?>
@@ -160,7 +174,7 @@ $stmt->close();
             <!-- Salvo em -->
             <?php if (!empty($row['favoritado_em'])): ?>
             <p class="text-muted" style="font-size:11px;margin-bottom:14px;">
-                ⭐ Salvo em <?= date('d/m/Y', strtotime($row['favoritado_em'])) ?>
+                <span class="i i-star-cheia" aria-hidden="true"></span> Salvo em <?= date('d/m/Y', strtotime($row['favoritado_em'])) ?>
             </p>
             <?php endif; ?>
 
@@ -169,13 +183,13 @@ $stmt->close();
 
                 <!-- Candidatar + Avaliar -->
                 <div style="display:flex;gap:8px;">
-                    <a href="candidatar.php?vaga=<?= $vaga_id ?>"
+                    <a href="candidatar.php?vaga=<?= $vaga_id ?>&amp;voltar=favoritos"
                        class="btn btn-primary btn-sm" style="flex:1;justify-content:center;">
-                        ✈ Candidatar-me
+                        <span class="i i-send" aria-hidden="true"></span> Candidatar-me
                     </a>
                     <a href="avaliar.php?vaga_id=<?= $vaga_id ?>"
                        class="btn btn-ghost btn-sm" style="flex:1;justify-content:center;">
-                        ✦ Avaliar IA
+                        <span class="i i-sparkles" aria-hidden="true"></span> Avaliar IA
                     </a>
                 </div>
 
@@ -184,7 +198,7 @@ $stmt->close();
                     type="button"
                     class="btn btn-secondary btn-sm btn-full"
                     onclick="desfavoritar(<?= $vaga_id ?>, this)">
-                    ⭐ Remover dos Favoritos
+                    <span class="i i-star-cheia" aria-hidden="true"></span> Remover dos Favoritos
                 </button>
 
                 <!-- Fallback sem JS: form POST convencional -->
@@ -194,7 +208,7 @@ $stmt->close();
             <?= csrf_field() ?>
                         <button type="submit"
                                 class="btn btn-secondary btn-sm btn-full">
-                            ⭐ Remover dos Favoritos
+                            <span class="i i-star-cheia" aria-hidden="true"></span> Remover dos Favoritos
                         </button>
                     </form>
                 </noscript>
@@ -212,7 +226,7 @@ $stmt->close();
     <!-- Estado vazio -->
     <div class="card fade-up"
          style="text-align:center;padding:56px 32px;max-width:460px;margin:0 auto;">
-        <div style="font-size:44px;margin-bottom:18px;">⭐</div>
+        <div class="icone-destaque" aria-hidden="true"><span class="i i-star" aria-hidden="true"></span></div>
         <h3 style="font-size:18px;font-weight:700;margin-bottom:8px;">
             Nenhuma vaga salva ainda
         </h3>
@@ -251,8 +265,14 @@ btnTheme?.addEventListener('click', () => {
 /* ── Toast ─────────────────────────────────────────────────── */
 const toast = document.getElementById('toast');
 if (toast) {
-    setTimeout(() => toast.classList.add('toast-visible'), 100);
-    setTimeout(() => toast.classList.remove('toast-visible'), 3500);
+    // Stage 4: mensagens de erro ficam mais tempo (antes sumiam em 3,5 s) e são anunciadas:
+    // o texto volta um instante depois do role — região "viva" que já nasce com texto não é lida
+    const ehErro = toast.classList.contains('toast-error');
+    const conteudo = [...toast.childNodes];   // Stage 5: ícone + texto (antes só o texto)
+    toast.replaceChildren();
+    toast.setAttribute('role', ehErro ? 'alert' : 'status');
+    setTimeout(() => { toast.replaceChildren(...conteudo); toast.classList.add('toast-visible'); }, 100);
+    setTimeout(() => toast.classList.remove('toast-visible'), ehErro ? 7000 : 4000);
 }
 
 /* ── Desfavoritar via AJAX ─────────────────────────────────── */
@@ -291,7 +311,7 @@ async function desfavoritar(vagaId, btn) {
                             <div class="card fade-up"
                                  style="text-align:center;padding:56px 32px;
                                         max-width:460px;grid-column:1/-1;">
-                                <div style="font-size:44px;margin-bottom:18px;">⭐</div>
+                                <div class="icone-destaque" aria-hidden="true"><span class="i i-star" aria-hidden="true"></span></div>
                                 <h3 style="font-size:18px;font-weight:700;margin-bottom:8px;">
                                     Nenhuma vaga salva ainda
                                 </h3>
@@ -309,12 +329,14 @@ async function desfavoritar(vagaId, btn) {
         } else {
             // Toggle voltou a favoritar — atualiza o botão
             btn.disabled  = false;
-            btn.innerHTML = '⭐ Remover dos Favoritos';
+            btn.innerHTML = '<span class="i i-star-cheia" aria-hidden="true"></span> Remover dos Favoritos';
         }
     } catch (err) {
         btn.disabled  = false;
-        btn.innerHTML = '⭐ Remover dos Favoritos';
+        btn.innerHTML = '<span class="i i-star-cheia" aria-hidden="true"></span> Remover dos Favoritos';
         console.error('Erro ao desfavoritar:', err);
+        // Stage 4: antes o erro só ia para o console — o botão voltava ao normal sem explicar
+        window.jcAviso?.('Não foi possível remover dos favoritos. Tente de novo.');
     }
 }
 </script>

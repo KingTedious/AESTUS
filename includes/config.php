@@ -68,10 +68,21 @@ if (!function_exists('jc_excecao_nao_tratada')) {
             header('Content-Type: ' . ($json ? 'application/json' : 'text/html') . '; charset=utf-8');
         }
 
+        // Stage 4: além do "Voltar" (não faz nada se a página foi aberta direto), um destino
+        // explícito: a página inicial do projeto, com o caminho relativo ao script atual
+        $inicio = 'index.php';
+        $raiz   = realpath(dirname(__DIR__));
+        $script = realpath($_SERVER['SCRIPT_FILENAME'] ?? '') ?: '';
+        if ($raiz && $script && stripos($script, $raiz) === 0) {
+            $rel    = trim(str_replace('\\', '/', substr(dirname($script), strlen($raiz))), '/');
+            $inicio = str_repeat('../', ($rel === '') ? 0 : substr_count($rel, '/') + 1) . 'index.php';
+        }
+
         echo $json
             ? json_encode(['error' => 'Erro interno. Tente novamente em instantes.'])
             : '<p style="font-family:sans-serif;padding:24px;">Ocorreu um erro inesperado. '
-              . 'Tente novamente em instantes. <a href="javascript:history.back()">Voltar</a></p>';
+              . 'Tente novamente em instantes. <a href="javascript:history.back()">Voltar</a>'
+              . ' · <a href="' . htmlspecialchars($inicio) . '">Ir para a página inicial</a></p>';
     }
     set_exception_handler('jc_excecao_nao_tratada');
 }

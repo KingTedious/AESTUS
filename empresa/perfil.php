@@ -149,6 +149,8 @@ $inicial = strtoupper(mb_substr($emp['nome_empresa'], 0, 1));
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Meu Perfil | JovemConnect</title>
     <link rel="stylesheet" href="../Assets/css/style.css">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/img/marca/jovemconnect-icone-32.png">
+    <link rel="apple-touch-icon" href="../assets/img/marca/jovemconnect-icone-180.png">
 </head>
 <body>
 
@@ -157,7 +159,8 @@ $inicial = strtoupper(mb_substr($emp['nome_empresa'], 0, 1));
      ============================================================ -->
 <div class="profile-bar">
     <div class="d-flex align-center gap-12">
-        <a href="../dashboard/empresa.php" class="icon-btn" title="Voltar">←</a>
+        <a href="../dashboard/empresa.php" class="icon-btn" title="Voltar ao painel" aria-label="Voltar ao painel"><span class="i i-arrow-left" aria-hidden="true"></span></a>
+        <span class="marca marca-compacta"><img src="../assets/img/marca/jovemconnect-simbolo.png" alt="JovemConnect" width="192" height="192"></span>
         <span class="profile-bar-title">Meu Perfil</span>
     </div>
     <!-- "Editar Dados" alterna o sidebar entre view e edit mode (via JS) -->
@@ -170,11 +173,11 @@ $inicial = strtoupper(mb_substr($emp['nome_empresa'], 0, 1));
      FEEDBACK DE SAVE
      ============================================================ -->
 <?php if ($saved === 1): ?>
-<div id="toast" class="toast toast-success">✓ Perfil atualizado com sucesso!</div>
+<div id="toast" class="toast toast-success"><span class="i i-check-circle" aria-hidden="true"></span>Perfil atualizado com sucesso!</div>
 <?php elseif ($saved === 2): ?>
-<div id="toast" class="toast toast-error">✕ Erro ao salvar. Verifique os campos obrigatórios.</div>
+<div id="toast" class="toast toast-error"><span class="i i-x-circle" aria-hidden="true"></span>Não foi possível salvar. Confira o nome, o e-mail, o CNPJ (14 dígitos) e o CEP (8 dígitos).</div>
 <?php elseif ($saved === 3): ?>
-<div id="toast" class="toast toast-error">✕ Este e-mail ou CNPJ já está em uso por outra empresa.</div>
+<div id="toast" class="toast toast-error"><span class="i i-x-circle" aria-hidden="true"></span>Este e-mail ou CNPJ já está em uso por outra empresa.</div>
 <?php endif; ?>
 
 <!-- ============================================================
@@ -194,14 +197,14 @@ $inicial = strtoupper(mb_substr($emp['nome_empresa'], 0, 1));
             <!-- VIEW: nome e role como texto -->
             <div id="viewNome">
                 <p class="profile-side-name"><?= htmlspecialchars($emp['nome_empresa']) ?></p>
-                <p class="profile-side-role">🏢 Perfil Corporativo</p>
+                <p class="profile-side-role"><span class="i i-building" aria-hidden="true"></span> Perfil Corporativo</p>
             </div>
 
             <!-- EDIT: input de nome (oculto por padrão) -->
             <div id="editNome" class="hidden w-full">
                 <div class="form-group" style="width:100%;">
-                    <label class="form-label">Nome da Empresa *</label>
-                    <input type="text" name="nome_empresa" class="form-control"
+                    <label class="form-label" for="perfilNomeEmpresa">Nome da Empresa *</label>
+                    <input type="text" name="nome_empresa" id="perfilNomeEmpresa" class="form-control"
                            value="<?= htmlspecialchars($emp['nome_empresa']) ?>" required>
                 </div>
             </div>
@@ -227,7 +230,7 @@ $inicial = strtoupper(mb_substr($emp['nome_empresa'], 0, 1));
             <?php if ($endereco_txt !== ''): ?>
             <div class="profile-info-item">
                 <p class="profile-info-label">Endereço</p>
-                <p class="profile-info-value">📍 <?= htmlspecialchars($endereco_txt) ?></p>
+                <p class="profile-info-value"><span class="i i-map-pin" aria-hidden="true"></span> <?= htmlspecialchars($endereco_txt) ?></p>
             </div>
             <?php endif; ?>
         </div>
@@ -235,56 +238,56 @@ $inicial = strtoupper(mb_substr($emp['nome_empresa'], 0, 1));
         <!-- Informações básicas (edit mode — oculto por padrão) -->
         <div id="editDados" class="hidden">
             <div class="form-group">
-                <label class="form-label">E-mail Corporativo *</label>
-                <input type="email" name="email" class="form-control"
+                <label class="form-label" for="perfilEmail">E-mail Corporativo *</label>
+                <input type="email" name="email" id="perfilEmail" class="form-control"
                        value="<?= htmlspecialchars($emp['email']) ?>" required>
             </div>
             <div class="form-group">
-                <label class="form-label">CNPJ *</label>
-                <input type="text" name="cnpj" class="form-control"
+                <label class="form-label" for="perfilCnpj">CNPJ *</label>
+                <input type="text" name="cnpj" id="perfilCnpj" class="form-control"
                        value="<?= htmlspecialchars($emp['cnpj']) ?>" maxlength="18">
             </div>
             <?php if ($tem_endereco): ?>
             <!-- Stage 3: endereço completo — CEP primeiro; rua, bairro, cidade e UF
                  vêm do ViaCEP; número e complemento são preenchidos à mão -->
             <div class="form-group">
-                <label class="form-label">CEP</label>
+                <label class="form-label" for="cep">CEP</label>
                 <input type="text" name="cep" id="cep" class="form-control"
                        placeholder="00000-000" maxlength="9" inputmode="numeric"
                        value="<?= htmlspecialchars(preg_replace('/^(\d{5})(\d{3})$/', '$1-$2', $emp['cep'] ?? '')) ?>">
                 <small id="cepStatus" class="text-muted" style="font-size:12px;" aria-live="polite"></small>
             </div>
             <div class="form-group">
-                <label class="form-label">Rua / Logradouro</label>
+                <label class="form-label" for="logradouro">Rua / Logradouro</label>
                 <input type="text" name="logradouro" id="logradouro" class="form-control" maxlength="150"
                        value="<?= htmlspecialchars($emp['logradouro'] ?? '') ?>">
             </div>
             <div class="form-row">
                 <div class="form-group">
-                    <label class="form-label">Número</label>
+                    <label class="form-label" for="numero">Número</label>
                     <input type="text" name="numero" id="numero" class="form-control" maxlength="10"
                            placeholder="Ex: 123 ou S/N" value="<?= htmlspecialchars($emp['numero'] ?? '') ?>">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Complemento</label>
+                    <label class="form-label" for="complemento">Complemento</label>
                     <input type="text" name="complemento" id="complemento" class="form-control" maxlength="100"
                            placeholder="Ex: Sala 4" value="<?= htmlspecialchars($emp['complemento'] ?? '') ?>">
                 </div>
             </div>
             <div class="form-group">
-                <label class="form-label">Bairro</label>
+                <label class="form-label" for="bairro">Bairro</label>
                 <input type="text" name="bairro" id="bairro" class="form-control" maxlength="100"
                        value="<?= htmlspecialchars($emp['bairro'] ?? '') ?>">
             </div>
             <?php endif; ?>
             <div class="form-row">
                 <div class="form-group">
-                    <label class="form-label">Cidade</label>
+                    <label class="form-label" for="cidade">Cidade</label>
                     <input type="text" name="cidade" id="cidade" class="form-control" maxlength="100"
                            value="<?= htmlspecialchars($emp['cidade'] ?? '') ?>">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">UF</label>
+                    <label class="form-label" for="estado">UF</label>
                     <input type="text" name="estado" id="estado" class="form-control"
                            value="<?= htmlspecialchars($emp['estado'] ?? '') ?>"
                            maxlength="2" placeholder="SP">
@@ -311,21 +314,21 @@ $inicial = strtoupper(mb_substr($emp['nome_empresa'], 0, 1));
         <!-- SEÇÃO: Dados Institucionais -->
         <div class="profile-section fade-up">
             <div class="profile-section-head">
-                <h2 class="profile-section-title">🏢 Dados Institucionais</h2>
+                <h2 class="profile-section-title"><span class="i i-building" aria-hidden="true"></span> Dados Institucionais</h2>
             </div>
 
             <!-- Área de atuação -->
             <div class="form-group">
-                <label class="form-label">Área de Atuação</label>
-                <input type="text" name="area_atuacao" class="form-control"
+                <label class="form-label" for="perfilAreaAtuacao">Área de Atuação</label>
+                <input type="text" name="area_atuacao" id="perfilAreaAtuacao" class="form-control"
                        placeholder="Ex: Tecnologia, Varejo"
                        value="<?= htmlspecialchars($emp['area_atuacao'] ?? '') ?>">
             </div>
 
             <!-- Missão e Visão -->
             <div class="form-group">
-                <label class="form-label">Sobre a Empresa (Missão e Visão)</label>
-                <textarea name="descricao" class="form-control"
+                <label class="form-label" for="perfilDescricao">Sobre a Empresa (Missão e Visão)</label>
+                <textarea name="descricao" id="perfilDescricao" class="form-control"
                           placeholder="Descreva a missão, visão e valores da sua empresa..."
                           rows="5"><?= htmlspecialchars($emp['descricao'] ?? '') ?></textarea>
             </div>
@@ -333,19 +336,19 @@ $inicial = strtoupper(mb_substr($emp['nome_empresa'], 0, 1));
             <!-- Site + LinkedIn -->
             <div class="form-row">
                 <div class="form-group">
-                    <label class="form-label">Site Oficial</label>
+                    <label class="form-label" for="perfilSite">Site Oficial</label>
                     <div class="input-group">
-                        <span class="input-icon">🌐</span>
-                        <input type="url" name="site_oficial" class="form-control"
+                        <span class="input-icon i i-globe" aria-hidden="true"></span>
+                        <input type="url" name="site_oficial" id="perfilSite" class="form-control"
                                placeholder="www.suaempresa.com.br"
                                value="<?= htmlspecialchars($emp['site_oficial'] ?? '') ?>">
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">LinkedIn</label>
+                    <label class="form-label" for="perfilLinkedin">LinkedIn</label>
                     <div class="input-group">
-                        <span class="input-icon">💼</span>
-                        <input type="text" name="linkedin" class="form-control"
+                        <span class="input-icon i i-briefcase" aria-hidden="true"></span>
+                        <input type="text" name="linkedin" id="perfilLinkedin" class="form-control"
                                placeholder="linkedin.com/company/suaempresa"
                                value="<?= htmlspecialchars($emp['linkedin'] ?? '') ?>">
                     </div>
@@ -359,8 +362,8 @@ $inicial = strtoupper(mb_substr($emp['nome_empresa'], 0, 1));
         <!-- SEÇÃO: Vagas Ativas -->
         <div class="profile-section fade-up">
             <div class="profile-section-head">
-                <h2 class="profile-section-title">📋 Vagas Ativas</h2>
-                <a href="../Vagas/criar.php" class="btn btn-primary btn-sm">+ Criar Vaga</a>
+                <h2 class="profile-section-title"><span class="i i-briefcase" aria-hidden="true"></span> Vagas Ativas</h2>
+                <a href="../Vagas/criar.php" class="btn btn-primary btn-sm"><span class="i i-plus" aria-hidden="true"></span> Criar Vaga</a>
             </div>
 
             <?php if ($result_vagas->num_rows > 0): ?>
@@ -374,7 +377,7 @@ $inicial = strtoupper(mb_substr($emp['nome_empresa'], 0, 1));
                             <?= !empty($v['estado'])  ? ', ' . htmlspecialchars($v['estado'])  : '' ?>
                         </p>
                     </div>
-                    <a href="../Vagas/candidatos.php?id=<?= intval($v['id']) ?>"
+                    <a href="../Vagas/candidatos.php?id=<?= intval($v['id']) ?>&amp;voltar=perfil"
                        class="btn btn-ghost btn-sm">
                         Gerenciar
                     </a>
@@ -383,7 +386,7 @@ $inicial = strtoupper(mb_substr($emp['nome_empresa'], 0, 1));
             <?php else: ?>
                 <p class="text-secondary" style="font-size:14px;">
                     Nenhuma vaga publicada ainda.
-                    <a href="../Vagas/criar.php">Criar a primeira vaga →</a>
+                    <a href="../Vagas/criar.php">Criar a primeira vaga <span class="i i-arrow-right" aria-hidden="true"></span></a>
                 </p>
             <?php endif; ?>
         </div>
@@ -392,7 +395,7 @@ $inicial = strtoupper(mb_substr($emp['nome_empresa'], 0, 1));
         <!-- SEÇÃO: Configurações de Visibilidade -->
         <div class="profile-section fade-up">
             <div class="profile-section-head">
-                <h2 class="profile-section-title">⚙ Configurações de Visibilidade</h2>
+                <h2 class="profile-section-title"><span class="i i-settings" aria-hidden="true"></span> Configurações de Visibilidade</h2>
             </div>
             <p class="text-secondary" style="font-size:13px;margin-bottom:16px;">
                 Como os candidatos veem sua empresa
@@ -405,6 +408,7 @@ $inicial = strtoupper(mb_substr($emp['nome_empresa'], 0, 1));
                 </div>
                 <label class="toggle">
                     <input type="checkbox"
+                           aria-label="Perfil verificado"
                            name="perfil_verificado"
                            value="1"
                            <?= $emp['perfil_verificado'] ? 'checked' : '' ?>>
@@ -422,12 +426,12 @@ $inicial = strtoupper(mb_substr($emp['nome_empresa'], 0, 1));
 <!-- ============================================================
      MODAL DE EXCLUSÃO
      ============================================================ -->
-<div id="modalExcluir"
-     style="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:2000;
-            display:none;align-items:center;justify-content:center;">
-    <div class="card" style="max-width:400px;width:90%;text-align:center;padding:36px 28px;">
-        <p style="font-size:36px;margin-bottom:12px;">⚠️</p>
-        <h3 style="font-weight:700;margin-bottom:10px;">Excluir Conta</h3>
+<div id="modalExcluir" class="jc-modal" role="dialog" aria-modal="true" aria-labelledby="modalExcluirTitulo">
+    <div class="card" style="max-width:400px;width:100%;text-align:center;padding:36px 28px;">
+        <!-- Stage 5: fechar pelo × (antes só Cancelar, Esc ou clique fora) -->
+        <button type="button" class="jc-modal-fechar" aria-label="Fechar" onclick="fecharModalExcluir()"><span class="i i-x" aria-hidden="true"></span></button>
+        <div class="icone-destaque aviso" aria-hidden="true"><span class="i i-alert-triangle" aria-hidden="true"></span></div>
+        <h3 id="modalExcluirTitulo" style="font-weight:700;margin-bottom:10px;">Excluir Conta</h3>
         <p class="text-secondary" style="font-size:14px;margin-bottom:24px;">
             Esta ação é <strong>irreversível</strong>. Todas as vagas e dados da empresa
             serão permanentemente apagados.
@@ -463,8 +467,14 @@ if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
 /* ── Toast de feedback ─────────────────────────────────────── */
 const toast = document.getElementById('toast');
 if (toast) {
-    setTimeout(() => toast.classList.add('toast-visible'), 100);
-    setTimeout(() => toast.classList.remove('toast-visible'), 3500);
+    // Stage 4: mensagens de erro ficam mais tempo (antes sumiam em 3,5 s) e são anunciadas:
+    // o texto volta um instante depois do role — região "viva" que já nasce com texto não é lida
+    const ehErro = toast.classList.contains('toast-error');
+    const conteudo = [...toast.childNodes];   // Stage 5: ícone + texto (antes só o texto)
+    toast.replaceChildren();
+    toast.setAttribute('role', ehErro ? 'alert' : 'status');
+    setTimeout(() => { toast.replaceChildren(...conteudo); toast.classList.add('toast-visible'); }, 100);
+    setTimeout(() => toast.classList.remove('toast-visible'), ehErro ? 7000 : 4000);
 }
 
 /* ── Toggle sidebar: view ↔ edit ──────────────────────────── */
@@ -520,7 +530,7 @@ async function buscarCep() {
         preencher('bairro',     d.bairro);
         preencher('cidade',     d.localidade);
         preencher('estado',     d.uf);
-        if (status) status.textContent = '✓ Endereço preenchido. Informe o número e o complemento.';
+        if (status) status.replaceChildren(jcIcone('check-circle'), ' Endereço preenchido. Informe o número e o complemento.');
         document.getElementById('numero')?.focus();
     } catch {
         if (status) status.textContent = 'Não foi possível buscar o CEP agora — preencha manualmente.';
@@ -539,14 +549,15 @@ const modal          = document.getElementById('modalExcluir');
 const btnExcluir     = document.getElementById('btnExcluir');
 const btnCancelar    = document.getElementById('btnCancelarExcluir');
 
-btnExcluir?.addEventListener('click', () => {
-    modal.style.display = 'flex';
-});
-btnCancelar?.addEventListener('click', () => {
-    modal.style.display = 'none';
-});
-modal?.addEventListener('click', e => {
-    if (e.target === modal) modal.style.display = 'none';
+// Stage 4: o foco vai para "Cancelar" ao abrir e volta para "Excluir Conta" ao
+// fechar; Esc também fecha (antes só o clique fora ou em "Cancelar")
+function abrirModalExcluir()  { modal.style.display = 'flex'; btnCancelar?.focus(); }
+function fecharModalExcluir() { modal.style.display = 'none'; btnExcluir?.focus(); }
+btnExcluir?.addEventListener('click',  abrirModalExcluir);
+btnCancelar?.addEventListener('click', fecharModalExcluir);
+modal?.addEventListener('click', e => { if (e.target === modal) fecharModalExcluir(); });
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && modal?.style.display === 'flex') fecharModalExcluir();
 });
 </script>
 

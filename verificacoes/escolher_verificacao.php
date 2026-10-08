@@ -34,6 +34,8 @@ if ($user['email_verificado'] == 1 || $user['telefone_verificado'] == 1) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Escolha a Verificação | JovemConnect</title>
     <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/img/marca/jovemconnect-icone-32.png">
+    <link rel="apple-touch-icon" href="../assets/img/marca/jovemconnect-icone-180.png">
     <style>
         .options-grid {
             display: grid;
@@ -75,17 +77,17 @@ if ($user['email_verificado'] == 1 || $user['telefone_verificado'] == 1) {
     <div class="options-grid">
         <!-- Opção E-mail -->
         <a href="verificar_email.php" class="option-card">
-            <span aria-hidden="true">✉️</span>
+            <div class="icone-destaque" aria-hidden="true"><span class="i i-mail" aria-hidden="true"></span></div>
             <h3>Via E-mail</h3>
             <p class="text-muted" style="font-size: 13px; margin-top: 8px;">
                 Enviaremos um código para:<br>
-                <strong style="color: #fff;"><?= htmlspecialchars($user['email']) ?></strong>
+                <strong style="color: var(--text-primary);"><!-- Stage 4: branco fixo sumia no tema claro --><?= htmlspecialchars($user['email']) ?></strong>
             </p>
         </a>
 
         <!-- Opção Telefone / SMS -->
         <a href="verificar_telefone.php" class="option-card">
-            <span aria-hidden="true">💬</span>
+            <div class="icone-destaque" aria-hidden="true"><span class="i i-message" aria-hidden="true"></span></div>
             <h3>Via SMS</h3>
             <p class="text-muted" style="font-size: 13px; margin-top: 8px;">
                 Enviaremos um código por SMS para o seu celular com DDD.
@@ -95,7 +97,7 @@ if ($user['email_verificado'] == 1 || $user['telefone_verificado'] == 1) {
 
     <!-- Stage 3: a verificação é opcional — antes não havia uma saída explícita desta tela -->
     <p style="text-align: center; margin-top: 28px;">
-        <a href="../dashboard/index.php" class="back-link">Verificar depois e ir para o meu painel →</a>
+        <a href="../dashboard/index.php" class="back-link">Verificar depois e ir para o meu painel <span class="i i-arrow-right" aria-hidden="true"></span></a>
     </p>
 </main>
 

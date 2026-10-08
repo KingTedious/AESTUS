@@ -26,16 +26,20 @@ if (isset($_SESSION['jovem_id'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Entrar | JovemConnect</title>
     <link rel="stylesheet" href="../Assets/css/style.css">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/img/marca/jovemconnect-icone-32.png">
+    <link rel="apple-touch-icon" href="../assets/img/marca/jovemconnect-icone-180.png">
 </head>
 <body>
 
 <div class="auth-page">
 <div class="auth-card">
 
-    <!-- ── Logo + Marca ──────────────────────────────────────────────────── -->
+    <!-- Stage 4: caminho de volta (antes a tela de login não tinha saída além do cadastro) -->
+    <p style="margin:0 0 12px;"><a href="../index.php" class="back-link"><span class="i i-arrow-left" aria-hidden="true"></span> Voltar para a página inicial</a></p>
+
+    <!-- Stage 5: marca oficial — versão vertical (símbolo + nome embaixo) na composição empilhada do cartão -->
     <div class="auth-logo">
-        <div class="logo-box">💼</div>
-        <h1><span class="logo-jovem">Jovem</span><span class="logo-connect">Connect</span></h1>
+        <h1 class="marca marca-vertical"><img src="../assets/img/marca/jovemconnect-vertical.png" alt="JovemConnect" width="546" height="420"></h1>
     </div>
 
     <p style="font-size:20px;font-weight:700;text-align:center;margin-bottom:6px;">
@@ -49,32 +53,18 @@ if (isset($_SESSION['jovem_id'])) {
     <!-- Stage 3: empresa/processar_login.php grava este erro, mas esta página
          nunca o exibia — senha errada recarregava a tela sem nenhum aviso. -->
     <?php if (!empty($_SESSION['erro_login'])): ?>
-    <div style="
-        background : rgba(239,68,68,.12);
-        border     : 1px solid rgba(239,68,68,.3);
-        border-radius: var(--radius-sm);
-        padding    : 12px 16px;
-        margin-bottom: 20px;
-        font-size  : 13px;
-        color      : #f87171;
-    ">
-        ⚠ <?= htmlspecialchars($_SESSION['erro_login']) ?>
+    <div id="erroLogin" role="alert" class="alerta alerta-erro">
+        <span class="i i-alert-triangle" aria-hidden="true"></span>
+        <span><?= htmlspecialchars($_SESSION['erro_login']) ?></span>
         <?php unset($_SESSION['erro_login']); ?>
     </div>
     <?php endif; ?>
 
     <!-- ── Sucesso (ex.: senha redefinida por recuperar_senha.php) ────────────── -->
     <?php if (!empty($_SESSION['sucesso_login'])): ?>
-    <div style="
-        background : rgba(34,197,94,.12);
-        border     : 1px solid rgba(34,197,94,.3);
-        border-radius: var(--radius-sm);
-        padding    : 12px 16px;
-        margin-bottom: 20px;
-        font-size  : 13px;
-        color      : #4ade80;
-    ">
-        ✓ <?= htmlspecialchars($_SESSION['sucesso_login']) ?>
+    <div role="status" class="alerta alerta-sucesso">
+        <span class="i i-check-circle" aria-hidden="true"></span>
+        <span><?= htmlspecialchars($_SESSION['sucesso_login']) ?></span>
         <?php unset($_SESSION['sucesso_login']); ?>
     </div>
     <?php endif; ?>
@@ -88,7 +78,7 @@ if (isset($_SESSION['jovem_id'])) {
             role="tab"
             aria-selected="false"
             onclick="switchProfile('jovem')">
-            🎓 Sou Jovem
+            <span class="i i-graduation-cap" aria-hidden="true"></span> Sou Jovem
         </button>
         <button
             type="button"
@@ -97,12 +87,12 @@ if (isset($_SESSION['jovem_id'])) {
             role="tab"
             aria-selected="true"
             onclick="switchProfile('empresa')">
-            💼 Sou Empresa
+            <span class="i i-building" aria-hidden="true"></span> Sou Empresa
         </button>
     </div>
 
     <!-- ── Formulário de login ────────────────────────────────────────────── -->
-    <form action="processar_login.php" method="POST" id="loginForm" novalidate>
+    <form action="processar_login.php" method="POST" id="loginForm" novalidate data-envio-unico="Entrando...">
 
         <!-- Campo oculto: define qual processar_login.php será usado -->
         <input type="hidden" name="tipo_usuario" id="tipo_usuario" value="empresa">
@@ -112,7 +102,7 @@ if (isset($_SESSION['jovem_id'])) {
         <div class="form-group">
             <label class="form-label" for="email">E-mail</label>
             <div class="input-group">
-                <span class="input-icon">✉</span>
+                <span class="input-icon i i-mail" aria-hidden="true"></span>
                 <input
                     type="email"
                     id="email"
@@ -134,7 +124,7 @@ if (isset($_SESSION['jovem_id'])) {
                 </a>
             </div>
             <div class="input-group">
-                <span class="input-icon">🔒</span>
+                <span class="input-icon i i-lock" aria-hidden="true"></span>
                 <input
                     type="password"
                     id="senha"
@@ -154,17 +144,15 @@ if (isset($_SESSION['jovem_id'])) {
 
     <!-- ── Link de cadastro (muda conforme a aba ativa) ─────────────────── -->
     <div class="auth-footer-link">
-        <span id="footerText">Sua empresa não está parceira?</span>
+        <span id="footerText">Sua empresa ainda não é parceira?</span>
         <a href="cadastro.php" id="footerLink" class="font-semibold">Registre sua Empresa</a>
     </div>
 
 </div><!-- /.auth-card -->
 </div><!-- /.auth-page -->
 
-<!-- FABs -->
-<div class="fab-stack">
-    <button class="fab fab-a11y" id="btnA11y" title="Acessibilidade" aria-label="Acessibilidade">♿</button>
-</div>
+<!-- FABs + Assistente + Acessibilidade (Stage 4: antes o botão ♿ não tinha painel nem script) -->
+<?php include dirname(__DIR__) . '/includes/assistente.php'; ?>
 
 <!-- ============================================================
      SCRIPTS
@@ -173,6 +161,9 @@ if (isset($_SESSION['jovem_id'])) {
 /* ── Aplica tema salvo ─────────────────────────────────────── */
 const savedTheme = localStorage.getItem('jc-theme');
 if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
+
+/* Stage 4: depois de um erro de login o cursor já fica no e-mail para tentar de novo */
+if (document.getElementById('erroLogin')) document.getElementById('email')?.focus();
 
 /* ── Troca de perfil (jovem ↔ empresa) ────────────────────── */
 function switchProfile(type) {
@@ -213,7 +204,7 @@ function switchProfile(type) {
         form.action            = 'processar_login.php';
         linkRec.href           = '../recuperar_senha.php';
 
-        footerText.textContent = 'Sua empresa não está parceira?';
+        footerText.textContent = 'Sua empresa ainda não é parceira?';   // Stage 4: concordância
         footerLink.textContent = 'Registre sua Empresa';
         footerLink.href        = 'cadastro.php';
     }

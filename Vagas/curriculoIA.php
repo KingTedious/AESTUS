@@ -94,7 +94,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     curl_close($ch);
 
     if ($curl_errno || $result === false || $http_code !== 200) {
-        $erro_ia = "O servidor de IA está offline. Verifique se o Flask está rodando em http://127.0.0.1:5000.";
+        // Stage 4: sem endereço/porta interna na mensagem — o jovem não tem o que fazer com isso
+        $erro_ia = "O servidor de IA está indisponível no momento. Tente novamente em alguns minutos.";
     } else {
         $decoded = json_decode($result, true);
         if (is_array($decoded)) {
@@ -131,14 +132,17 @@ $resumo_atual = htmlspecialchars(
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mentor de Currículo IA | JovemConnect</title>
     <link rel="stylesheet" href="../Assets/css/style.css">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/img/marca/jovemconnect-icone-32.png">
+    <link rel="apple-touch-icon" href="../assets/img/marca/jovemconnect-icone-180.png">
 </head>
 <body>
 
 <!-- Barra de topo -->
 <div class="detail-bar">
     <div class="d-flex align-center gap-12">
-        <a href="../dashboard/jovem.php" class="icon-btn" title="Voltar">←</a>
-        <span class="detail-bar-title">✦ Mentor de Currículo IA</span>
+        <a href="../dashboard/jovem.php" class="icon-btn" title="Voltar ao painel" aria-label="Voltar ao painel"><span class="i i-arrow-left" aria-hidden="true"></span></a>
+        <span class="marca marca-compacta"><img src="../assets/img/marca/jovemconnect-simbolo.png" alt="JovemConnect" width="192" height="192"></span>
+        <span class="detail-bar-title" style="display:inline-flex;align-items:center;gap:8px;"><span class="i i-sparkles" aria-hidden="true"></span> Mentor de Currículo IA</span>
     </div>
     <a href="../jovem/perfil.php" class="btn btn-ghost btn-sm">Ver Meu Perfil</a>
 </div>
@@ -174,15 +178,15 @@ $resumo_atual = htmlspecialchars(
 
     <!-- ── Formulário de análise ──────────────────────────────────────────── -->
     <div class="card fade-up" style="margin-bottom:16px;">
-        <h2 style="font-size:18px;font-weight:700;margin-bottom:6px;">
-            🤖 Mentor de Currículo
+        <h2 style="font-size:18px;font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:10px;">
+            <span class="i i-bot" aria-hidden="true" style="color:var(--accent);"></span> Mentor de Currículo
         </h2>
         <p class="text-secondary" style="font-size:13px;line-height:1.6;margin-bottom:20px;">
             A IA analisa seu resumo, habilidades e formação para dar dicas personalizadas.
             O texto abaixo foi carregado do seu perfil — edite à vontade antes de enviar.
         </p>
 
-        <form method="POST" id="formIA">
+        <form method="POST" id="formIA" data-envio-unico="Analisando...">
         <?= csrf_field() ?>
 
             <div class="form-group">
@@ -201,13 +205,13 @@ $resumo_atual = htmlspecialchars(
                     Habilidades do perfil que serão incluídas:
                     <?= implode(', ', array_map('htmlspecialchars', $habilidades)) ?>
                     <?php else: ?>
-                    💡 Adicione habilidades ao seu perfil para uma análise mais completa.
+                    <span class="i i-lightbulb" aria-hidden="true"></span> Adicione habilidades ao seu perfil para uma análise mais completa.
                     <?php endif; ?>
                 </p>
             </div>
 
             <button type="submit" class="btn btn-primary btn-full" id="btnAnalisar">
-                ✦ Analisar com IA
+                <span class="i i-sparkles" aria-hidden="true"></span> Analisar com IA
             </button>
 
         </form>
@@ -217,7 +221,7 @@ $resumo_atual = htmlspecialchars(
     <?php if ($erro_ia): ?>
     <div class="card fade-up"
          style="border-color:rgba(239,68,68,.3);padding:28px;text-align:center;">
-        <p style="font-size:28px;margin-bottom:12px;">⚠️</p>
+        <div class="icone-destaque aviso" aria-hidden="true"><span class="i i-alert-triangle" aria-hidden="true"></span></div>
         <p class="text-secondary" style="font-size:13px;line-height:1.6;">
             <?= htmlspecialchars($erro_ia) ?>
         </p>
@@ -229,9 +233,8 @@ $resumo_atual = htmlspecialchars(
 
         <!-- Mensagem principal -->
         <div class="d-flex align-center gap-10" style="margin-bottom:16px;">
-            <span style="font-size:24px;">
-                <?= !empty($resultado_ia['sugestoes']) ? '📝' : '🌟' ?>
-            </span>
+            <span class="i <?= !empty($resultado_ia['sugestoes']) ? 'i-file-text' : 'i-check-circle' ?>" aria-hidden="true"
+                  style="font-size:24px;color:var(--accent);"></span>
             <p style="font-size:15px;font-weight:700;line-height:1.4;">
                 <?= htmlspecialchars($resultado_ia['mensagem'] ?? '') ?>
             </p>
@@ -250,7 +253,7 @@ $resumo_atual = htmlspecialchars(
                 color:var(--text-secondary);
                 line-height:1.6;
             ">
-                <span style="color:var(--accent);flex-shrink:0;font-size:15px;">💡</span>
+                <span class="i i-lightbulb" aria-hidden="true" style="color:var(--accent);font-size:16px;margin-top:2px;"></span>
                 <?= htmlspecialchars($s) ?>
             </div>
             <?php endforeach; ?>
@@ -262,7 +265,7 @@ $resumo_atual = htmlspecialchars(
     <!-- Ação após análise -->
     <div class="d-flex gap-12 fade-up" style="flex-wrap:wrap;">
         <a href="../jovem/perfil.php" class="btn btn-primary btn-sm">
-            Atualizar Perfil →
+            Atualizar Perfil <span class="i i-arrow-right" aria-hidden="true"></span>
         </a>
         <a href="../dashboard/jovem.php" class="btn btn-ghost btn-sm">
             Ver Vagas Disponíveis
@@ -273,24 +276,18 @@ $resumo_atual = htmlspecialchars(
 
 </div><!-- /container -->
 
-<!-- FABs -->
-<div class="fab-stack">
-    <button class="fab fab-a11y" id="btnA11y" title="Acessibilidade" aria-label="Acessibilidade">♿</button>
-</div>
+<!-- FABs + Assistente + Acessibilidade (Stage 4: antes o botão ♿ não tinha painel nem script) -->
+<?php include dirname(__DIR__) . '/includes/assistente.php'; ?>
 
 <script>
 /* ── Tema ──────────────────────────────────────────────────── */
 const savedTheme = localStorage.getItem('jc-theme');
 if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
 
-/* ── Feedback visual no submit ─────────────────────────────── */
-document.getElementById('formIA')?.addEventListener('submit', function () {
-    const btn = document.getElementById('btnAnalisar');
-    if (btn) {
-        btn.disabled  = true;
-        btn.innerHTML = '<span class="loading-spinner"></span> Analisando...';
-    }
-});
+/* ── Feedback visual no submit ─────────────────────────────────
+   Stage 4: feito pelo data-envio-unico do formulário (includes/assistente.php),
+   que também destrava o botão ao voltar pelo navegador — antes ele ficava
+   preso em "Analisando..." depois do "Voltar". */
 </script>
 
 </body>

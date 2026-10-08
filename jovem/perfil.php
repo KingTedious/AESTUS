@@ -23,6 +23,7 @@
    ============================================================ */
 require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
 require_once dirname(__DIR__) . "/includes/config.php";
+require_once dirname(__DIR__) . "/includes/formacao.php";   // Stage 5: nível → curso/ano → situação
 
 // ── Auth inline (não usa verificar_autenticacao pois atende jovem E empresa) ──
 $tem_jovem   = isset($_SESSION['jovem_id']);
@@ -115,7 +116,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $eh_dono) {
         $esc_tipo   = $atual['escolaridade_tipo'];
         $esc_curso  = $atual['escolaridade_curso'];
         $formacao   = $atual['formacao'];
-        if (isset($_POST['escolaridade_status'])) {
+        // Stage 5: formulário novo (nível → curso/ano → situação). Erro na formação
+        // não salva nada e avisa qual campo falta; POST antigo segue as regras da Stage 3.
+        $erros_formacao = [];
+        $form_formacao  = jc_formacao_ler_post($_POST, $erros_formacao, '', 'escolaridade_status', false, true);
+        if ($form_formacao !== null && jc_formacao_inalterado($form_formacao['valores'], jc_formacao_de_jovem($atual))) {
+            // o jovem salvou outros dados sem mexer na formação: o registro (até texto antigo) fica igual
+        } elseif ($form_formacao !== null) {
+            if ($erros_formacao) {
+                $_SESSION['erro_formacao'] = $erros_formacao[0];
+                header("Location: perfil.php?saved=4");
+                exit;
+            }
+            $esc_status = $form_formacao['situacao'];
+            $esc_tipo   = $form_formacao['tipo'];
+            $esc_curso  = ($form_formacao['curso_tecnico'] !== '') ? $form_formacao['curso_tecnico'] : null;
+            $formacao   = $form_formacao['rotulo'];
+        } elseif (isset($_POST['escolaridade_status'])) {
             if (in_array($_POST['escolaridade_status'], ['cursando', 'completo'], true)) {
                 $esc_status = $_POST['escolaridade_status'];
             }
@@ -152,6 +169,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $eh_dono) {
     }
 
     // ── Adicionar formação ────────────────────────────────────────────────────
+    if ($action === 'add_formacao' && array_key_exists('form_formacao_nivel', $_POST)) {
+        // Stage 5: formação adicional também é estruturada: título padronizado
+        // ("Ensino Técnico — Logística"), situação + ano em "conclusao", curso em "area".
+        $erros_add = [];
+        $nova = jc_formacao_ler_post($_POST, $erros_add, 'form_', 'form_situacao', true, false);
+        $ano_conc = trim($_POST['form_conclusao'] ?? '');
+        if ($ano_conc !== '' && !preg_match('/^(19|20)\d{2}$/', $ano_conc)) {
+            $erros_add[] = 'Ano de conclusão inválido (use 4 dígitos, ex.: 2026).';
+        }
+        if ($erros_add) {
+            $_SESSION['erro_formacao'] = $erros_add[0];
+            header("Location: perfil.php?saved=4#formacao");
+            exit;
+        }
+        $titulo      = mb_substr($nova['rotulo'], 0, 150);
+        $instituicao = mb_substr(trim($_POST['form_instituicao'] ?? ''), 0, 150);
+        $conclusao   = ($nova['situacao'] === 'completo' ? 'Concluído' : 'Cursando') . ($ano_conc !== '' ? " ($ano_conc)" : '');
+        $area        = in_array($nova['nivel'], ['tecnico', 'superior', 'profissionalizante'], true)
+                       ? mb_substr($nova['curso'], 0, 100) : '';
+        $stmt = $conn->prepare(
+            "INSERT INTO formacao_jovem (jovem_id, titulo, instituicao, conclusao, area)
+             VALUES (?, ?, ?, ?, ?)"
+        );
+        $stmt->bind_param("issss", $jovem_id, $titulo, $instituicao, $conclusao, $area);
+        $stmt->execute();
+        $stmt->close();
+        header("Location: perfil.php#formacao");
+        exit;
+    }
     if ($action === 'add_formacao') {
         // Stage 3: limites das colunas (conclusao tem só 20 caracteres → antes, erro fatal)
         $titulo      = mb_substr(trim($_POST['form_titulo']      ?? ''), 0, 150);
@@ -334,13 +380,12 @@ $local_parts = array_filter([
 $localizacao = implode(', ', $local_parts);
 
 // Stage 3: escolaridade informada no cadastro (antes não aparecia em lugar nenhum do perfil)
-$esc_resumo = ($jovem['escolaridade_status'] === 'completo') ? 'Concluído' : 'Cursando';
-if ($jovem['escolaridade_tipo'] === 'tecnico') {
-    $esc_resumo .= ' • Curso técnico' . (!empty($jovem['escolaridade_curso']) ? ': ' . $jovem['escolaridade_curso'] : '');
-}
-if (!empty($jovem['formacao'])) {
-    $esc_resumo .= ' • ' . $jovem['formacao'];
-}
+// Stage 5: resumo pelo formato novo ("Ensino Médio — 3º ano · Cursando"); registro antigo = resumo da Stage 3
+$esc_resumo = jc_formacao_resumo($jovem);
+
+// Stage 5: motivo de um erro ao salvar a formação (?saved=4)
+$erro_formacao = $eh_dono ? (string)($_SESSION['erro_formacao'] ?? '') : '';
+unset($_SESSION['erro_formacao']);
 
 // Stage 3: currículo em PDF — só mostra link se o arquivo existir de fato
 $tem_curriculo = !empty($jovem['curriculo'])
@@ -351,6 +396,16 @@ $link_curriculo = '../uploads/ver_curriculo.php?id=' . $jovem_id;
 $msg_upload_ok   = $eh_dono ? ($_SESSION['sucesso_upload'] ?? null) : null;
 $msg_upload_erro = $eh_dono ? ($_SESSION['erro_upload']    ?? null) : null;
 unset($_SESSION['sucesso_upload'], $_SESSION['erro_upload']);
+
+// Stage 4: destino do "←". A empresa que abriu o perfil pela lista de candidatos
+// de uma vaga volta para essa lista (antes ia sempre para o painel). Só aceita o
+// valor fixo "candidatos" + id numérico — nunca uma URL vinda da requisição.
+$voltar_url    = $eh_empresa ? '../dashboard/empresa.php' : '../dashboard/jovem.php';
+$voltar_rotulo = 'Voltar ao painel';
+if ($eh_empresa && ($_GET['voltar'] ?? '') === 'candidatos' && intval($_GET['vaga'] ?? 0) > 0) {
+    $voltar_url    = '../Vagas/candidatos.php?vaga=' . intval($_GET['vaga']);
+    $voltar_rotulo = 'Voltar aos candidatos da vaga';
+}
 ?>
 <!DOCTYPE html>
 <html lang="pt-br" data-theme="dark">
@@ -361,6 +416,8 @@ unset($_SESSION['sucesso_upload'], $_SESSION['erro_upload']);
         <?= $eh_dono ? 'Meu Perfil' : 'Perfil do Candidato' ?> | JovemConnect
     </title>
     <link rel="stylesheet" href="../Assets/css/style.css">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/img/marca/jovemconnect-icone-32.png">
+    <link rel="apple-touch-icon" href="../assets/img/marca/jovemconnect-icone-180.png">
 </head>
 <body>
 <?= csrf_js() ?><!-- Stage 3: o IA Advisor usa fetch() em endpoint protegido por CSRF (antes: 403) -->
@@ -370,8 +427,9 @@ unset($_SESSION['sucesso_upload'], $_SESSION['erro_upload']);
      ============================================================ -->
 <div class="profile-bar">
     <div class="d-flex align-center gap-12">
-        <a href="<?= $eh_empresa ? '../dashboard/empresa.php' : '../dashboard/jovem.php' ?>"
-           class="icon-btn" title="Voltar">←</a>
+        <a href="<?= htmlspecialchars($voltar_url) ?>"
+           class="icon-btn" title="<?= htmlspecialchars($voltar_rotulo) ?>" aria-label="<?= htmlspecialchars($voltar_rotulo) ?>"><span class="i i-arrow-left" aria-hidden="true"></span></a>
+        <span class="marca marca-compacta"><img src="../assets/img/marca/jovemconnect-simbolo.png" alt="JovemConnect" width="192" height="192"></span>
         <span class="profile-bar-title">
             <?= $eh_dono ? 'Meu Perfil' : 'Perfil do Candidato' ?>
         </span>
@@ -384,22 +442,24 @@ unset($_SESSION['sucesso_upload'], $_SESSION['erro_upload']);
     <?php elseif ($eh_empresa): ?>
         <a href="mailto:<?= htmlspecialchars($jovem['email']) ?>"
            class="btn btn-primary btn-sm">
-            ✈ Entrar em Contato
+            <span class="i i-mail" aria-hidden="true"></span> Entrar em Contato
         </a>
     <?php endif; ?>
 </div>
 
 <!-- Toast de feedback (PRG) -->
 <?php if ($msg_upload_ok): ?>
-<div id="toast" class="toast toast-success">✓ <?= htmlspecialchars($msg_upload_ok) ?></div>
+<div id="toast" class="toast toast-success"><span class="i i-check-circle" aria-hidden="true"></span><?= htmlspecialchars($msg_upload_ok) ?></div>
 <?php elseif ($msg_upload_erro): ?>
-<div id="toast" class="toast toast-error">✕ <?= htmlspecialchars($msg_upload_erro) ?></div>
+<div id="toast" class="toast toast-error"><span class="i i-x-circle" aria-hidden="true"></span><?= htmlspecialchars($msg_upload_erro) ?></div>
 <?php elseif ($saved === 1): ?>
-<div id="toast" class="toast toast-success">✓ Perfil atualizado com sucesso!</div>
+<div id="toast" class="toast toast-success"><span class="i i-check-circle" aria-hidden="true"></span>Perfil atualizado com sucesso!</div>
 <?php elseif ($saved === 2): ?>
-<div id="toast" class="toast toast-error">✕ Preencha o nome e um e-mail válido antes de salvar.</div>
+<div id="toast" class="toast toast-error"><span class="i i-x-circle" aria-hidden="true"></span>Preencha o nome e um e-mail válido antes de salvar.</div>
 <?php elseif ($saved === 3): ?>
-<div id="toast" class="toast toast-error">✕ Este e-mail já está em uso por outra conta.</div>
+<div id="toast" class="toast toast-error"><span class="i i-x-circle" aria-hidden="true"></span>Este e-mail já está em uso por outra conta.</div>
+<?php elseif ($saved === 4): ?>
+<div id="toast" class="toast toast-error"><span class="i i-x-circle" aria-hidden="true"></span><?= htmlspecialchars($erro_formacao !== '' ? $erro_formacao : 'Confira os dados da formação.') ?></div>
 <?php endif; ?>
 
 <!-- ============================================================
@@ -432,14 +492,14 @@ unset($_SESSION['sucesso_upload'], $_SESSION['erro_upload']);
             <!-- VIEW -->
             <div id="viewNome">
                 <p class="profile-side-name"><?= $nome_jovem ?></p>
-                <p class="profile-side-role">📍 Jovem Aprendiz</p>
+                <p class="profile-side-role"><span class="i i-graduation-cap" aria-hidden="true"></span> Jovem Aprendiz</p>
             </div>
 
             <!-- EDIT (oculto por padrão) -->
             <div id="editNome" class="hidden w-full">
                 <div class="form-group" style="width:100%">
-                    <label class="form-label">Nome Completo *</label>
-                    <input type="text" name="nome" class="form-control" form="formPerfil"
+                    <label class="form-label" for="perfilNome">Nome Completo *</label>
+                    <input type="text" name="nome" id="perfilNome" class="form-control" form="formPerfil"
                            value="<?= $nome_jovem ?>" maxlength="100" required>
                 </div>
             </div>
@@ -457,66 +517,51 @@ unset($_SESSION['sucesso_upload'], $_SESSION['erro_upload']);
             </div>
             <div class="profile-info-item">
                 <p class="profile-info-label">Localização</p>
-                <p class="profile-info-value">📍 <?= $localizacao ?: '—' ?></p>
+                <p class="profile-info-value"><span class="i i-map-pin" aria-hidden="true"></span> <?= $localizacao ?: '—' ?></p>
             </div>
         </div>
 
         <!-- Dados básicos EDIT -->
         <div id="editDados" class="hidden">
             <div class="form-group">
-                <label class="form-label">E-mail *</label>
-                <input type="email" name="email" class="form-control" form="formPerfil"
+                <label class="form-label" for="perfilEmail">E-mail *</label>
+                <input type="email" name="email" id="perfilEmail" class="form-control" form="formPerfil"
                        value="<?= htmlspecialchars($jovem['email']) ?>" maxlength="100" required>
             </div>
             <div class="form-row">
                 <div class="form-group">
-                    <label class="form-label">Cidade</label>
-                    <input type="text" name="cidade" class="form-control" form="formPerfil"
+                    <label class="form-label" for="perfilCidade">Cidade</label>
+                    <input type="text" name="cidade" id="perfilCidade" class="form-control" form="formPerfil"
                            value="<?= htmlspecialchars($jovem['cidade'] ?? '') ?>" maxlength="100">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">UF</label>
-                    <input type="text" name="estado" class="form-control" form="formPerfil"
+                    <label class="form-label" for="perfilEstado">UF</label>
+                    <input type="text" name="estado" id="perfilEstado" class="form-control" form="formPerfil"
                            value="<?= htmlspecialchars($jovem['estado'] ?? '') ?>"
                            maxlength="2" placeholder="SP">
                 </div>
             </div>
             <div class="form-group">
-                <label class="form-label">CEP</label>
-                <input type="text" name="cep" class="form-control" form="formPerfil"
+                <label class="form-label" for="perfilCep">CEP</label>
+                <input type="text" name="cep" id="perfilCep" class="form-control" form="formPerfil"
                        value="<?= htmlspecialchars($jovem['cep'] ?? '') ?>"
                        placeholder="00000-000" maxlength="9">
             </div>
             <div class="form-group">
-                <label class="form-label">Área de Interesse</label>
-                <input type="text" name="area_interesse" class="form-control" form="formPerfil"
+                <label class="form-label" for="perfilAreaInteresse">Área de Interesse</label>
+                <input type="text" name="area_interesse" id="perfilAreaInteresse" class="form-control" form="formPerfil"
                        value="<?= htmlspecialchars($jovem['area_interesse'] ?? '') ?>"
                        placeholder="Ex: Administrativo, TI" maxlength="100">
             </div>
-            <!-- Stage 3: escolaridade editável (antes só existia no cadastro) -->
-            <div class="form-group">
-                <label class="form-label">Escolaridade</label>
-                <select name="escolaridade_status" class="form-control" form="formPerfil">
-                    <option value="cursando" <?= $jovem['escolaridade_status'] !== 'completo' ? 'selected' : '' ?>>Cursando</option>
-                    <option value="completo" <?= $jovem['escolaridade_status'] === 'completo' ? 'selected' : '' ?>>Concluído</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Ano Escolar / Conclusão</label>
-                <input type="text" name="formacao" class="form-control" form="formPerfil"
-                       value="<?= htmlspecialchars($jovem['formacao'] ?? '') ?>"
-                       placeholder="Ex: 3º ano Ensino Médio" maxlength="100">
-            </div>
-            <div class="form-group">
-                <label class="form-check">
-                    <input type="checkbox" name="escolaridade_tipo" value="tecnico" form="formPerfil"
-                           <?= $jovem['escolaridade_tipo'] === 'tecnico' ? 'checked' : '' ?>>
-                    <span class="form-check-label">Possuo curso técnico</span>
-                </label>
-                <input type="text" name="escolaridade_curso" class="form-control mt-8" form="formPerfil"
-                       value="<?= htmlspecialchars($jovem['escolaridade_curso'] ?? '') ?>"
-                       placeholder="Nome do curso técnico (ex: Administração)" maxlength="100">
-            </div>
+            <!-- Stage 3: escolaridade editável (antes só existia no cadastro).
+                 Stage 5: nível → curso/ano → situação; dados antigos são reconhecidos
+                 ou aparecem em "Outro" — nada é apagado sem o jovem salvar. -->
+            <p class="form-label" style="margin:6px 0 10px;">Escolaridade</p>
+            <?= jc_formacao_campos([
+                'id' => 'perf', 'nome' => '', 'form' => 'formPerfil', 'situacao' => 'escolaridade_status',
+                'em_tecnico' => true, 'obrigatorio' => false, 'vazio' => 'Não informado',
+                'valores' => jc_formacao_de_jovem($jovem),
+            ]) ?>
             <button type="submit" form="formPerfil" class="btn btn-primary btn-full btn-sm mt-8">
                 Salvar Dados Básicos
             </button>
@@ -524,7 +569,7 @@ unset($_SESSION['sucesso_upload'], $_SESSION['erro_upload']);
 
         <!-- IA Advisor -->
         <div class="ia-advisor-card">
-            <p class="ia-advisor-title">✦ IA Advisor</p>
+            <p class="ia-advisor-title"><span class="i i-sparkles" aria-hidden="true"></span> IA Advisor</p>
             <p class="ia-advisor-sub">Sugestões personalizadas para seu sucesso</p>
             <button type="button" class="btn btn-primary btn-full btn-sm" id="btnAnalisarPerfil">
                 Analisar meu Perfil
@@ -550,20 +595,20 @@ unset($_SESSION['sucesso_upload'], $_SESSION['erro_upload']);
         <!-- Currículo Automático -->
         <div class="profile-section fade-up">
             <div class="profile-section-head">
-                <h2 class="profile-section-title">📄 Currículo Automático</h2>
+                <h2 class="profile-section-title"><span class="i i-file-text" aria-hidden="true"></span> Currículo Automático</h2>
                 <?php if ($tem_curriculo): ?>
                 <a href="<?= $link_curriculo ?>"
                    target="_blank" rel="noopener"
                    class="btn btn-secondary btn-sm"
                    id="btnBaixarPDF">
-                    ⬇ Baixar PDF
+                    <span class="i i-download" aria-hidden="true"></span> Baixar PDF
                 </a>
                 <?php endif; ?>
             </div>
 
             <div class="form-group">
-                <label class="form-label">Objetivo e Resumo Profissional</label>
-                <textarea name="resumo_profissional" class="form-control" form="formPerfil"
+                <label class="form-label" for="perfilResumo">Objetivo e Resumo Profissional</label>
+                <textarea name="resumo_profissional" id="perfilResumo" class="form-control" form="formPerfil"
                           rows="5"
                           placeholder="Escreva um resumo profissional claro: seus objetivos, área de interesse e diferenciais..."
                           ><?= htmlspecialchars($jovem['resumo_profissional'] ?? '') ?></textarea>
@@ -574,64 +619,63 @@ unset($_SESSION['sucesso_upload'], $_SESSION['erro_upload']);
             <!-- Stage 3: envio do currículo em PDF. uploads/curriculos.php já existia
                  (com validação de tipo/tamanho), mas nenhuma tela o usava. -->
             <div class="form-group" id="curriculo" style="margin-top:20px;">
-                <label class="form-label">Currículo em PDF</label>
+                <label class="form-label" for="perfilCurriculo">Currículo em PDF</label>
                 <p class="text-secondary" style="font-size:13px;margin-bottom:8px;">
                     <?php if ($tem_curriculo): ?>
-                        ✓ Currículo enviado.
+                        <span class="i i-check-circle" aria-hidden="true"></span> Currículo enviado.
                         <a href="<?= $link_curriculo ?>" target="_blank" rel="noopener">Ver PDF</a>
                         — envie outro arquivo para substituir.
                     <?php else: ?>
                         Nenhum currículo enviado ainda.
                     <?php endif; ?>
                 </p>
+                <!-- Stage 4: data-envio-unico evita enviar o mesmo PDF duas vezes -->
                 <form method="POST" action="../uploads/curriculos.php" enctype="multipart/form-data"
-                      style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                      style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;"
+                      data-envio-unico="Enviando PDF...">
                     <?= csrf_field() ?>
                     <input type="hidden" name="MAX_FILE_SIZE" value="5242880">
-                    <input type="file" name="curriculo" accept="application/pdf,.pdf" required
+                    <input type="file" name="curriculo" id="perfilCurriculo" accept="application/pdf,.pdf" required
+                           aria-describedby="perfilCurriculoAjuda"
                            class="form-control" style="flex:1;min-width:200px;">
                     <button type="submit" class="btn btn-secondary btn-sm">Enviar PDF</button>
                 </form>
-                <p class="text-muted" style="font-size:11px;margin-top:6px;">Somente PDF, até 5 MB.</p>
+                <p class="text-muted" id="perfilCurriculoAjuda" style="font-size:11px;margin-top:6px;">Somente PDF, até 5 MB.</p>
             </div>
         </div>
 
         <!-- Formação Acadêmica -->
         <div class="profile-section fade-up" id="formacao">
             <div class="profile-section-head">
-                <h2 class="profile-section-title">🎓 Formação</h2>
+                <h2 class="profile-section-title"><span class="i i-graduation-cap" aria-hidden="true"></span> Formação</h2>
                 <button type="button" class="btn btn-ghost btn-sm"
-                        onclick="toggleAddForm('addFormacaoForm')">+</button>
+                        onclick="toggleAddForm('addFormacaoForm', this)"
+                        title="Adicionar formação" aria-label="Adicionar formação"
+                        aria-expanded="false" aria-controls="addFormacaoForm"><span class="i i-plus" aria-hidden="true"></span></button>
             </div>
 
             <!-- Form de adição (oculto) -->
             <div id="addFormacaoForm" class="hidden"
                  style="background:var(--bg-input);border-radius:var(--radius-sm);padding:16px;margin-bottom:16px;">
-                <form method="POST" action="perfil.php">
+                <form method="POST" action="perfil.php" data-envio-unico="Adicionando...">
                     <input type="hidden" name="action" value="add_formacao">
     <?= csrf_field() ?>
+                    <!-- Stage 5: nível → curso/ano → situação (antes: "Curso / Nível" em texto livre) -->
+                    <?= jc_formacao_campos([
+                        'id' => 'add', 'nome' => 'form_', 'form' => '', 'situacao' => 'form_situacao',
+                        'em_tecnico' => false, 'obrigatorio' => true,
+                    ]) ?>
                     <div class="form-row">
                         <div class="form-group">
-                            <label class="form-label">Curso / Nível *</label>
-                            <input type="text" name="form_titulo" class="form-control"
-                                   placeholder="Ex: Ensino Médio, Técnico em Adm" maxlength="150" required>
+                            <label class="form-label" for="formInstituicao">Instituição</label>
+                            <input type="text" name="form_instituicao" id="formInstituicao" class="form-control"
+                                   placeholder="Nome da escola ou faculdade" maxlength="150">
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Instituição</label>
-                            <input type="text" name="form_instituicao" class="form-control"
-                                   placeholder="Nome da escola" maxlength="150">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label class="form-label">Conclusão</label>
-                            <input type="text" name="form_conclusao" class="form-control"
-                                   placeholder="Ex: 12/2025 ou Em andamento" maxlength="20">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Área (técnico)</label>
-                            <input type="text" name="form_area" class="form-control"
-                                   placeholder="Ex: Administrativo" maxlength="100">
+                            <label class="form-label" for="formConclusao">Ano de conclusão (ou previsão)</label>
+                            <input type="text" name="form_conclusao" id="formConclusao" class="form-control"
+                                   placeholder="Ex.: 2026" maxlength="4" inputmode="numeric" pattern="(19|20)[0-9]{2}"
+                                   title="Ano com 4 dígitos, ex.: 2026">
                         </div>
                     </div>
                     <button type="submit" class="btn btn-primary btn-sm">Adicionar</button>
@@ -652,17 +696,14 @@ unset($_SESSION['sucesso_upload'], $_SESSION['erro_upload']);
                 <div class="edu-item">
                     <div>
                         <p class="edu-title"><?= htmlspecialchars($f['titulo']) ?></p>
-                        <p class="edu-sub">
-                            <?= htmlspecialchars($f['instituicao'] ?? '') ?>
-                            <?= !empty($f['conclusao']) ? ' • Conclusão: ' . htmlspecialchars($f['conclusao']) : '' ?>
-                            <?= !empty($f['area'])      ? ' • Área: ' . htmlspecialchars($f['area']) : '' ?>
-                        </p>
+                        <p class="edu-sub"><?= jc_formacao_detalhe($f) ?></p>
                     </div>
                     <form method="POST" action="perfil.php" style="display:inline;">
                         <input type="hidden" name="action"  value="del_formacao">
     <?= csrf_field() ?>
                         <input type="hidden" name="form_id" value="<?= intval($f['id']) ?>">
-                        <button type="submit" class="edu-delete" title="Remover">🗑</button>
+                        <button type="submit" class="edu-delete" title="Remover formação"
+                                aria-label="Remover formação: <?= htmlspecialchars($f['titulo']) ?>"><span class="i i-trash" aria-hidden="true"></span></button>
                     </form>
                 </div>
                 <?php endforeach; ?>
@@ -674,38 +715,40 @@ unset($_SESSION['sucesso_upload'], $_SESSION['erro_upload']);
         <!-- Experiências (Opcional) -->
         <div class="profile-section fade-up" id="experiencias">
             <div class="profile-section-head">
-                <h2 class="profile-section-title">💼 Experiência (Opcional)</h2>
+                <h2 class="profile-section-title"><span class="i i-briefcase" aria-hidden="true"></span> Experiência (Opcional)</h2>
                 <button type="button" class="btn btn-ghost btn-sm"
-                        onclick="toggleAddForm('addExpForm')">+</button>
+                        onclick="toggleAddForm('addExpForm', this)"
+                        title="Adicionar experiência" aria-label="Adicionar experiência"
+                        aria-expanded="false" aria-controls="addExpForm"><span class="i i-plus" aria-hidden="true"></span></button>
             </div>
 
             <!-- Form de adição (oculto) -->
             <div id="addExpForm" class="hidden"
                  style="background:var(--bg-input);border-radius:var(--radius-sm);padding:16px;margin-bottom:16px;">
-                <form method="POST" action="perfil.php">
+                <form method="POST" action="perfil.php" data-envio-unico="Adicionando...">
                     <input type="hidden" name="action" value="add_experiencia">
     <?= csrf_field() ?>
                     <div class="form-row">
                         <div class="form-group">
-                            <label class="form-label">Título / Função *</label>
-                            <input type="text" name="exp_titulo" class="form-control"
+                            <label class="form-label" for="expTitulo">Título / Função *</label>
+                            <input type="text" name="exp_titulo" id="expTitulo" class="form-control"
                                    placeholder="Ex: Estágio, Voluntariado" maxlength="150" required>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Local</label>
-                            <input type="text" name="exp_local" class="form-control"
+                            <label class="form-label" for="expLocal">Local</label>
+                            <input type="text" name="exp_local" id="expLocal" class="form-control"
                                    placeholder="Nome da organização" maxlength="150">
                         </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label class="form-label">Período</label>
-                            <input type="text" name="exp_periodo" class="form-control"
+                            <label class="form-label" for="expPeriodo">Período</label>
+                            <input type="text" name="exp_periodo" id="expPeriodo" class="form-control"
                                    placeholder="Jan/2024 – Mar/2024" maxlength="50">
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Descrição</label>
-                            <input type="text" name="exp_descricao" class="form-control"
+                            <label class="form-label" for="expDescricao">Descrição</label>
+                            <input type="text" name="exp_descricao" id="expDescricao" class="form-control"
                                    placeholder="Breve descrição das atividades">
                         </div>
                     </div>
@@ -727,7 +770,8 @@ unset($_SESSION['sucesso_upload'], $_SESSION['erro_upload']);
                         <input type="hidden" name="action" value="del_experiencia">
     <?= csrf_field() ?>
                         <input type="hidden" name="exp_id" value="<?= intval($e['id']) ?>">
-                        <button type="submit" class="edu-delete" title="Remover">🗑</button>
+                        <button type="submit" class="edu-delete" title="Remover experiência"
+                                aria-label="Remover experiência: <?= htmlspecialchars($e['titulo']) ?>"><span class="i i-trash" aria-hidden="true"></span></button>
                     </form>
                 </div>
                 <?php endforeach; ?>
@@ -741,19 +785,21 @@ unset($_SESSION['sucesso_upload'], $_SESSION['erro_upload']);
         <!-- Habilidades -->
         <div class="profile-section fade-up" id="habilidades">
             <div class="profile-section-head">
-                <h2 class="profile-section-title">✦ Habilidades</h2>
+                <h2 class="profile-section-title"><span class="i i-list-checks" aria-hidden="true"></span> Habilidades</h2>
                 <button type="button" class="btn btn-ghost btn-sm"
-                        onclick="toggleAddForm('addHabForm')">+</button>
+                        onclick="toggleAddForm('addHabForm', this)"
+                        title="Adicionar habilidade" aria-label="Adicionar habilidade"
+                        aria-expanded="false" aria-controls="addHabForm"><span class="i i-plus" aria-hidden="true"></span></button>
             </div>
 
             <div id="addHabForm" class="hidden"
                  style="display:flex;gap:8px;margin-bottom:16px;">
-                <form method="POST" action="perfil.php"
+                <form method="POST" action="perfil.php" data-envio-unico="Adicionando..."
                       style="display:flex;gap:8px;width:100%;">
                     <input type="hidden" name="action" value="add_habilidade">
     <?= csrf_field() ?>
                     <!-- Stage 3: escolha uma habilidade da lista ou digite uma personalizada -->
-                    <input type="text" name="habilidade" class="form-control"
+                    <input type="text" name="habilidade" class="form-control" aria-label="Nova habilidade"
                            list="habilidadesSugeridas" maxlength="80" autocomplete="off"
                            placeholder="Escolha da lista ou digite (ex: Excel Básico)" required>
                     <datalist id="habilidadesSugeridas">
@@ -791,7 +837,8 @@ unset($_SESSION['sucesso_upload'], $_SESSION['erro_upload']);
                             <button type="submit"
                                     class="text-muted"
                                     style="font-size:12px;background:none;border:none;cursor:pointer;"
-                                    title="Remover">✕</button>
+                                    title="Remover habilidade"
+                                    aria-label="Remover habilidade: <?= htmlspecialchars($h['habilidade']) ?>"><span class="i i-x" aria-hidden="true"></span></button>
                         </form>
                     </div>
                     <?php endforeach; ?>
@@ -806,7 +853,7 @@ unset($_SESSION['sucesso_upload'], $_SESSION['erro_upload']);
         <!-- Configurações de Visibilidade -->
         <div class="profile-section fade-up">
             <div class="profile-section-head">
-                <h2 class="profile-section-title">⚙ Configurações de Visibilidade</h2>
+                <h2 class="profile-section-title"><span class="i i-settings" aria-hidden="true"></span> Configurações de Visibilidade</h2>
             </div>
             <p class="text-secondary" style="font-size:13px;margin-bottom:16px;">
                 Como as empresas veem seu perfil
@@ -818,6 +865,7 @@ unset($_SESSION['sucesso_upload'], $_SESSION['erro_upload']);
                 </div>
                 <label class="toggle">
                     <input type="checkbox" name="perfil_publico" value="1" form="formPerfil"
+                           aria-label="Perfil público"
                            <?= $jovem['perfil_publico'] ? 'checked' : '' ?>>
                     <span class="toggle-track"></span>
                 </label>
@@ -847,14 +895,14 @@ unset($_SESSION['sucesso_upload'], $_SESSION['erro_upload']);
             <div class="avatar avatar-xl"><?= $inicial ?></div>
             <p class="profile-side-name"><?= $nome_jovem ?></p>
             <p class="profile-side-role">
-                📅 <?= $idade_label ?><?= ($idade_label && $localizacao) ? ' • ' : '' ?><?= $localizacao ?>
+                <span class="i i-calendar" aria-hidden="true"></span> <?= $idade_label ?><?= ($idade_label && $localizacao) ? ' • ' : '' ?><?= $localizacao ?>
             </p>
         </div>
 
         <!-- Resumo Profissional -->
         <?php if (!empty($jovem['resumo_profissional'])): ?>
         <div class="profile-info-item">
-            <p class="profile-info-label">👤 Resumo Profissional</p>
+            <p class="profile-info-label"><span class="i i-user" aria-hidden="true"></span> Resumo Profissional</p>
             <p style="font-size:13px;color:var(--text-secondary);line-height:1.65;">
                 <?= htmlspecialchars($jovem['resumo_profissional']) ?>
             </p>
@@ -863,23 +911,19 @@ unset($_SESSION['sucesso_upload'], $_SESSION['erro_upload']);
 
         <!-- Stage 3: escolaridade do cadastro também visível para a empresa -->
         <div class="profile-info-item">
-            <p class="profile-info-label">🎓 Escolaridade</p>
+            <p class="profile-info-label"><span class="i i-graduation-cap" aria-hidden="true"></span> Escolaridade</p>
             <p style="font-size:13px;color:var(--text-secondary);"><?= htmlspecialchars($esc_resumo) ?></p>
         </div>
 
         <!-- Formação Acadêmica -->
         <?php if (!empty($formacoes)): ?>
         <div class="profile-info-item">
-            <p class="profile-info-label">🎓 Formação Acadêmica</p>
+            <p class="profile-info-label"><span class="i i-graduation-cap" aria-hidden="true"></span> Formação Acadêmica</p>
             <?php foreach ($formacoes as $f): ?>
             <div class="edu-item" style="margin-bottom:8px;">
                 <div>
                     <p class="edu-title"><?= htmlspecialchars($f['titulo']) ?></p>
-                    <p class="edu-sub">
-                        <?= htmlspecialchars($f['instituicao'] ?? '') ?>
-                        <?= !empty($f['conclusao']) ? ' • Conclusão: ' . htmlspecialchars($f['conclusao']) : '' ?>
-                        <?= !empty($f['area'])      ? ' • Área: ' . htmlspecialchars($f['area']) : '' ?>
-                    </p>
+                    <p class="edu-sub"><?= jc_formacao_detalhe($f) ?></p>
                 </div>
             </div>
             <?php endforeach; ?>
@@ -889,7 +933,7 @@ unset($_SESSION['sucesso_upload'], $_SESSION['erro_upload']);
         <!-- Habilidades -->
         <?php if (!empty($habilidades)): ?>
         <div class="profile-info-item">
-            <p class="profile-info-label">✦ Habilidades</p>
+            <p class="profile-info-label"><span class="i i-list-checks" aria-hidden="true"></span> Habilidades</p>
             <div class="skills-wrap" style="margin-top:8px;">
                 <?php foreach ($habilidades as $h): ?>
                 <span class="skill-chip"><?= htmlspecialchars($h['habilidade']) ?></span>
@@ -914,7 +958,7 @@ unset($_SESSION['sucesso_upload'], $_SESSION['erro_upload']);
 
             <!-- Currículo PDF -->
             <div class="pdf-card" style="margin-bottom:12px;">
-                <div class="pdf-icon">📄</div>
+                <div class="pdf-icon"><span class="i i-file-text" aria-hidden="true"></span></div>
                 <p class="pdf-title">Currículo em PDF</p>
                 <?php if ($tem_curriculo): ?>
                 <a href="<?= $link_curriculo ?>"
@@ -934,21 +978,24 @@ unset($_SESSION['sucesso_upload'], $_SESSION['erro_upload']);
             <a href="mailto:<?= htmlspecialchars($jovem['email']) ?>?subject=Entrevista JovemConnect"
                class="btn btn-accent-outline btn-full"
                style="margin-bottom:10px;">
-                ✈ Agendar Entrevista
+                <span class="i i-calendar" aria-hidden="true"></span> Agendar Entrevista
             </a>
 
-            <!-- Salvar nos favoritos -->
-            <form method="POST" action="../Vagas/favoritar.php">
-                <input type="hidden" name="jovem_id" value="<?= $jovem_id ?>">
-                <button type="submit" class="btn btn-secondary btn-full">
-                    Salvar nos Favoritos
-                </button>
-            </form>
+            <!-- Stage 4: "Salvar nos Favoritos" enviava para Vagas/favoritar.php, que é o
+                 favorito de VAGAS do jovem — a empresa caía na tela de login do jovem.
+                 Favoritar candidatos ainda não existe (pendência): botão desativado. -->
+            <button type="button" class="btn btn-secondary btn-full" disabled
+                    aria-describedby="favCandidatoInfo">
+                Salvar candidato (em breve)
+            </button>
+            <p id="favCandidatoInfo" class="text-muted" style="font-size:12px;margin-top:6px;text-align:center;">
+                Salvar candidatos nos favoritos ainda não está disponível.
+            </p>
         </div>
 
         <!-- IA Dica -->
         <div class="ia-dica-card fade-up" style="margin-top:0;">
-            <span class="ia-dica-icon">✦</span>
+            <span class="ia-dica-icon i i-sparkles" aria-hidden="true"></span>
             <p class="ia-dica-title">IA Dica</p>
             <p class="ia-dica-text" id="iaDicaText">
                 <?php if (!empty($jovem['escolaridade_tipo']) && $jovem['escolaridade_tipo'] === 'tecnico'): ?>
@@ -975,12 +1022,12 @@ unset($_SESSION['sucesso_upload'], $_SESSION['erro_upload']);
 
 <!-- Modal de exclusão (só aparece para o dono) -->
 <?php if ($eh_dono): ?>
-<div id="modalExcluir"
-     style="position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:2000;
-            display:none;align-items:center;justify-content:center;">
-    <div class="card" style="max-width:380px;width:90%;text-align:center;padding:32px 24px;">
-        <p style="font-size:36px;margin-bottom:12px;">⚠️</p>
-        <h3 style="font-weight:700;margin-bottom:10px;">Excluir Conta</h3>
+<div id="modalExcluir" class="jc-modal" role="dialog" aria-modal="true" aria-labelledby="modalExcluirTitulo">
+    <div class="card" style="max-width:400px;width:100%;text-align:center;padding:36px 28px;">
+        <!-- Stage 5: fechar pelo × (antes só Cancelar, Esc ou clique fora) -->
+        <button type="button" class="jc-modal-fechar" aria-label="Fechar" onclick="fecharModalExcluir()"><span class="i i-x" aria-hidden="true"></span></button>
+        <div class="icone-destaque aviso" aria-hidden="true"><span class="i i-alert-triangle" aria-hidden="true"></span></div>
+        <h3 id="modalExcluirTitulo" style="font-weight:700;margin-bottom:10px;">Excluir Conta</h3>
         <p class="text-secondary" style="font-size:14px;margin-bottom:24px;">
             Esta ação é <strong>irreversível</strong>. Todos os seus dados, candidaturas
             e currículo serão permanentemente apagados.
@@ -1009,8 +1056,14 @@ if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
 /* ── Toast ─────────────────────────────────────────────────── */
 const toast = document.getElementById('toast');
 if (toast) {
-    setTimeout(() => toast.classList.add('toast-visible'), 100);
-    setTimeout(() => toast.classList.remove('toast-visible'), 3500);
+    // Stage 4: mensagens de erro ficam mais tempo (antes sumiam em 3,5 s) e são anunciadas:
+    // o texto volta um instante depois do role — região "viva" que já nasce com texto não é lida
+    const ehErro = toast.classList.contains('toast-error');
+    const conteudo = [...toast.childNodes];   // Stage 5: ícone + texto (antes só o texto)
+    toast.replaceChildren();
+    toast.setAttribute('role', ehErro ? 'alert' : 'status');
+    setTimeout(() => { toast.replaceChildren(...conteudo); toast.classList.add('toast-visible'); }, 100);
+    setTimeout(() => toast.classList.remove('toast-visible'), ehErro ? 7000 : 4000);
 }
 
 /* ── Toggle sidebar edit mode ──────────────────────────────── */
@@ -1041,7 +1094,7 @@ btnEditar?.addEventListener('click', () => {
 });
 
 /* ── Toggle formulários de adição ──────────────────────────── */
-function toggleAddForm(id) {
+function toggleAddForm(id, btn) {
     const el = document.getElementById(id);
     if (!el) return;
     el.classList.toggle('hidden');
@@ -1049,15 +1102,26 @@ function toggleAddForm(id) {
     if (!el.classList.contains('hidden') && el.id === 'addHabForm') {
         el.style.display = 'flex';
     }
+    // Stage 4: o leitor de tela sabe se abriu/fechou e o foco vai para o 1º campo
+    const aberto = !el.classList.contains('hidden');
+    btn?.setAttribute('aria-expanded', aberto ? 'true' : 'false');
+    if (aberto) el.querySelector('input:not([type="hidden"]), select, textarea')?.focus();
 }
 
 /* ── Modal de exclusão ─────────────────────────────────────── */
 const modal       = document.getElementById('modalExcluir');
 const btnExcluir  = document.getElementById('btnExcluir');
 const btnCancelar = document.getElementById('btnCancelarExcluir');
-btnExcluir?.addEventListener('click',  () => modal.style.display = 'flex');
-btnCancelar?.addEventListener('click', () => modal.style.display = 'none');
-modal?.addEventListener('click', e => { if (e.target === modal) modal.style.display = 'none'; });
+// Stage 4: o foco vai para "Cancelar" ao abrir e volta para "Excluir Conta" ao
+// fechar; Esc também fecha (antes só o clique fora ou em "Cancelar")
+function abrirModalExcluir()  { modal.style.display = 'flex'; btnCancelar?.focus(); }
+function fecharModalExcluir() { modal.style.display = 'none'; btnExcluir?.focus(); }
+btnExcluir?.addEventListener('click',  abrirModalExcluir);
+btnCancelar?.addEventListener('click', fecharModalExcluir);
+modal?.addEventListener('click', e => { if (e.target === modal) fecharModalExcluir(); });
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && modal?.style.display === 'flex') fecharModalExcluir();
+});
 
 /* ── IA Advisor (análise de currículo) ─────────────────────── */
 document.getElementById('btnAnalisarPerfil')?.addEventListener('click', async function () {

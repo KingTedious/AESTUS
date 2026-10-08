@@ -33,6 +33,16 @@ $empresa_id = intval($_SESSION['empresa_id']);
 // Aceita ?vaga= ou ?id= (compatibilidade com links do perfil da empresa)
 $vaga_id = intval($_GET['vaga'] ?? $_GET['id'] ?? 0);
 
+// Stage 4: "← Voltar" leva de volta à origem (painel, minhas vagas ou perfil) —
+// antes ia sempre para o perfil da empresa. Lista fixa de destinos.
+$destinos_voltar = [
+    'painel' => ['../dashboard/empresa.php', 'Voltar ao painel'],
+    'minhas' => ['minhas.php',               'Voltar às minhas vagas'],
+    'perfil' => ['../empresa/perfil.php',    'Voltar ao perfil'],
+];
+$voltar_chave = is_string($_GET['voltar'] ?? null) && isset($destinos_voltar[$_GET['voltar']]) ? $_GET['voltar'] : '';
+[$voltar_url, $voltar_rotulo] = $destinos_voltar[$voltar_chave] ?? ['minhas.php', 'Voltar às minhas vagas'];
+
 if ($vaga_id <= 0) {
     header("Location: ../empresa/perfil.php");
     exit;
@@ -175,6 +185,8 @@ $stmt_c->close();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Candidatos — <?= htmlspecialchars($vaga['titulo']) ?> | JovemConnect</title>
     <link rel="stylesheet" href="../Assets/css/style.css">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/img/marca/jovemconnect-icone-32.png">
+    <link rel="apple-touch-icon" href="../assets/img/marca/jovemconnect-icone-180.png">
 </head>
 <body>
 <?= csrf_js() ?>
@@ -183,14 +195,18 @@ $stmt_c->close();
      NAVBAR INTERNA
      ============================================================ -->
 <nav class="navbar-inner">
-    <a href="../index.php" class="nav-logo">
-        <span class="logo-box">💼</span>
-        <span class="logo-jovem">Jovem</span><span class="logo-connect">Connect</span>
+    <a href="../dashboard/empresa.php" class="nav-logo" aria-label="JovemConnect — meu painel">
+        <picture class="marca marca-nav">
+            <source media="(max-width: 480px)" srcset="../assets/img/marca/jovemconnect-simbolo.png" width="192" height="192">
+            <img src="../assets/img/marca/jovemconnect-horizontal.png" alt="JovemConnect" width="493" height="160">
+        </picture>
     </a>
     <div class="navbar-inner-right">
-        <button class="icon-btn btn-theme" id="btnTheme" title="Alternar tema">🌙</button>
-        <a href="../empresa/perfil.php" class="icon-btn" title="Perfil">👤</a>
-        <a href="../logout.php" class="icon-btn text-danger" title="Sair">↪</a>
+        <button class="icon-btn btn-theme" id="btnTheme" title="Alternar tema" aria-label="Alternar tema">🌙</button>
+        <!-- Stage 4: mesmo atalho do painel da empresa -->
+        <a href="minhas.php" class="icon-btn" title="Minhas vagas" aria-label="Minhas vagas"><span class="i i-briefcase" aria-hidden="true"></span></a>
+        <a href="../empresa/perfil.php" class="icon-btn" title="Meu Perfil" aria-label="Meu Perfil"><span class="i i-user" aria-hidden="true"></span></a>
+        <a href="../logout.php" class="icon-btn text-danger" title="Sair" aria-label="Sair"><span class="i i-log-out" aria-hidden="true"></span></a>
     </div>
 </nav>
 
@@ -202,7 +218,7 @@ $stmt_c->close();
 
     <!-- Toast de feedback (fallback PRG) -->
     <?php if ($saved): ?>
-    <div id="toast" class="toast toast-success">✓ Status atualizado com sucesso!</div>
+    <div id="toast" class="toast toast-success"><span class="i i-check-circle" aria-hidden="true"></span>Status atualizado com sucesso!</div>
     <?php endif; ?>
 
     <!-- Cabeçalho: info da vaga -->
@@ -210,8 +226,8 @@ $stmt_c->close();
         <div class="d-flex align-center justify-between" style="flex-wrap:wrap;gap:12px;">
             <div>
                 <div class="d-flex align-center gap-8" style="margin-bottom:6px;">
-                    <a href="../empresa/perfil.php" class="text-muted"
-                       style="font-size:13px;text-decoration:none;">← Voltar</a>
+                    <a href="<?= htmlspecialchars($voltar_url) ?>" class="text-muted"
+                       style="font-size:13px;text-decoration:none;"><span class="i i-arrow-left" aria-hidden="true"></span> <?= htmlspecialchars($voltar_rotulo) ?></a>
                     <?php if (!empty($vaga['area'])): ?>
                     <span class="badge badge-area"><?= htmlspecialchars($vaga['area']) ?></span>
                     <?php endif; ?>
@@ -228,7 +244,7 @@ $stmt_c->close();
                     <?php endif; ?>
                 </p>
             </div>
-            <a href="../Vagas/criar.php" class="btn btn-primary btn-sm">+ Nova Vaga</a>
+            <a href="../Vagas/criar.php" class="btn btn-primary btn-sm"><span class="i i-plus" aria-hidden="true"></span> Nova Vaga</a>
         </div>
     </div>
 
@@ -281,7 +297,7 @@ $stmt_c->close();
             ?>
             <?php if ($area_display): ?>
             <div class="candidate-area">
-                <span>🎓</span>
+                <span class="i i-graduation-cap" aria-hidden="true"></span>
                 <span><?= $area_display ?></span>
             </div>
             <?php endif; ?>
@@ -323,7 +339,7 @@ $stmt_c->close();
 
                 <!-- Botões de navegação -->
                 <div style="display:flex;gap:8px;">
-                    <a href="../jovem/perfil.php?id=<?= intval($row['jovem_id']) ?>"
+                    <a href="../jovem/perfil.php?id=<?= intval($row['jovem_id']) ?>&amp;voltar=candidatos&amp;vaga=<?= $vaga_id ?>"
                        class="btn btn-ghost btn-sm" style="flex:1;justify-content:center;">
                         Ver Perfil
                     </a>
@@ -331,7 +347,7 @@ $stmt_c->close();
                         class="btn btn-ia"
                         style="flex:1;"
                         onclick="avaliarMatch(<?= intval($row['jovem_id']) ?>, <?= $vaga_id ?>, this)">
-                        ✦ Match com IA
+                        <span class="i i-sparkles" aria-hidden="true"></span> Match com IA
                     </button>
                 </div>
 
@@ -357,7 +373,7 @@ $stmt_c->close();
 
     <div class="card fade-up"
          style="text-align:center;padding:56px 32px;max-width:440px;margin:0 auto;">
-        <div style="font-size:44px;margin-bottom:18px;">👥</div>
+        <div class="icone-destaque" aria-hidden="true"><span class="i i-users" aria-hidden="true"></span></div>
         <h3 style="font-size:18px;font-weight:700;margin-bottom:8px;">
             Nenhum candidato ainda
         </h3>
@@ -398,8 +414,14 @@ btnTheme?.addEventListener('click', () => {
 /* ── Toast de feedback ─────────────────────────────────────── */
 const toast = document.getElementById('toast');
 if (toast) {
-    setTimeout(() => toast.classList.add('toast-visible'), 100);
-    setTimeout(() => toast.classList.remove('toast-visible'), 3500);
+    // Stage 4: mensagens de erro ficam mais tempo (antes sumiam em 3,5 s) e são anunciadas:
+    // o texto volta um instante depois do role — região "viva" que já nasce com texto não é lida
+    const ehErro = toast.classList.contains('toast-error');
+    const conteudo = [...toast.childNodes];   // Stage 5: ícone + texto (antes só o texto)
+    toast.replaceChildren();
+    toast.setAttribute('role', ehErro ? 'alert' : 'status');
+    setTimeout(() => { toast.replaceChildren(...conteudo); toast.classList.add('toast-visible'); }, 100);
+    setTimeout(() => toast.classList.remove('toast-visible'), ehErro ? 7000 : 4000);
 }
 
 /* ── Cores dos badges (espelho do PHP statusClass) ─────────── */
@@ -419,7 +441,7 @@ async function atualizarStatus(candId, btn) {
     const status = sel.value;
 
     btn.disabled  = true;
-    btn.innerHTML = '<span class="loading-spinner"></span>';
+    btn.innerHTML = '<span class="loading-spinner"></span> Salvando...';   // Stage 4: antes só o ícone
 
     try {
         const fd = new FormData();
@@ -432,9 +454,9 @@ async function atualizarStatus(candId, btn) {
             body:    fd,
         });
 
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
+        // Stage 4: guarda o motivo devolvido pelo servidor para mostrar ao usuário
+        if (!res.ok) throw Object.assign(new Error(data.error || ''), { amigavel: !!data.error });
 
         if (data.ok) {
             // Atualiza o badge sem recarregar a página
@@ -444,9 +466,9 @@ async function atualizarStatus(candId, btn) {
                 badge.textContent = status;
             }
             // Feedback visual no botão
-            btn.innerHTML = '✓ Salvo';
+            btn.innerHTML = '<span class="i i-check" aria-hidden="true"></span> Salvo';
             btn.style.background = 'rgba(74,222,128,.15)';
-            btn.style.color      = '#4ade80';
+            btn.style.color      = 'var(--jc-sucesso-texto, #4ade80)';
             setTimeout(() => {
                 btn.innerHTML = 'Salvar';
                 btn.style.background = '';
@@ -454,11 +476,13 @@ async function atualizarStatus(candId, btn) {
                 btn.disabled = false;
             }, 2000);
         } else {
-            throw new Error(data.error || 'Erro desconhecido');
+            throw Object.assign(new Error(data.error || ''), { amigavel: !!data.error });
         }
     } catch (err) {
-        btn.innerHTML = '✕ Erro';
-        btn.style.color = '#f87171';
+        btn.innerHTML = '<span class="i i-x" aria-hidden="true"></span> Não salvo';
+        btn.style.color = 'var(--jc-erro-texto, #f87171)';
+        // Stage 4: diz o que aconteceu (antes só "✕ Erro" por 2,5 s)
+        window.jcAviso?.(err?.amigavel ? err.message : 'Não foi possível salvar o status. Tente de novo.');
         setTimeout(() => {
             btn.innerHTML = 'Salvar';
             btn.style.color  = '';
@@ -488,12 +512,13 @@ async function avaliarMatch(jovemId, vagaId, btn) {
         if (!res.ok) {
             // Stage 3: guarda o motivo devolvido pelo servidor (ex.: "Servidor de IA indisponível.")
             const corpo = await res.json().catch(() => ({}));
-            throw new Error(corpo.error || `HTTP ${res.status}`);
+            // Stage 4: sem motivo do servidor, mensagem amigável (antes aparecia "HTTP 500")
+            throw Object.assign(new Error(corpo.error || 'Não foi possível avaliar agora.'), { amigavel: true });
         }
 
         const { score, analise } = await res.json();
 
-        btn.innerHTML   = `✦ Match: ${score ?? '--'}%`;
+        btn.replaceChildren(jcIcone('sparkles'), `Match: ${score ?? '--'}%`);   // Stage 5: ícone + texto
         btn.title       = analise ?? '';
         btn.style.color = 'var(--accent)';
 
@@ -504,15 +529,16 @@ async function avaliarMatch(jovemId, vagaId, btn) {
             linkAnalise.href      = `avaliar.php?vaga_id=${vagaId}&jovem_id=${jovemId}`;
             linkAnalise.className = 'link-analise-completa back-link';
             linkAnalise.style.cssText = 'display:block;margin-top:8px;font-size:12px;';
-            linkAnalise.textContent = 'Ver análise completa →';
+            linkAnalise.replaceChildren('Ver análise completa ', jcIcone('arrow-right'));
             btn.after(linkAnalise);
         }
     } catch (err) {
         btn.disabled  = false;
         // Stage 3: antes o botão só voltava ao normal, sem explicar o que houve
-        btn.textContent = '✦ ' + (err?.message || 'Não foi possível avaliar agora.');
+        // Stage 4: erro de rede/resposta inválida não aparece em inglês ("Failed to fetch")
+        btn.replaceChildren(jcIcone('sparkles'), err?.amigavel ? err.message : 'Não foi possível avaliar agora. Tente de novo.');
         btn.title       = 'Clique para tentar novamente';
-        setTimeout(() => { btn.innerHTML = '✦ Match com IA'; btn.title = ''; }, 3500);
+        setTimeout(() => { btn.innerHTML = '<span class="i i-sparkles" aria-hidden="true"></span> Match com IA'; btn.title = ''; }, 3500);
     }
 }
 </script>

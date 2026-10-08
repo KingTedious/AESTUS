@@ -9,6 +9,12 @@ if (isset($_SESSION['empresa_id'])) {
     header("Location: ../dashboard/empresa.php");
     exit;
 }
+// Stage 4: jovem logado também vai para o painel dele (antes via o formulário
+// e, ao enviar, a sessão ficava com jovem E empresa ao mesmo tempo)
+if (isset($_SESSION['jovem_id'])) {
+    header("Location: ../dashboard/jovem.php");
+    exit;
+}
 
 require_once dirname(__DIR__) . "/includes/config.php";
 require_once dirname(__DIR__) . "/includes/endereco_empresa.php";   // Stage 3: endereço completo
@@ -141,6 +147,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cadastro de Empresa | JovemConnect</title>
     <link rel="stylesheet" href="../Assets/css/style.css">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/img/marca/jovemconnect-icone-32.png">
+    <link rel="apple-touch-icon" href="../assets/img/marca/jovemconnect-icone-180.png">
 </head>
 <body>
 
@@ -152,28 +160,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <div class="form-page">
 <div class="form-container">
 
-    <!-- ── Logo ────────────────────────────────────────────────────────────── -->
+    <!-- Stage 5: marca oficial vertical (antes: texto improvisado "JovemAprendiz Conecta") -->
     <div class="form-page-logo">
-        <div class="logo-inner">
-            <span class="logo-box">💼</span>
-            <span class="logo-jovem">JovemAprendiz</span>
-            <span class="logo-connect"> Conecta</span>
-        </div>
+        <a href="../index.php" class="marca marca-vertical nav-logo" aria-label="JovemConnect — página inicial">
+            <img src="../assets/img/marca/jovemconnect-vertical.png" alt="JovemConnect" width="546" height="420">
+        </a>
     </div>
 
     <!-- Stage 3: volta para a escolha Jovem/Empresa -->
-    <p style="margin:0 0 12px;"><a href="../comecar.php" class="back-link">← Voltar</a></p>
+    <p style="margin:0 0 12px;"><a href="../comecar.php" class="back-link"><span class="i i-arrow-left" aria-hidden="true"></span> Voltar</a></p>
 
     <!-- ── Alertas de erro ─────────────────────────────────────────────────── -->
     <?php if (!empty($erros)): ?>
-    <div class="form-card" style="border-color:rgba(239,68,68,.4);margin-bottom:0;">
+    <!-- Stage 4: anunciado e focado ao abrir (antes o leitor de tela não sabia do erro) -->
+    <div class="form-card" id="errosCadastro" role="alert" tabindex="-1"
+         style="border-color:rgba(239,68,68,.4);margin-bottom:0;">
         <?php foreach ($erros as $erro): ?>
-        <p class="form-error">⚠ <?= htmlspecialchars($erro) ?></p>
+        <p class="form-error"><span class="i i-alert-triangle" aria-hidden="true"></span> <?= htmlspecialchars($erro) ?></p>
         <?php endforeach; ?>
     </div>
     <?php endif; ?>
 
-    <form method="POST" id="formEmpresa" novalidate>
+    <!-- Stage 4: data-envio-unico evita cadastro em dobro com duplo clique -->
+    <form method="POST" id="formEmpresa" novalidate data-envio-unico="Registrando empresa...">
         <?= csrf_field() ?>
 
         <!-- ================================================================
@@ -181,12 +190,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
              ================================================================ -->
         <div class="form-card">
             <div class="form-page-title">
-                <span style="font-size:22px;">🏢</span>
+                <span class="i i-building" aria-hidden="true"></span>
                 <h2>Cadastro de Empresa</h2>
             </div>
             <p class="form-page-subtitle">
                 Registre sua empresa para anunciar vagas e contratar jovens talentos.
             </p>
+            <!-- Stage 4: antes nada indicava quais campos eram obrigatórios -->
+            <p class="text-secondary" style="font-size:12px;margin-top:6px;">Campos com * são obrigatórios.</p>
         </div>
 
         <!-- ================================================================
@@ -194,12 +205,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
              ================================================================ -->
         <div class="form-card">
             <div class="form-section-header">
-                <span>🏢</span> Dados Empresariais
+                <span class="i i-building" aria-hidden="true"></span> Dados Empresariais
             </div>
 
             <!-- CNPJ com botão de consulta automática -->
             <div class="form-group">
-                <label class="form-label" for="cnpj">CNPJ</label>
+                <label class="form-label" for="cnpj">CNPJ *</label>
                 <div class="input-row">
                     <input
                         type="text"
@@ -217,14 +228,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         id="btnBuscarCnpj"
                         title="Consultar CNPJ automaticamente"
                         aria-label="Buscar CNPJ">
-                        🔍
+                        <span class="i i-search" aria-hidden="true"></span>
                     </button>
                 </div>
             </div>
 
             <!-- Nome da Empresa -->
             <div class="form-group">
-                <label class="form-label" for="nomeEmpresa">Nome da Empresa (Razão Social)</label>
+                <label class="form-label" for="nomeEmpresa">Nome da Empresa (Razão Social) *</label>
                 <input
                     type="text"
                     id="nomeEmpresa"
@@ -260,7 +271,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
              ================================================================ -->
         <div class="form-card">
             <div class="form-section-header">
-                <span>📍</span> Endereço
+                <span class="i i-map-pin" aria-hidden="true"></span> Endereço
             </div>
 
             <?php if ($tem_endereco): ?>
@@ -324,14 +335,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
              ================================================================ -->
         <div class="form-card">
             <div class="form-section-header">
-                <span>🔒</span> Acesso
+                <span class="i i-lock" aria-hidden="true"></span> Acesso
             </div>
 
             <!-- E-mail -->
             <div class="form-group">
-                <label class="form-label" for="email">E-mail Corporativo</label>
+                <label class="form-label" for="email">E-mail Corporativo *</label>
                 <div class="input-group">
-                    <span class="input-icon">✉</span>
+                    <span class="input-icon i i-mail" aria-hidden="true"></span>
                     <input
                         type="email"
                         id="email"
@@ -346,9 +357,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <!-- Senha + Confirmar Senha (grid 2 colunas) -->
             <div class="form-row">
                 <div class="form-group">
-                    <label class="form-label" for="senha">Senha</label>
+                    <label class="form-label" for="senha">Senha *</label>
                     <div class="input-group">
-                        <span class="input-icon">🔒</span>
+                        <span class="input-icon i i-lock" aria-hidden="true"></span>
                         <input
                             type="password"
                             id="senha"
@@ -356,13 +367,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             class="form-control"
                             placeholder="••••••••"
                             minlength="8"
+                            aria-describedby="senhaAjuda"
                             required>
                     </div>
+                    <!-- Stage 4: a regra só aparecia depois do erro -->
+                    <small id="senhaAjuda" class="text-secondary" style="font-size:12px;">Mínimo de 8 caracteres.</small>
                 </div>
                 <div class="form-group">
-                    <label class="form-label" for="confirmarSenha">Confirmar Senha</label>
+                    <label class="form-label" for="confirmarSenha">Confirmar Senha *</label>
                     <div class="input-group">
-                        <span class="input-icon">🔒</span>
+                        <span class="input-icon i i-lock" aria-hidden="true"></span>
                         <input
                             type="password"
                             id="confirmarSenha"
@@ -395,10 +409,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </div><!-- /.form-container -->
 </div><!-- /.form-page -->
 
-<!-- FAB acessibilidade -->
-<div class="fab-stack">
-    <button class="fab fab-a11y" id="btnA11y" title="Acessibilidade" aria-label="Abrir acessibilidade">♿</button>
-</div>
+<!-- FABs + Assistente + Acessibilidade (Stage 4: antes o botão ♿ não tinha painel nem script) -->
+<?php include dirname(__DIR__) . '/includes/assistente.php'; ?>
 
 <!-- ============================================================
      SCRIPTS
@@ -407,6 +419,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 /* ── Aplica tema salvo ─────────────────────────────────────── */
 const savedTheme = localStorage.getItem('jc-theme');
 if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
+
+/* Stage 4: com erro de validação, o foco vai para a lista de erros no topo */
+document.getElementById('errosCadastro')?.focus();
 
 /* ── Máscara de CNPJ ───────────────────────────────────────── */
 document.getElementById('cnpj')?.addEventListener('input', function () {
@@ -427,13 +442,15 @@ document.getElementById('btnBuscarCnpj')?.addEventListener('click', async functi
         return;
     }
 
-    this.textContent = '⏳';
+    this.innerHTML = '<span class="i i-loader spin" aria-hidden="true"></span>';   // Stage 5: ícone de carregamento
+    this.setAttribute('aria-busy', 'true');
     this.disabled    = true;
 
     try {
         const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpjRaw}`);
 
-        if (!res.ok) throw new Error('CNPJ não encontrado ou inválido.');
+        // Stage 4: CNPJ inexistente ≠ falha de conexão (antes a falha aparecia em inglês: "Failed to fetch")
+        if (!res.ok) throw Object.assign(new Error('CNPJ não encontrado'), { naoEncontrado: true });
 
         const data = await res.json();
 
@@ -456,9 +473,12 @@ document.getElementById('btnBuscarCnpj')?.addEventListener('click', async functi
         }
 
     } catch (err) {
-        alert('Não foi possível buscar o CNPJ:\n' + err.message);
+        alert(err?.naoEncontrado
+            ? 'CNPJ não encontrado. Confira o número ou preencha os dados manualmente.'
+            : 'Não foi possível consultar o CNPJ agora. Preencha os dados manualmente.');
     } finally {
-        this.textContent = '🔍';
+        this.innerHTML = '<span class="i i-search" aria-hidden="true"></span>';
+        this.removeAttribute('aria-busy');
         this.disabled    = false;
     }
 });
@@ -486,7 +506,7 @@ async function buscarCep() {
         preencher('bairro',     d.bairro);
         preencher('cidade',     d.localidade);
         preencher('estado',     d.uf);
-        if (status) status.textContent = '✓ Endereço preenchido. Informe o número e o complemento.';
+        if (status) status.replaceChildren(jcIcone('check-circle'), ' Endereço preenchido. Informe o número e o complemento.');
         document.getElementById('numero')?.focus();
     } catch {
         if (status) status.textContent = 'Não foi possível buscar o CEP agora — preencha manualmente.';

@@ -118,6 +118,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Verificar E-mail | JovemConnect</title>
     <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/img/marca/jovemconnect-icone-32.png">
+    <link rel="apple-touch-icon" href="../assets/img/marca/jovemconnect-icone-180.png">
 </head>
 <body>
 
@@ -125,9 +127,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
 <main class="container" style="padding: 40px 16px; max-width: 480px; margin: 0 auto;">
     <div class="card" style="text-align: center; padding: 32px 24px;">
-        <div style="font-size: 48px; color: var(--accent); margin-bottom: 16px;">
-            <span aria-hidden="true">📨</span>
-        </div>
+        <div class="icone-destaque" aria-hidden="true"><span class="i i-mail" aria-hidden="true"></span></div>
         
         <h2>Verifique seu E-mail</h2>
         <p class="text-muted" style="margin-bottom: 24px; font-size: 14px; line-height: 1.5;">
@@ -135,36 +135,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         </p>
 
         <?php if ($mensagemErro): ?>
-            <div style="background: rgba(231, 76, 60, 0.2); color: #e74c3c; padding: 12px; border-radius: var(--radius); margin-bottom: 16px; font-size: 14px; border: 1px solid #e74c3c;">
-                <span aria-hidden="true">⚠️</span> <?= htmlspecialchars($mensagemErro) ?>
+            <div role="alert" class="alerta alerta-erro">
+                <span class="i i-alert-triangle" aria-hidden="true"></span> <span><?= htmlspecialchars($mensagemErro) ?></span>
             </div>
         <?php endif; ?>
 
         <?php if ($mensagemSucesso): ?>
-            <div style="background: rgba(46, 204, 113, 0.2); color: #2ecc71; padding: 12px; border-radius: var(--radius); margin-bottom: 16px; font-size: 14px; border: 1px solid #2ecc71;">
-                <span aria-hidden="true">✅</span> <?= htmlspecialchars($mensagemSucesso) ?>
+            <div role="status" class="alerta alerta-sucesso">
+                <span class="i i-check-circle" aria-hidden="true"></span> <span><?= htmlspecialchars($mensagemSucesso) ?></span>
             </div>
         <?php endif; ?>
 
         <!-- Formulário de Validação -->
-        <form action="verificar_email.php" method="POST" style="margin-bottom: 20px;">
+        <form action="verificar_email.php" method="POST" style="margin-bottom: 20px;" data-envio-unico="Validando...">
             <input type="hidden" name="acao_verificar" value="1">
             <?= csrf_field() ?>
             <div class="form-group" style="margin-bottom: 20px;">
-                <input type="text" name="codigo" class="form-control" placeholder="000000" maxlength="6" required 
+                <!-- Stage 4: o campo não tinha rótulo (só o texto de exemplo "000000") -->
+                <input type="text" name="codigo" class="form-control" placeholder="000000" maxlength="6" required
+                       aria-label="Código de verificação de 6 dígitos" inputmode="numeric" autocomplete="one-time-code" 
                        style="font-size: 28px; text-align: center; letter-spacing: 8px; font-weight: bold; padding: 12px; font-family: monospace;">
             </div>
             <button type="submit" class="btn btn-primary btn-full">Validar Conta Agora</button>
         </form>
 
         <!-- Form de Reenvio -->
-        <form action="verificar_email.php" method="POST">
+        <form action="verificar_email.php" method="POST" data-envio-unico="Enviando...">
             <input type="hidden" name="acao_reenviar" value="1">
             <?= csrf_field() ?>
             <button type="submit" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 13px; text-decoration: underline;">
                 Não recebeu o código? Reenviar e-mail
             </button>
         </form>
+        <!-- Stage 4: saídas explícitas (antes só pelo logo do topo) -->
+        <p style="margin-top: 24px; font-size: 13px; display: flex; flex-direction: column; gap: 8px; align-items: center;">
+            <a href="escolher_verificacao.php" class="back-link"><span class="i i-arrow-left" aria-hidden="true"></span> Escolher outra forma de verificação</a>
+            <a href="../dashboard/index.php" class="back-link">Verificar depois e ir para o meu painel <span class="i i-arrow-right" aria-hidden="true"></span></a>
+        </p>
     </div>
 </main>
 

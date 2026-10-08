@@ -116,8 +116,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // PRG → redireciona para o perfil da empresa com feedback
-    header("Location: ../empresa/perfil.php?saved=1");
+    // PRG → Stage 4: vai para "Minhas vagas" com o aviso certo. Antes ia para o
+    // perfil da empresa e mostrava "Perfil atualizado com sucesso!".
+    header("Location: minhas.php?publicada=1");
     exit;
 }
 
@@ -135,6 +136,8 @@ $erros_msg = [
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Criar Nova Vaga | JovemConnect</title>
     <link rel="stylesheet" href="../Assets/css/style.css">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/img/marca/jovemconnect-icone-32.png">
+    <link rel="apple-touch-icon" href="../assets/img/marca/jovemconnect-icone-180.png">
 </head>
 <body>
 
@@ -145,21 +148,25 @@ $erros_msg = [
 <div class="form-container">
 
     <!-- ── Logo ──────────────────────────────────────────────────────────────── -->
+    <!-- Stage 5: marca oficial vertical, como nas outras telas de formulário -->
     <div class="form-page-logo">
-        <div class="logo-inner">
-            <span class="logo-box">💼</span>
-            <span class="logo-jovem">Jovem</span><span class="logo-connect">Connect</span>
-        </div>
+        <a href="../dashboard/empresa.php" class="marca marca-vertical nav-logo" aria-label="JovemConnect — meu painel">
+            <img src="../assets/img/marca/jovemconnect-vertical.png" alt="JovemConnect" width="546" height="420">
+        </a>
     </div>
+
+    <!-- Stage 4: caminho de volta no topo (antes só no fim de um formulário longo) -->
+    <p style="margin:0 0 12px;"><a href="../dashboard/empresa.php" class="back-link"><span class="i i-arrow-left" aria-hidden="true"></span> Voltar ao painel</a></p>
 
     <!-- ── Erro (GET redirect) ────────────────────────────────────────────────── -->
     <?php if ($error && isset($erros_msg[$error])): ?>
-    <div class="form-card" style="border-color:rgba(239,68,68,.4);margin-bottom:0;">
-        <p class="form-error">⚠ <?= htmlspecialchars($erros_msg[$error]) ?></p>
+    <div class="form-card" role="alert" style="border-color:rgba(239,68,68,.4);margin-bottom:0;">
+        <p class="form-error"><span class="i i-alert-triangle" aria-hidden="true"></span> <?= htmlspecialchars($erros_msg[$error]) ?></p>
     </div>
     <?php endif; ?>
 
-    <form method="POST" id="formVaga" novalidate>
+    <!-- Stage 4: data-envio-unico evita publicar a mesma vaga duas vezes (duplo clique) -->
+    <form method="POST" id="formVaga" novalidate data-envio-unico="Publicando vaga...">
         <?= csrf_field() ?>
 
         <!-- ================================================================
@@ -167,7 +174,7 @@ $erros_msg = [
              ================================================================ -->
         <div class="form-card">
             <div class="form-page-title">
-                <span style="font-size:22px;">📋</span>
+                <span class="i i-briefcase" aria-hidden="true"></span>
                 <h2>Criar Nova Vaga</h2>
             </div>
             <p class="form-page-subtitle">
@@ -181,7 +188,7 @@ $erros_msg = [
              ================================================================ -->
         <div class="form-card">
             <div class="form-section-header">
-                <span>📌</span> Informações Básicas
+                <span class="i i-info" aria-hidden="true"></span> Informações Básicas
             </div>
 
             <!-- Título -->
@@ -232,7 +239,7 @@ $erros_msg = [
              ================================================================ -->
         <div class="form-card">
             <div class="form-section-header">
-                <span>📍</span> Localização
+                <span class="i i-map-pin" aria-hidden="true"></span> Localização
             </div>
 
             <!-- CEP com busca automática -->
@@ -244,7 +251,7 @@ $erros_msg = [
                         class="form-control"
                         placeholder="00000-000" maxlength="9">
                     <button type="button" class="btn-icon" id="btnBuscarCep"
-                            title="Buscar CEP" aria-label="Buscar CEP">🔍</button>
+                            title="Buscar CEP" aria-label="Buscar CEP"><span class="i i-search" aria-hidden="true"></span></button>
                 </div>
             </div>
 
@@ -273,7 +280,7 @@ $erros_msg = [
              ================================================================ -->
         <div class="form-card">
             <div class="form-section-header">
-                <span>💰</span> Remuneração
+                <span class="i i-banknote" aria-hidden="true"></span> Remuneração
             </div>
 
             <div class="form-row">
@@ -308,7 +315,7 @@ $erros_msg = [
              ================================================================ -->
         <div class="form-card">
             <div class="form-section-header">
-                <span>📝</span> Descrição da Vaga
+                <span class="i i-file-text" aria-hidden="true"></span> Descrição da Vaga
             </div>
 
             <div class="form-group">
@@ -333,7 +340,7 @@ $erros_msg = [
              ================================================================ -->
         <div class="form-card">
             <div class="form-section-header">
-                <span>✓</span> Requisitos e Benefícios
+                <span class="i i-list-checks" aria-hidden="true"></span> Requisitos e Benefícios
             </div>
 
             <!-- Requisitos -->
@@ -374,10 +381,11 @@ $erros_msg = [
              ================================================================ -->
         <div class="form-submit-card">
             <button type="submit" class="btn btn-primary btn-full btn-lg">
-                📋 Publicar Vaga Agora
+                <span class="i i-send" aria-hidden="true"></span> Publicar Vaga Agora
             </button>
             <p style="text-align:center;font-size:13px;color:var(--text-secondary);">
-                <a href="../empresa/perfil.php">← Voltar ao Painel</a>
+                <!-- Stage 4: "Voltar ao Painel" levava ao perfil da empresa -->
+                <a href="../dashboard/empresa.php" class="link-seta"><span class="i i-arrow-left" aria-hidden="true"></span> Cancelar e voltar ao painel</a>
             </p>
         </div>
 
@@ -386,10 +394,8 @@ $erros_msg = [
 </div><!-- /.form-container -->
 </div><!-- /.form-page -->
 
-<!-- FABs -->
-<div class="fab-stack">
-    <button class="fab fab-a11y" id="btnA11y" title="Acessibilidade" aria-label="Acessibilidade">♿</button>
-</div>
+<!-- FABs + Assistente + Acessibilidade (Stage 4: antes o botão ♿ não tinha painel nem script) -->
+<?php include dirname(__DIR__) . '/includes/assistente.php'; ?>
 
 <!-- ============================================================
      SCRIPTS
@@ -414,21 +420,26 @@ document.getElementById('btnBuscarCep')?.addEventListener('click', async functio
         return;
     }
 
-    this.textContent = '⏳';
+    this.innerHTML = '<span class="i i-loader spin" aria-hidden="true"></span>';   // Stage 5: ícone de carregamento
+    this.setAttribute('aria-busy', 'true');
     this.disabled    = true;
 
     try {
         const res  = await fetch(`https://viacep.com.br/ws/${cepRaw}/json/`);
         const data = await res.json();
 
-        if (data.erro) throw new Error('CEP não encontrado.');
+        // Stage 4: CEP inexistente ≠ falha de conexão (antes a falha aparecia em inglês: "Failed to fetch")
+        if (data.erro) throw Object.assign(new Error('CEP não encontrado'), { naoEncontrado: true });
 
         document.getElementById('cidade').value = data.localidade ?? '';
         document.getElementById('estado').value = data.uf         ?? '';
     } catch (err) {
-        alert('Não foi possível buscar o CEP:\n' + err.message);
+        alert(err?.naoEncontrado
+            ? 'CEP não encontrado. Confira o número ou preencha cidade e UF manualmente.'
+            : 'Não foi possível buscar o CEP agora. Preencha cidade e UF manualmente.');
     } finally {
-        this.textContent = '🔍';
+        this.innerHTML = '<span class="i i-search" aria-hidden="true"></span>';
+        this.removeAttribute('aria-busy');
         this.disabled    = false;
     }
 });

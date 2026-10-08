@@ -38,6 +38,14 @@ $result_code = $_GET['result'] ?? null; // 'ok' | 'duplicate' | 'error' | null
 // ── Lê o vaga_id (de GET ou de result redirect) ───────────────────────────────
 $vaga_id = intval($_GET['vaga'] ?? $_GET['vaga_id'] ?? 0);
 
+// Stage 4: guarda de onde o jovem veio (painel, favoritos, candidaturas) para o
+// "←" e o "Cancelar" voltarem aos detalhes com o mesmo "Voltar" — lista fixa,
+// a mesma de Vagas/listar.php; qualquer outro valor é ignorado.
+$voltar_chave = $_POST['voltar'] ?? $_GET['voltar'] ?? '';
+$voltar_chave = (is_string($voltar_chave) && in_array($voltar_chave, ['painel', 'favoritos', 'candidaturas'], true))
+                ? $voltar_chave : '';
+$voltar_qs    = ($voltar_chave !== '') ? '&voltar=' . $voltar_chave : '';
+
 /* ============================================================
    POST: processa a candidatura
    ============================================================ */
@@ -74,7 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt_chk->close();
 
     if ($ja_existe) {
-        header("Location: candidatar.php?vaga_id={$vaga_id}&result=duplicate");
+        header("Location: candidatar.php?vaga_id={$vaga_id}&result=duplicate{$voltar_qs}");
         exit;
     }
 
@@ -92,7 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $inseriu = false;
         if ($e->getCode() === 1062) {
             $stmt_ins->close();
-            header("Location: candidatar.php?vaga_id={$vaga_id}&result=duplicate");
+            header("Location: candidatar.php?vaga_id={$vaga_id}&result=duplicate{$voltar_qs}");
             exit;
         }
         error_log("[JovemConnect] Erro ao inserir candidatura: " . $e->getMessage());
@@ -100,12 +108,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($inseriu) {
         $stmt_ins->close();
-        header("Location: candidatar.php?vaga_id={$vaga_id}&result=ok");
+        header("Location: candidatar.php?vaga_id={$vaga_id}&result=ok{$voltar_qs}");
     } else {
         // Loga o erro real; não expõe para o usuário
         error_log("[JovemConnect] Erro ao inserir candidatura: " . $conn->error);
         $stmt_ins->close();
-        header("Location: candidatar.php?vaga_id={$vaga_id}&result=error");
+        header("Location: candidatar.php?vaga_id={$vaga_id}&result=error{$voltar_qs}");
     }
     exit;
 }
@@ -162,14 +170,17 @@ if (!$result_code && $ja_candidatado) {
         <?= $result_code ? 'Candidatura' : 'Confirmar Candidatura' ?> | JovemConnect
     </title>
     <link rel="stylesheet" href="../Assets/css/style.css">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/img/marca/jovemconnect-icone-32.png">
+    <link rel="apple-touch-icon" href="../assets/img/marca/jovemconnect-icone-180.png">
 </head>
 <body>
 
 <!-- Barra de topo -->
 <div class="detail-bar">
     <div class="d-flex align-center gap-12">
-        <a href="listar.php?id=<?= $vaga_id ?>"
-           class="icon-btn" title="Voltar">←</a>
+        <a href="listar.php?id=<?= $vaga_id ?><?= htmlspecialchars($voltar_qs) ?>"
+           class="icon-btn" title="Voltar para a vaga" aria-label="Voltar para a vaga"><span class="i i-arrow-left" aria-hidden="true"></span></a>
+        <span class="marca marca-compacta"><img src="../assets/img/marca/jovemconnect-simbolo.png" alt="JovemConnect" width="192" height="192"></span>
         <span class="detail-bar-title">
             <?= $result_code ? 'Status da Candidatura' : 'Confirmar Candidatura' ?>
         </span>
@@ -183,8 +194,8 @@ if (!$result_code && $ja_candidatado) {
     <?php if ($result_code === 'ok'): ?>
     <!-- ══ SUCESSO ══════════════════════════════════════════════════════════ -->
     <div class="card fade-up" style="text-align:center;padding:56px 32px;">
-        <div style="font-size:52px;margin-bottom:18px;">🎉</div>
-        <h2 style="font-size:20px;font-weight:800;margin-bottom:10px;color:#4ade80;">
+        <div class="icone-destaque sucesso" aria-hidden="true"><span class="i i-check-circle" aria-hidden="true"></span></div>
+        <h2 style="font-size:20px;font-weight:800;margin-bottom:10px;color:var(--jc-sucesso-texto, #4ade80);">
             Candidatura Enviada!
         </h2>
         <p class="text-secondary" style="font-size:14px;line-height:1.7;margin-bottom:8px;">
@@ -207,8 +218,8 @@ if (!$result_code && $ja_candidatado) {
     <!-- ══ JÁ CANDIDATADO ═══════════════════════════════════════════════════ -->
     <div class="card fade-up" style="text-align:center;padding:56px 32px;
          border-color:rgba(250,204,21,.3);">
-        <div style="font-size:52px;margin-bottom:18px;">⚠️</div>
-        <h2 style="font-size:20px;font-weight:800;margin-bottom:10px;color:#facc15;">
+        <div class="icone-destaque aviso" aria-hidden="true"><span class="i i-alert-triangle" aria-hidden="true"></span></div>
+        <h2 style="font-size:20px;font-weight:800;margin-bottom:10px;color:var(--jc-aviso-texto, #facc15);">
             Candidatura já registrada
         </h2>
         <p class="text-secondary" style="font-size:14px;line-height:1.7;margin-bottom:28px;">
@@ -228,8 +239,8 @@ if (!$result_code && $ja_candidatado) {
     <!-- ══ ERRO ════════════════════════════════════════════════════════════ -->
     <div class="card fade-up" style="text-align:center;padding:56px 32px;
          border-color:rgba(239,68,68,.3);">
-        <div style="font-size:52px;margin-bottom:18px;">❌</div>
-        <h2 style="font-size:20px;font-weight:800;margin-bottom:10px;color:#f87171;">
+        <div class="icone-destaque erro" aria-hidden="true"><span class="i i-x-circle" aria-hidden="true"></span></div>
+        <h2 style="font-size:20px;font-weight:800;margin-bottom:10px;color:var(--jc-erro-texto, #f87171);">
             Algo deu errado
         </h2>
         <p class="text-secondary" style="font-size:14px;line-height:1.7;margin-bottom:28px;">
@@ -239,7 +250,7 @@ if (!$result_code && $ja_candidatado) {
         <div class="d-flex gap-12" style="justify-content:center;flex-wrap:wrap;">
             <a href="../dashboard/jovem.php"
                class="btn btn-ghost btn-sm">Ver vagas</a>
-            <a href="candidatar.php?vaga=<?= $vaga_id ?>"
+            <a href="candidatar.php?vaga=<?= $vaga_id ?><?= htmlspecialchars($voltar_qs) ?>"
                class="btn btn-primary btn-sm">Tentar novamente</a>
         </div>
     </div>
@@ -259,19 +270,19 @@ if (!$result_code && $ja_candidatado) {
             <?= htmlspecialchars($vaga['titulo']) ?>
         </h2>
         <div class="job-card-company" style="margin-bottom:14px;">
-            <span>🏢</span><?= htmlspecialchars($vaga['nome_empresa']) ?>
+            <span class="i i-building" aria-hidden="true"></span><?= htmlspecialchars($vaga['nome_empresa']) ?>
         </div>
 
         <div class="job-card-meta" style="margin-bottom:10px;">
             <?php if (!empty($vaga['salario'])): ?>
             <div class="job-card-meta-item">
-                <span>💰</span>
+                <span class="i i-banknote" aria-hidden="true"></span>
                 <span>R$ <?= htmlspecialchars($vaga['salario']) ?></span>
             </div>
             <?php endif; ?>
             <?php if (!empty($vaga['carga_horaria'])): ?>
             <div class="job-card-meta-item">
-                <span>🕐</span>
+                <span class="i i-clock" aria-hidden="true"></span>
                 <span><?= htmlspecialchars($vaga['carga_horaria']) ?></span>
             </div>
             <?php endif; ?>
@@ -279,7 +290,7 @@ if (!$result_code && $ja_candidatado) {
 
         <?php if (!empty($vaga['cidade'])): ?>
         <div class="job-card-location">
-            <span>📍</span>
+            <span class="i i-map-pin" aria-hidden="true"></span>
             <span>
                 <?= htmlspecialchars($vaga['cidade']) ?>
                 <?= !empty($vaga['estado']) ? ', ' . htmlspecialchars($vaga['estado']) : '' ?>
@@ -290,7 +301,7 @@ if (!$result_code && $ja_candidatado) {
 
     <!-- Form de confirmação -->
     <div class="card fade-up" style="text-align:center;padding:32px 24px;">
-        <div style="font-size:40px;margin-bottom:14px;">✈</div>
+        <div class="icone-destaque" aria-hidden="true"><span class="i i-send" aria-hidden="true"></span></div>
         <h3 style="font-size:17px;font-weight:700;margin-bottom:8px;">
             Confirmar candidatura?
         </h3>
@@ -300,14 +311,17 @@ if (!$result_code && $ja_candidatado) {
         </p>
 
         <!-- POST — processa de forma segura -->
-        <form method="POST" action="candidatar.php">
+        <!-- Stage 4: data-envio-unico trava o botão após o 1º clique — com duplo clique
+             o 2º envio respondia "já candidatado" e a tela de sucesso nunca aparecia -->
+        <form method="POST" action="candidatar.php" data-envio-unico="Enviando candidatura...">
             <input type="hidden" name="vaga_id" value="<?= $vaga_id ?>">
+            <input type="hidden" name="voltar" value="<?= htmlspecialchars($voltar_chave) ?>">
             <?= csrf_field() ?>
             <div class="d-flex gap-12" style="justify-content:center;flex-wrap:wrap;">
-                <a href="listar.php?id=<?= $vaga_id ?>"
+                <a href="listar.php?id=<?= $vaga_id ?><?= htmlspecialchars($voltar_qs) ?>"
                    class="btn btn-secondary btn-sm">Cancelar</a>
                 <button type="submit" class="btn btn-primary btn-sm">
-                    ✈ Confirmar Candidatura
+                    <span class="i i-send" aria-hidden="true"></span> Confirmar Candidatura
                 </button>
             </div>
         </form>
@@ -317,10 +331,8 @@ if (!$result_code && $ja_candidatado) {
 
 </div><!-- /container -->
 
-<!-- FABs -->
-<div class="fab-stack">
-    <button class="fab fab-a11y" id="btnA11y" title="Acessibilidade" aria-label="Acessibilidade">♿</button>
-</div>
+<!-- FABs + Assistente + Acessibilidade (Stage 4: antes o botão ♿ não tinha painel nem script) -->
+<?php include dirname(__DIR__) . '/includes/assistente.php'; ?>
 
 <script>
 const savedTheme = localStorage.getItem('jc-theme');
