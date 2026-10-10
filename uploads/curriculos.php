@@ -5,20 +5,8 @@
    Recebe o PDF via POST (form do perfil do jovem),
    valida, salva e atualiza o banco.
    Redireciona de volta ao perfil após o resultado (PRG).
-
-   ❌ PROBLEMAS DO ORIGINAL (todos corrigidos aqui):
-   1. Validava apenas $_FILES['curriculo']['type'] — valor
-      informado pelo browser, facilmente falsificado.
-      Um atacante envia um .php renomeado como .pdf e o
-      type chega como "application/pdf". O arquivo era
-      aceito e poderia ser executado como PHP no servidor.
-   2. Não fazia o upload de fato (sem move_uploaded_file).
-   3. Sem session_start() → sem como saber quem é o jovem.
-   4. Sem limite de tamanho de arquivo.
-   5. Sem atualização no banco de dados.
-   6. Acessível diretamente via GET sem consequência.
    ============================================================ */
-require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Sessao endurecida + CSRF
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 if (!isset($_SESSION['jovem_id'])) {

@@ -5,25 +5,11 @@
    Serve DOIS layouts conforme quem acessa:
    - Jovem vendo o próprio perfil  → editável (Perfil_Jovem.png)
    - Empresa vendo um candidato    → read-only + ações (Perfil_Jovem__Empresa_POV_.png)
-
-   ❌ PROBLEMAS DO ORIGINAL (todos corrigidos aqui):
-   1. verificar_autenticacao('jovem') bloqueava EMPRESAS de ver
-      perfis de candidatos — contradiz a lógica abaixo que tenta
-      tratar o caso de empresa.
-   2. session_start() depois de require auth.php → redundante / frágil.
-   3. include header.php no meio do bloco PHP após queries.
-   4. <link> de CSS no body.
-   5. Bug: $formacao = trim($_POST['nome']) → copiava o nome.
-   6. SELECT * → sem controle das colunas retornadas.
-   7. Nenhum campo v3.00: resumo_profissional, area_interesse,
-      clt, cep, perfil_publico, habilidades_jovem, formacao_jovem,
-      experiencias_jovem.
-   8. Sem PRG → F5 resubmetia o formulário.
-   9. include footer.php em página com HTML próprio.
    ============================================================ */
-require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Sessao endurecida + CSRF
 require_once dirname(__DIR__) . "/includes/config.php";
-require_once dirname(__DIR__) . "/includes/formacao.php";   // Stage 5: nível → curso/ano → situação
+require_once dirname(__DIR__) . "/includes/formacao.php";   // Nível → curso/ano → situação
+require_once dirname(__DIR__) . "/includes/candidato.php";  // quem (empresa) pode ver este candidato
 
 // ── Auth inline (não usa verificar_autenticacao pois atende jovem E empresa) ──
 $tem_jovem   = isset($_SESSION['jovem_id']);
@@ -48,12 +34,21 @@ if (isset($_GET['id'])) {
 $eh_dono    = $tem_jovem && (intval($_SESSION['jovem_id']) === $jovem_id);
 $eh_empresa = $tem_empresa && !$eh_dono;
 
-// Empresa só pode ver perfis públicos (perfil_publico = 1)
-// Jovem dono sempre vê o próprio
-// Outro jovem tentando ver → redireciona para o próprio perfil
+// Jovem dono sempre vê o próprio perfil.
+// Outro jovem tentando ver → redireciona para o próprio perfil.
+// Empresa: só com relação de recrutamento (includes/candidato.php) — candidatura
+// a uma vaga dela ou perfil marcado como visível para empresas.
 if (!$eh_dono && !$eh_empresa) {
     header("Location: perfil.php");
     exit;
+}
+$acesso = ['permitido' => false, 'publico' => false, 'candidaturas' => []];
+if ($eh_empresa) {
+    $acesso = jc_empresa_acesso_candidato($conn, intval($_SESSION['empresa_id']), $jovem_id);
+    if (!$acesso['permitido']) {
+        jc_log_seguranca('acesso.negado', 'aviso', ['recurso' => 'perfil_candidato', 'jovem' => $jovem_id]);
+        jc_candidato_indisponivel();
+    }
 }
 
 $saved = isset($_GET['saved']) ? intval($_GET['saved']) : 0;
@@ -70,7 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $eh_dono) {
     // ── Atualização dos dados principais ─────────────────────────────────────
     if ($action === 'update_perfil') {
 
-        // Stage 3: limites iguais ao tamanho das colunas (antes, texto longo = erro fatal)
+        // Limites iguais ao tamanho das colunas
         $nome               = mb_substr(trim($_POST['nome']               ?? ''), 0, 100);
         $email              = trim($_POST['email']              ?? '');   // validado abaixo (não cortado)
         $cidade             = mb_substr(trim($_POST['cidade']             ?? ''), 0, 100);
@@ -85,7 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $eh_dono) {
             exit;
         }
 
-        // Stage 3: e-mail já usado por outra conta → aviso (antes: erro fatal de chave única)
+        // E-mail já usado por outra conta → aviso
         $stmt = $conn->prepare("SELECT id FROM jovens WHERE email = ? AND id <> ? LIMIT 1");
         $stmt->bind_param("si", $email, $jovem_id);
         $stmt->execute();
@@ -106,18 +101,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $eh_dono) {
         $atual = $stmt->get_result()->fetch_assoc();
         $stmt->close();
 
-        // Stage 3: trocar o e-mail desfaz a verificação (o endereço novo não foi verificado)
+        // Trocar o e-mail desfaz a verificação (o endereço novo não foi verificado)
         $email_verificado = (mb_strtolower((string)$atual['email']) === mb_strtolower($email))
                             ? (int)$atual['email_verificado'] : 0;
 
-        // Stage 3: escolaridade editável no perfil (antes só no cadastro; o Match usa esses campos).
+        // Escolaridade editável no perfil.
         // Mesmas regras do cadastro: status controlado; "técnico" quando há nome de curso.
         $esc_status = $atual['escolaridade_status'];
         $esc_tipo   = $atual['escolaridade_tipo'];
         $esc_curso  = $atual['escolaridade_curso'];
         $formacao   = $atual['formacao'];
-        // Stage 5: formulário novo (nível → curso/ano → situação). Erro na formação
-        // não salva nada e avisa qual campo falta; POST antigo segue as regras da Stage 3.
+        // Formulário novo (nível → curso/ano → situação). Erro na formação
+        // não salva nada e avisa qual campo falta; POST antigo segue as regras anteriores
         $erros_formacao = [];
         $form_formacao  = jc_formacao_ler_post($_POST, $erros_formacao, '', 'escolaridade_status', false, true);
         if ($form_formacao !== null && jc_formacao_inalterado($form_formacao['valores'], jc_formacao_de_jovem($atual))) {
@@ -170,7 +165,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $eh_dono) {
 
     // ── Adicionar formação ────────────────────────────────────────────────────
     if ($action === 'add_formacao' && array_key_exists('form_formacao_nivel', $_POST)) {
-        // Stage 5: formação adicional também é estruturada: título padronizado
+        // Formação adicional também é estruturada: título padronizado
         // ("Ensino Técnico — Logística"), situação + ano em "conclusao", curso em "area".
         $erros_add = [];
         $nova = jc_formacao_ler_post($_POST, $erros_add, 'form_', 'form_situacao', true, false);
@@ -199,7 +194,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $eh_dono) {
         exit;
     }
     if ($action === 'add_formacao') {
-        // Stage 3: limites das colunas (conclusao tem só 20 caracteres → antes, erro fatal)
+        // Limites das colunas (conclusao tem só 20 caracteres → antes, erro fatal)
         $titulo      = mb_substr(trim($_POST['form_titulo']      ?? ''), 0, 150);
         $instituicao = mb_substr(trim($_POST['form_instituicao'] ?? ''), 0, 150);
         $conclusao   = mb_substr(trim($_POST['form_conclusao']   ?? ''), 0, 20);
@@ -235,7 +230,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $eh_dono) {
     if ($action === 'add_habilidade') {
         $habilidade = mb_substr(trim(preg_replace('/\s+/u', ' ', $_POST['habilidade'] ?? '')), 0, 80);
         if ($habilidade !== '') {
-            // Stage 3: não duplica. Não há chave UNIQUE na tabela (o INSERT IGNORE
+            // Não duplica. Não há chave UNIQUE na tabela (o INSERT IGNORE
             // nunca bloqueava nada); a comparação usa a collation da coluna
             // (utf8mb4_unicode_ci): "excel básico" = "Excel Básico".
             $stmt = $conn->prepare(
@@ -274,7 +269,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $eh_dono) {
 
     // ── Adicionar experiência ─────────────────────────────────────────────────
     if ($action === 'add_experiencia') {
-        $titulo   = mb_substr(trim($_POST['exp_titulo']   ?? ''), 0, 150);   // Stage 3: limites das colunas
+        $titulo   = mb_substr(trim($_POST['exp_titulo']   ?? ''), 0, 150);   // Limites das colunas
         $local    = mb_substr(trim($_POST['exp_local']    ?? ''), 0, 150);
         $periodo  = mb_substr(trim($_POST['exp_periodo']  ?? ''), 0, 50);
         $descricao = trim($_POST['exp_descricao'] ?? '');
@@ -310,11 +305,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $eh_dono) {
    LEITURA DOS DADOS
    ============================================================ */
 
-// Dados principais do jovem
+// Dados principais do jovem. A empresa recebe só as colunas da visão dela:
+// nunca CPF, CEP, telefone ou data de nascimento (só a idade); o e-mail apenas
+// quando existe candidatura a uma vaga dela.
+$colunas = $eh_dono
+    ? "nome, email, cpf, data_nascimento, cidade, estado, cep,
+       escolaridade_status, escolaridade_tipo, escolaridade_curso, formacao,
+       resumo_profissional, area_interesse, perfil_publico, curriculo"
+    : "nome, cidade, estado,
+       escolaridade_status, escolaridade_tipo, escolaridade_curso, formacao,
+       resumo_profissional, area_interesse, curriculo"
+      . ($acesso['candidaturas'] ? ", email" : "");
 $stmt = $conn->prepare(
-    "SELECT nome, email, cpf, data_nascimento, cidade, estado, cep,
-            escolaridade_status, escolaridade_tipo, escolaridade_curso, formacao,
-            resumo_profissional, area_interesse, perfil_publico, curriculo,
+    "SELECT {$colunas},
             TIMESTAMPDIFF(YEAR, data_nascimento, CURDATE()) AS idade
      FROM   jovens
      WHERE  id = ?
@@ -328,12 +331,6 @@ $stmt->close();
 if (!$jovem) {
     http_response_code(404);
     echo "Perfil não encontrado.";
-    exit;
-}
-
-// Empresa não pode ver perfis privados
-if ($eh_empresa && !$jovem['perfil_publico']) {
-    header("Location: ../dashboard/empresa.php");
     exit;
 }
 
@@ -356,17 +353,35 @@ $stmt_h->execute();
 $habilidades = $stmt_h->get_result()->fetch_all(MYSQLI_ASSOC);
 $stmt_h->close();
 
-// Experiências (só carrega para o dono)
-$experiencias = [];
-if ($eh_dono) {
-    $stmt_e = $conn->prepare(
-        "SELECT id, titulo, local, periodo, descricao
-         FROM   experiencias_jovem WHERE jovem_id = ? ORDER BY id ASC"
-    );
-    $stmt_e->bind_param("i", $jovem_id);
-    $stmt_e->execute();
-    $experiencias = $stmt_e->get_result()->fetch_all(MYSQLI_ASSOC);
-    $stmt_e->close();
+// Experiências (dono e empresa autorizada)
+$stmt_e = $conn->prepare(
+    "SELECT id, titulo, local, periodo, descricao
+     FROM   experiencias_jovem WHERE jovem_id = ? ORDER BY id ASC"
+);
+$stmt_e->bind_param("i", $jovem_id);
+$stmt_e->execute();
+$experiencias = $stmt_e->get_result()->fetch_all(MYSQLI_ASSOC);
+$stmt_e->close();
+
+// Empresa: candidatura em foco (?vaga= de uma vaga DELA com candidatura deste jovem)
+// e as demais candidaturas do jovem às vagas da empresa.
+$cand_atual   = null;
+$outras_cands = [];
+$email_contato = '';
+if ($eh_empresa) {
+    $vaga_foco = intval($_GET['vaga'] ?? 0);
+    foreach ($acesso['candidaturas'] as $c) {
+        if ($cand_atual === null && intval($c['vaga_id']) === $vaga_foco) {
+            $cand_atual = $c;
+        } else {
+            $outras_cands[] = $c;
+        }
+    }
+    if ($cand_atual === null && count($acesso['candidaturas']) === 1) {
+        $cand_atual   = $acesso['candidaturas'][0];
+        $outras_cands = [];
+    }
+    $email_contato = (string) ($jovem['email'] ?? '');
 }
 
 // Dados para exibição
@@ -379,25 +394,25 @@ $local_parts = array_filter([
 ]);
 $localizacao = implode(', ', $local_parts);
 
-// Stage 3: escolaridade informada no cadastro (antes não aparecia em lugar nenhum do perfil)
-// Stage 5: resumo pelo formato novo ("Ensino Médio — 3º ano · Cursando"); registro antigo = resumo da Stage 3
+// Escolaridade informada no cadastro
+// Resumo pelo formato novo ("Ensino Médio — 3º ano · Cursando"); registro antigo = resumo anterior
 $esc_resumo = jc_formacao_resumo($jovem);
 
-// Stage 5: motivo de um erro ao salvar a formação (?saved=4)
+// Motivo de um erro ao salvar a formação (?saved=4)
 $erro_formacao = $eh_dono ? (string)($_SESSION['erro_formacao'] ?? '') : '';
 unset($_SESSION['erro_formacao']);
 
-// Stage 3: currículo em PDF — só mostra link se o arquivo existir de fato
+// Currículo em PDF — só mostra link se o arquivo existir de fato
 $tem_curriculo = !empty($jovem['curriculo'])
     && is_file(dirname(__DIR__) . '/uploads/curriculos/' . basename($jovem['curriculo']));
 $link_curriculo = '../uploads/ver_curriculo.php?id=' . $jovem_id;
 
-// Stage 3: mensagens gravadas por uploads/curriculos.php (antes nunca exibidas)
+// Mensagens gravadas por uploads/curriculos.php
 $msg_upload_ok   = $eh_dono ? ($_SESSION['sucesso_upload'] ?? null) : null;
 $msg_upload_erro = $eh_dono ? ($_SESSION['erro_upload']    ?? null) : null;
 unset($_SESSION['sucesso_upload'], $_SESSION['erro_upload']);
 
-// Stage 4: destino do "←". A empresa que abriu o perfil pela lista de candidatos
+// Destino do "←". A empresa que abriu o perfil pela lista de candidatos
 // de uma vaga volta para essa lista (antes ia sempre para o painel). Só aceita o
 // valor fixo "candidatos" + id numérico — nunca uma URL vinda da requisição.
 $voltar_url    = $eh_empresa ? '../dashboard/empresa.php' : '../dashboard/jovem.php';
@@ -420,7 +435,7 @@ if ($eh_empresa && ($_GET['voltar'] ?? '') === 'candidatos' && intval($_GET['vag
     <link rel="apple-touch-icon" href="../assets/img/marca/jovemconnect-icone-180.png">
 </head>
 <body>
-<?= csrf_js() ?><!-- Stage 3: o IA Advisor usa fetch() em endpoint protegido por CSRF (antes: 403) -->
+<?= csrf_js() ?><!-- O IA Advisor usa fetch() em endpoint protegido por CSRF -->
 
 <!-- ============================================================
      BARRA DE TOPO
@@ -439,8 +454,8 @@ if ($eh_empresa && ($_GET['voltar'] ?? '') === 'candidatos' && intval($_GET['vag
         <button type="button" class="btn btn-secondary btn-sm" id="btnEditar">
             Editar Dados
         </button>
-    <?php elseif ($eh_empresa): ?>
-        <a href="mailto:<?= htmlspecialchars($jovem['email']) ?>"
+    <?php elseif ($eh_empresa && $email_contato !== ''): ?>
+        <a href="mailto:<?= htmlspecialchars($email_contato) ?>"
            class="btn btn-primary btn-sm">
             <span class="i i-mail" aria-hidden="true"></span> Entrar em Contato
         </a>
@@ -471,7 +486,7 @@ if ($eh_empresa && ($_GET['voltar'] ?? '') === 'candidatos' && intval($_GET['vag
 <!-- ============================================================
      VIEW 1: PRÓPRIO PERFIL (editável)
      ============================================================ -->
-<!-- Stage 3: este form antes envolvia a página inteira e "engolia" o form de
+<!-- Este form antes envolvia a página inteira e "engolia" o form de
      adicionar formação (forms aninhados são inválidos em HTML): "Salvar" era
      bloqueado pelo campo obrigatório da formação ou enviava action=add_formacao.
      Agora ele fica vazio aqui e os campos do perfil apontam para ele com
@@ -553,8 +568,8 @@ if ($eh_empresa && ($_GET['voltar'] ?? '') === 'candidatos' && intval($_GET['vag
                        value="<?= htmlspecialchars($jovem['area_interesse'] ?? '') ?>"
                        placeholder="Ex: Administrativo, TI" maxlength="100">
             </div>
-            <!-- Stage 3: escolaridade editável (antes só existia no cadastro).
-                 Stage 5: nível → curso/ano → situação; dados antigos são reconhecidos
+            <!-- Escolaridade editável.
+                 Nível → curso/ano → situação; dados antigos são reconhecidos
                  ou aparecem em "Outro" — nada é apagado sem o jovem salvar. -->
             <p class="form-label" style="margin:6px 0 10px;">Escolaridade</p>
             <?= jc_formacao_campos([
@@ -616,7 +631,7 @@ if ($eh_empresa && ($_GET['voltar'] ?? '') === 'candidatos' && intval($_GET['vag
 
             <button type="submit" form="formPerfil" class="btn btn-primary btn-sm">Salvar Resumo</button>
 
-            <!-- Stage 3: envio do currículo em PDF. uploads/curriculos.php já existia
+            <!-- Envio do currículo em PDF. uploads/curriculos.php já existia
                  (com validação de tipo/tamanho), mas nenhuma tela o usava. -->
             <div class="form-group" id="curriculo" style="margin-top:20px;">
                 <label class="form-label" for="perfilCurriculo">Currículo em PDF</label>
@@ -629,7 +644,7 @@ if ($eh_empresa && ($_GET['voltar'] ?? '') === 'candidatos' && intval($_GET['vag
                         Nenhum currículo enviado ainda.
                     <?php endif; ?>
                 </p>
-                <!-- Stage 4: data-envio-unico evita enviar o mesmo PDF duas vezes -->
+                <!-- Data-envio-unico evita enviar o mesmo PDF duas vezes -->
                 <form method="POST" action="../uploads/curriculos.php" enctype="multipart/form-data"
                       style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;"
                       data-envio-unico="Enviando PDF...">
@@ -660,7 +675,7 @@ if ($eh_empresa && ($_GET['voltar'] ?? '') === 'candidatos' && intval($_GET['vag
                 <form method="POST" action="perfil.php" data-envio-unico="Adicionando...">
                     <input type="hidden" name="action" value="add_formacao">
     <?= csrf_field() ?>
-                    <!-- Stage 5: nível → curso/ano → situação (antes: "Curso / Nível" em texto livre) -->
+                    <!-- Nível → curso/ano → situação -->
                     <?= jc_formacao_campos([
                         'id' => 'add', 'nome' => 'form_', 'form' => '', 'situacao' => 'form_situacao',
                         'em_tecnico' => false, 'obrigatorio' => true,
@@ -682,7 +697,7 @@ if ($eh_empresa && ($_GET['voltar'] ?? '') === 'candidatos' && intval($_GET['vag
                 </form>
             </div>
 
-            <!-- Stage 3: escolaridade informada no cadastro (editável em "Editar Dados") -->
+            <!-- Escolaridade informada no cadastro (editável em "Editar Dados") -->
             <div class="edu-item">
                 <div>
                     <p class="edu-title">Escolaridade</p>
@@ -798,7 +813,7 @@ if ($eh_empresa && ($_GET['voltar'] ?? '') === 'candidatos' && intval($_GET['vag
                       style="display:flex;gap:8px;width:100%;">
                     <input type="hidden" name="action" value="add_habilidade">
     <?= csrf_field() ?>
-                    <!-- Stage 3: escolha uma habilidade da lista ou digite uma personalizada -->
+                    <!-- Escolha uma habilidade da lista ou digite uma personalizada -->
                     <input type="text" name="habilidade" class="form-control" aria-label="Nova habilidade"
                            list="habilidadesSugeridas" maxlength="80" autocomplete="off"
                            placeholder="Escolha da lista ou digite (ex: Excel Básico)" required>
@@ -881,91 +896,165 @@ if ($eh_empresa && ($_GET['voltar'] ?? '') === 'candidatos' && intval($_GET['vag
 
 <?php else: ?>
 <!-- ============================================================
-     VIEW 2: EMPRESA VENDO O CANDIDATO (read-only)
+     VIEW 2: EMPRESA VENDO O CANDIDATO (somente leitura)
+     Só chegam aqui empresas autorizadas por includes/candidato.php.
+     Dados exibidos: nome, idade, cidade/UF, área, resumo, escolaridade,
+     formações, experiências, habilidades e currículo. O e-mail aparece
+     só quando o jovem se candidatou a uma vaga desta empresa.
      ============================================================ -->
-<div class="profile-page">
+<div class="profile-page perfil-candidato">
 
     <!-- ── SIDEBAR (info do jovem) ───────────────────────────────────────── -->
-    <aside class="profile-side">
+    <aside class="profile-side" aria-label="Resumo do candidato">
 
         <div class="profile-side-avatar">
             <?php if (!empty($jovem['area_interesse'])): ?>
             <span class="badge"><?= htmlspecialchars($jovem['area_interesse']) ?></span>
             <?php endif; ?>
-            <div class="avatar avatar-xl"><?= $inicial ?></div>
-            <p class="profile-side-name"><?= $nome_jovem ?></p>
+            <div class="avatar avatar-xl" aria-hidden="true"><?= htmlspecialchars($inicial) ?></div>
+            <h1 class="profile-side-name"><?= $nome_jovem ?></h1>
+            <?php if ($idade_label || $localizacao): ?>
             <p class="profile-side-role">
-                <span class="i i-calendar" aria-hidden="true"></span> <?= $idade_label ?><?= ($idade_label && $localizacao) ? ' • ' : '' ?><?= $localizacao ?>
+                <span class="i i-map-pin" aria-hidden="true"></span> <?= $idade_label ?><?= ($idade_label && $localizacao) ? ' • ' : '' ?><?= $localizacao ?>
             </p>
+            <?php endif; ?>
         </div>
 
-        <!-- Resumo Profissional -->
-        <?php if (!empty($jovem['resumo_profissional'])): ?>
         <div class="profile-info-item">
-            <p class="profile-info-label"><span class="i i-user" aria-hidden="true"></span> Resumo Profissional</p>
-            <p style="font-size:13px;color:var(--text-secondary);line-height:1.65;">
-                <?= htmlspecialchars($jovem['resumo_profissional']) ?>
-            </p>
+            <p class="profile-info-label"><span class="i i-user" aria-hidden="true"></span> Resumo profissional</p>
+            <?php if (!empty($jovem['resumo_profissional'])): ?>
+            <p class="perfil-candidato-texto"><?= nl2br(htmlspecialchars($jovem['resumo_profissional'])) ?></p>
+            <?php else: ?>
+            <p class="text-muted perfil-candidato-vazio">O candidato ainda não escreveu um resumo.</p>
+            <?php endif; ?>
         </div>
-        <?php endif; ?>
 
-        <!-- Stage 3: escolaridade do cadastro também visível para a empresa -->
         <div class="profile-info-item">
             <p class="profile-info-label"><span class="i i-graduation-cap" aria-hidden="true"></span> Escolaridade</p>
-            <p style="font-size:13px;color:var(--text-secondary);"><?= htmlspecialchars($esc_resumo) ?></p>
+            <p class="perfil-candidato-texto"><?= htmlspecialchars($esc_resumo !== '' ? $esc_resumo : 'Não informada') ?></p>
         </div>
 
-        <!-- Formação Acadêmica -->
-        <?php if (!empty($formacoes)): ?>
-        <div class="profile-info-item">
-            <p class="profile-info-label"><span class="i i-graduation-cap" aria-hidden="true"></span> Formação Acadêmica</p>
-            <?php foreach ($formacoes as $f): ?>
-            <div class="edu-item" style="margin-bottom:8px;">
-                <div>
-                    <p class="edu-title"><?= htmlspecialchars($f['titulo']) ?></p>
-                    <p class="edu-sub"><?= jc_formacao_detalhe($f) ?></p>
-                </div>
-            </div>
-            <?php endforeach; ?>
-        </div>
-        <?php endif; ?>
-
-        <!-- Habilidades -->
-        <?php if (!empty($habilidades)): ?>
         <div class="profile-info-item">
             <p class="profile-info-label"><span class="i i-list-checks" aria-hidden="true"></span> Habilidades</p>
-            <div class="skills-wrap" style="margin-top:8px;">
+            <?php if (!empty($habilidades)): ?>
+            <ul class="skills-wrap perfil-candidato-chips">
                 <?php foreach ($habilidades as $h): ?>
-                <span class="skill-chip"><?= htmlspecialchars($h['habilidade']) ?></span>
+                <li class="skill-chip"><?= htmlspecialchars($h['habilidade']) ?></li>
                 <?php endforeach; ?>
-            </div>
+            </ul>
+            <?php else: ?>
+            <p class="text-muted perfil-candidato-vazio">Nenhuma habilidade informada.</p>
+            <?php endif; ?>
         </div>
-        <?php endif; ?>
 
     </aside>
 
-    <!-- ── PAINEL DE AÇÕES (empresa) ─────────────────────────────────────── -->
+    <!-- ── CONTEÚDO PRINCIPAL ────────────────────────────────────────────── -->
     <main class="profile-main">
 
-        <!-- Ações -->
-        <div class="profile-section fade-up">
+        <!-- Contexto: por que a empresa está vendo este perfil -->
+        <section class="profile-section fade-up" aria-labelledby="tituloContexto">
             <div class="profile-section-head">
-                <h2 class="profile-section-title">Ações</h2>
+                <h2 class="profile-section-title" id="tituloContexto">Candidatura</h2>
             </div>
-            <p class="text-secondary" style="font-size:13px;margin-bottom:16px;">
-                Gerencie o recrutamento
-            </p>
+            <?php if ($cand_atual): ?>
+            <div class="candidatura-contexto">
+                <p class="candidatura-contexto-vaga">
+                    <span class="i i-briefcase" aria-hidden="true"></span>
+                    Candidatura para <strong><?= htmlspecialchars($cand_atual['titulo']) ?></strong>
+                </p>
+                <p class="candidatura-contexto-meta">
+                    <span class="badge"><?= htmlspecialchars($cand_atual['status']) ?></span>
+                    <?php if (!empty($cand_atual['criado_em'])): ?>
+                    <span class="text-muted">Inscrição em <?= date('d/m/Y', strtotime($cand_atual['criado_em'])) ?></span>
+                    <?php endif; ?>
+                </p>
+                <div class="candidatura-contexto-acoes">
+                    <a class="btn btn-ghost btn-sm" href="../Vagas/candidatos.php?vaga=<?= intval($cand_atual['vaga_id']) ?>">Ver candidatos da vaga</a>
+                    <a class="btn btn-ia btn-sm" href="../Vagas/avaliar.php?vaga_id=<?= intval($cand_atual['vaga_id']) ?>&amp;jovem_id=<?= intval($jovem_id) ?>">
+                        <span class="i i-sparkles" aria-hidden="true"></span> Ver compatibilidade
+                    </a>
+                </div>
+            </div>
+            <?php endif; ?>
 
-            <!-- Currículo PDF -->
+            <?php if ($outras_cands): ?>
+            <p class="text-secondary perfil-candidato-texto"><?= $cand_atual ? 'Também se candidatou a:' : 'Vagas da sua empresa às quais este candidato se candidatou:' ?></p>
+            <ul class="candidatura-lista">
+                <?php foreach ($outras_cands as $c): ?>
+                <li>
+                    <a href="perfil.php?id=<?= intval($jovem_id) ?>&amp;voltar=candidatos&amp;vaga=<?= intval($c['vaga_id']) ?>"><?= htmlspecialchars($c['titulo']) ?></a>
+                    <span class="text-muted">— <?= htmlspecialchars($c['status']) ?></span>
+                </li>
+                <?php endforeach; ?>
+            </ul>
+            <?php endif; ?>
+
+            <?php if (!$acesso['candidaturas']): ?>
+            <p class="text-secondary perfil-candidato-texto">
+                Este candidato ainda não se candidatou às vagas da sua empresa. O perfil aparece porque ele
+                permite ser encontrado por empresas na plataforma.
+            </p>
+            <?php endif; ?>
+        </section>
+
+        <!-- Formação acadêmica -->
+        <section class="profile-section fade-up" aria-labelledby="tituloFormacao">
+            <div class="profile-section-head">
+                <h2 class="profile-section-title" id="tituloFormacao">Formação acadêmica</h2>
+            </div>
+            <?php if (!empty($formacoes)): ?>
+                <?php foreach ($formacoes as $f): ?>
+                <div class="edu-item">
+                    <div>
+                        <p class="edu-title"><?= htmlspecialchars($f['titulo']) ?></p>
+                        <p class="edu-sub"><?= jc_formacao_detalhe($f) ?></p>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <div class="empty-state">Nenhuma formação adicional informada.</div>
+            <?php endif; ?>
+        </section>
+
+        <!-- Experiências -->
+        <section class="profile-section fade-up" aria-labelledby="tituloExperiencias">
+            <div class="profile-section-head">
+                <h2 class="profile-section-title" id="tituloExperiencias">Experiências</h2>
+            </div>
+            <?php if (!empty($experiencias)): ?>
+                <?php foreach ($experiencias as $e): ?>
+                <div class="edu-item">
+                    <div>
+                        <p class="edu-title"><?= htmlspecialchars($e['titulo']) ?></p>
+                        <p class="edu-sub">
+                            <?= htmlspecialchars($e['local'] ?? '') ?>
+                            <?= !empty($e['periodo']) ? ' • ' . htmlspecialchars($e['periodo']) : '' ?>
+                        </p>
+                        <?php if (!empty($e['descricao'])): ?>
+                        <p class="perfil-candidato-texto"><?= nl2br(htmlspecialchars($e['descricao'])) ?></p>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <div class="empty-state">Nenhuma experiência informada.</div>
+            <?php endif; ?>
+        </section>
+
+        <!-- Ações -->
+        <section class="profile-section fade-up" aria-labelledby="tituloAcoes">
+            <div class="profile-section-head">
+                <h2 class="profile-section-title" id="tituloAcoes">Ações</h2>
+            </div>
+
             <div class="pdf-card" style="margin-bottom:12px;">
                 <div class="pdf-icon"><span class="i i-file-text" aria-hidden="true"></span></div>
                 <p class="pdf-title">Currículo em PDF</p>
                 <?php if ($tem_curriculo): ?>
-                <a href="<?= $link_curriculo ?>"
-                   target="_blank" rel="noopener"
-                   class="btn btn-ghost btn-sm btn-full"
-                   style="margin-top:10px;">
-                    Ver documento
+                <a href="<?= $link_curriculo ?>" target="_blank" rel="noopener"
+                   class="btn btn-ghost btn-sm btn-full" style="margin-top:10px;">
+                    Ver documento <span class="sr-only">(abre em nova aba)</span>
                 </a>
                 <?php else: ?>
                 <p class="text-muted" style="font-size:12px;margin-top:10px;">
@@ -974,16 +1063,18 @@ if ($eh_empresa && ($_GET['voltar'] ?? '') === 'candidatos' && intval($_GET['vag
                 <?php endif; ?>
             </div>
 
-            <!-- Agendar entrevista -->
-            <a href="mailto:<?= htmlspecialchars($jovem['email']) ?>?subject=Entrevista JovemConnect"
-               class="btn btn-accent-outline btn-full"
-               style="margin-bottom:10px;">
-                <span class="i i-calendar" aria-hidden="true"></span> Agendar Entrevista
+            <?php if ($email_contato !== ''): ?>
+            <a href="mailto:<?= htmlspecialchars($email_contato) ?>?subject=Entrevista%20JovemConnect"
+               class="btn btn-accent-outline btn-full" style="margin-bottom:10px;">
+                <span class="i i-calendar" aria-hidden="true"></span> Agendar entrevista por e-mail
             </a>
+            <?php else: ?>
+            <p class="text-muted perfil-candidato-texto">
+                O e-mail do candidato fica disponível quando ele se candidatar a uma vaga da sua empresa.
+            </p>
+            <?php endif; ?>
 
-            <!-- Stage 4: "Salvar nos Favoritos" enviava para Vagas/favoritar.php, que é o
-                 favorito de VAGAS do jovem — a empresa caía na tela de login do jovem.
-                 Favoritar candidatos ainda não existe (pendência): botão desativado. -->
+            <!-- Favoritar candidatos ainda não existe (pendência): botão desativado. -->
             <button type="button" class="btn btn-secondary btn-full" disabled
                     aria-describedby="favCandidatoInfo">
                 Salvar candidato (em breve)
@@ -991,7 +1082,7 @@ if ($eh_empresa && ($_GET['voltar'] ?? '') === 'candidatos' && intval($_GET['vag
             <p id="favCandidatoInfo" class="text-muted" style="font-size:12px;margin-top:6px;text-align:center;">
                 Salvar candidatos nos favoritos ainda não está disponível.
             </p>
-        </div>
+        </section>
 
         <!-- IA Dica -->
         <div class="ia-dica-card fade-up" style="margin-top:0;">
@@ -999,11 +1090,11 @@ if ($eh_empresa && ($_GET['voltar'] ?? '') === 'candidatos' && intval($_GET['vag
             <p class="ia-dica-title">IA Dica</p>
             <p class="ia-dica-text" id="iaDicaText">
                 <?php if (!empty($jovem['escolaridade_tipo']) && $jovem['escolaridade_tipo'] === 'tecnico'): ?>
-                    Este candidato possui formação técnica na área que você procura.
-                    Recomendamos o contato imediato!
+                    Este candidato possui formação técnica. Confira a compatibilidade com a sua vaga
+                    antes de entrar em contato.
                 <?php else: ?>
-                    Clique em "Avaliar Match" no dashboard para ver a análise completa
-                    de compatibilidade deste candidato.
+                    Use "Ver compatibilidade" (ou "Avaliar Match" no painel) para ver a análise
+                    completa deste candidato para a sua vaga.
                 <?php endif; ?>
             </p>
         </div>
@@ -1016,7 +1107,7 @@ if ($eh_empresa && ($_GET['voltar'] ?? '') === 'candidatos' && intval($_GET['vag
 
 <!-- ============================================================
      FABs + Assistente + Acessibilidade
-     Stage 3: antes os botões ✦/♿ existiam sem painel nem script.
+     Antes os botões ✦/♿ existiam sem painel nem script.
      ============================================================ -->
 <?php include dirname(__DIR__) . '/includes/assistente.php'; ?>
 
@@ -1024,7 +1115,7 @@ if ($eh_empresa && ($_GET['voltar'] ?? '') === 'candidatos' && intval($_GET['vag
 <?php if ($eh_dono): ?>
 <div id="modalExcluir" class="jc-modal" role="dialog" aria-modal="true" aria-labelledby="modalExcluirTitulo">
     <div class="card" style="max-width:400px;width:100%;text-align:center;padding:36px 28px;">
-        <!-- Stage 5: fechar pelo × (antes só Cancelar, Esc ou clique fora) -->
+        <!-- Fechar pelo × -->
         <button type="button" class="jc-modal-fechar" aria-label="Fechar" onclick="fecharModalExcluir()"><span class="i i-x" aria-hidden="true"></span></button>
         <div class="icone-destaque aviso" aria-hidden="true"><span class="i i-alert-triangle" aria-hidden="true"></span></div>
         <h3 id="modalExcluirTitulo" style="font-weight:700;margin-bottom:10px;">Excluir Conta</h3>
@@ -1056,10 +1147,10 @@ if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
 /* ── Toast ─────────────────────────────────────────────────── */
 const toast = document.getElementById('toast');
 if (toast) {
-    // Stage 4: mensagens de erro ficam mais tempo (antes sumiam em 3,5 s) e são anunciadas:
+    // Mensagens de erro ficam mais tempo e são anunciadas:
     // o texto volta um instante depois do role — região "viva" que já nasce com texto não é lida
     const ehErro = toast.classList.contains('toast-error');
-    const conteudo = [...toast.childNodes];   // Stage 5: ícone + texto (antes só o texto)
+    const conteudo = [...toast.childNodes];   // Ícone + texto
     toast.replaceChildren();
     toast.setAttribute('role', ehErro ? 'alert' : 'status');
     setTimeout(() => { toast.replaceChildren(...conteudo); toast.classList.add('toast-visible'); }, 100);
@@ -1072,7 +1163,7 @@ let editando = false;
 btnEditar?.addEventListener('click', () => {
     editando = !editando;
     if (!editando) {
-        // Revisão Stage 3: "Cancelar" descarta o que foi digitado no modo edição —
+        // "Cancelar" descarta o que foi digitado no modo edição —
         // senão os outros botões "Salvar" do formPerfil enviariam essas alterações
         document.querySelectorAll('#editNome input, #editNome select, #editDados input, #editDados select')
             .forEach(el => {
@@ -1102,7 +1193,7 @@ function toggleAddForm(id, btn) {
     if (!el.classList.contains('hidden') && el.id === 'addHabForm') {
         el.style.display = 'flex';
     }
-    // Stage 4: o leitor de tela sabe se abriu/fechou e o foco vai para o 1º campo
+    // O leitor de tela sabe se abriu/fechou e o foco vai para o 1º campo
     const aberto = !el.classList.contains('hidden');
     btn?.setAttribute('aria-expanded', aberto ? 'true' : 'false');
     if (aberto) el.querySelector('input:not([type="hidden"]), select, textarea')?.focus();
@@ -1112,7 +1203,7 @@ function toggleAddForm(id, btn) {
 const modal       = document.getElementById('modalExcluir');
 const btnExcluir  = document.getElementById('btnExcluir');
 const btnCancelar = document.getElementById('btnCancelarExcluir');
-// Stage 4: o foco vai para "Cancelar" ao abrir e volta para "Excluir Conta" ao
+// O foco vai para "Cancelar" ao abrir e volta para "Excluir Conta" ao
 // fechar; Esc também fecha (antes só o clique fora ou em "Cancelar")
 function abrirModalExcluir()  { modal.style.display = 'flex'; btnCancelar?.focus(); }
 function fecharModalExcluir() { modal.style.display = 'none'; btnExcluir?.focus(); }

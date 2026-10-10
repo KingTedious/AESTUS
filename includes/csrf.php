@@ -1,6 +1,6 @@
 <?php
 /* ============================================================
-   includes/csrf.php  (Etapa 2 — HIGH-002)
+   includes/csrf.php  (HIGH-002)
 
    Protecao CSRF centralizada, por sessao.
 
@@ -69,8 +69,11 @@ if (!function_exists('csrf_token')) {
         if (csrf_verify()) {
             return;
         }
+        if (function_exists('jc_log_seguranca')) {
+            jc_log_seguranca('csrf.recusado', 'aviso', ['ajax' => $ajax]);
+        }
         http_response_code(403);
-        // Stage 4: mesma recusa, mensagem compreensível (antes: texto técnico,
+        // Mesma recusa, mensagem compreensível (antes: texto técnico,
         // sem acentos, numa página sem nenhum link para sair dela)
         if ($ajax) {
             header('Content-Type: application/json; charset=utf-8');
@@ -99,7 +102,7 @@ if (!function_exists('csrf_token')) {
         exit;
     }
 
-    /** Stage 4: index.php do projeto, relativo ao script atual (ex.: "../index.php"). */
+    /** Index.php do projeto, relativo ao script atual (ex.: "../index.php"). */
     function _csrf_url_inicio(): string {
         $raiz   = realpath(dirname(__DIR__));
         $script = realpath($_SERVER['SCRIPT_FILENAME'] ?? '');
@@ -111,7 +114,7 @@ if (!function_exists('csrf_token')) {
         return '/';
     }
 
-    /** Stage 4: página de onde veio o envio — só se for deste mesmo site (link, nunca redirect). */
+    /** Página de onde veio o envio — só se for deste mesmo site (link, nunca redirect). */
     function _csrf_url_voltar(): ?string {
         $ref = $_SERVER['HTTP_REFERER'] ?? '';
         $p   = is_string($ref) ? parse_url($ref) : false;

@@ -1,6 +1,6 @@
 <?php
 /* ============================================================
-   includes/session.php  (Etapa 2 — MED-001)
+   includes/session.php  (MED-001)
 
    Inicializacao de sessao endurecida, compativel com XAMPP/HTTP local.
    - HttpOnly: cookie de sessao inacessivel ao JavaScript (mitiga roubo via XSS)

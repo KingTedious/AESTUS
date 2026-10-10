@@ -1,12 +1,13 @@
 <?php
 /* ============================================================
-   Candidaturas/minhas.php  — corrigido com base no schema real
+   candidaturas/minhas.php — candidaturas do jovem logado, com o status de
+   cada uma (Recebido, Visualizado, Em análise, Aprovado, Reprovado).
    ============================================================ */
 
-require_once dirname(__DIR__) . '/includes/session.php';   // Stage 3: sessão endurecida (Stage 2) também nesta página
+require_once dirname(__DIR__) . '/includes/session.php';   // Sessão endurecida também nesta página
 jc_session_start();
 
-// Stage 3: login checado ANTES de qualquer saída HTML. Antes o header.php era
+// Login checado ANTES de qualquer saída HTML. Antes o header.php era
 // impresso primeiro e o redirect só funcionava graças ao output_buffering do php.ini.
 if (!isset($_SESSION['jovem_id'])) {
     header("Location: ../jovem/login.php");
@@ -14,7 +15,7 @@ if (!isset($_SESSION['jovem_id'])) {
 }
 
 include("../includes/config.php");
-$page_title = 'Minhas Candidaturas';   // Stage 4: a aba mostrava só o título genérico do site
+$page_title = 'Minhas Candidaturas';   // A aba mostrava só o título genérico do site
 include("../includes/header.php");
 
 $jovem_id = intval($_SESSION['jovem_id']);
@@ -61,7 +62,7 @@ function statusBadge(string $status): string {
 <div class="dashboard-wrap">
   <main class="dashboard-main">
 
-    <!-- Stage 4: caminho de volta explícito -->
+    <!-- Caminho de volta explícito -->
     <p style="margin:0 0 12px;"><a href="../dashboard/jovem.php" class="back-link"><span class="i i-arrow-left" aria-hidden="true"></span> Voltar ao painel</a></p>
 
     <div class="page-heading fade-up">
@@ -151,7 +152,7 @@ function statusBadge(string $status): string {
   </main>
 </div>
 
-<!-- Stage 3: FABs removidos daqui — includes/footer.php já os renderiza (IDs duplicados
+<!-- FABs removidos daqui — includes/footer.php já os renderiza (IDs duplicados
      faziam o botão visível ficar sem ação) -->
 
 <?php

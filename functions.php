@@ -1,21 +1,17 @@
 <?php
 /* ============================================================
-   functions.php — Utilitários globais do JovemConnect v3.00
+   functions.php — utilitários gerais
 
-   ❌ PROBLEMA DO ORIGINAL:
-   calcularIdadeDinamica() lançava Exception sem try/catch
-   se recebesse null, '' ou data inválida — derrubava a página.
-
-   Novas funções adicionadas (PHP 8.2):
-   ─ calcularIdade()   — versão robusta com validação
-   ─ validarCpf()      — algoritmo oficial Receita Federal
-   ─ formatarCpf()     — exibe CPF mascarado
-   ─ validarCnpj()     — algoritmo oficial Receita Federal
-   ─ formatarCnpj()    — exibe CNPJ mascarado
-   ─ formatarCep()     — formata CEP como XXXXX-XXX
-   ─ chamarFlask()     — cURL centralizado para o servidor IA
-   ─ apenasNumeros()   — remove tudo que não é dígito
-   ─ truncar()         — corta string com reticências (mb-safe)
+   calcularIdade()  idade a partir da data de nascimento (aceita vazio/inválido)
+   validarCpf() / formatarCpf()    CPF (dígitos verificadores / máscara)
+   validarCnpj() / formatarCnpj()  CNPJ (dígitos verificadores / máscara)
+   formatarCep()    CEP no formato 00000-000
+   chamarFlask()    chamada HTTP ao servidor de IA (cURL)
+   apenasNumeros()  remove o que não é dígito
+   truncar()        corta texto com reticências (seguro para UTF-8)
+   h()              atalho para htmlspecialchars
+   flaskOnline()    diz se o servidor de IA responde
+   calcularIdadeDinamica() continua disponível para o código antigo.
    ============================================================ */
 
 /* ============================================================

@@ -1,6 +1,6 @@
 <?php
 /* ============================================================
-   empresa/locais.php  (Stage 5.1)
+   empresa/locais.php
 
    Locais de trabalho da empresa.
    - Endereço principal (sede): é o endereço do perfil da empresa e o
@@ -67,10 +67,12 @@ if ($disponivel && $_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute();
             $stmt->close();
             jc_vagas_sincronizar_local($conn, $empresa_id, $id, $local);   // vagas que usam este local
+            jc_log('local.editado', 'info', ['local' => $id]);
             header("Location: locais.php?ok=editado");
             exit;
         }
         $novo = jc_local_inserir($conn, $empresa_id, $local);
+        jc_log($novo > 0 ? 'local.adicionado' : 'local.erro', $novo > 0 ? 'info' : 'erro', ['local' => $novo]);
         header("Location: locais.php?ok=" . ($novo > 0 ? 'adicionado' : 'erro'));
         exit;
     }
@@ -87,6 +89,7 @@ if ($disponivel && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $em_uso = intval($stmt->get_result()->fetch_assoc()['n'] ?? 0);
         $stmt->close();
         if ($em_uso > 0) {
+            jc_log('local.remocao_bloqueada', 'aviso', ['local' => $id, 'vagas' => $em_uso]);
             header("Location: locais.php?ok=em_uso");
             exit;
         }
@@ -94,6 +97,7 @@ if ($disponivel && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->bind_param("ii", $id, $empresa_id);
         $stmt->execute();
         $stmt->close();
+        jc_log('local.removido', 'info', ['local' => $id]);
         header("Location: locais.php?ok=removido");
         exit;
     }

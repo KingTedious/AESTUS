@@ -1,12 +1,7 @@
 <?php
 /* ============================================================
-   comecar.php  (Stage 3)
-
-   Destino do botão "Começar": o visitante escolhe claramente se é
-   Jovem ou Empresa antes de ir para o cadastro correspondente.
-   Antes, o "Começar" do index.php levava direto ao cadastro de
-   jovem e o do header público (includes/header.php) levava ao
-   login de empresa — nenhum dos dois oferecia a escolha.
+   comecar.php — destino do botão "Começar": o visitante escolhe se é Jovem
+   ou Empresa antes de ir para o cadastro correspondente.
    ============================================================ */
 require_once __DIR__ . '/includes/session.php';
 jc_session_start();
@@ -42,7 +37,7 @@ if (isset($_SESSION['empresa_id'])) {
 <div class="form-page">
 <div class="form-container">
 
-    <!-- Stage 5: marca oficial vertical (leva à página inicial) -->
+    <!-- Marca oficial vertical (leva à página inicial) -->
     <div class="form-page-logo">
         <a href="index.php" class="marca marca-vertical nav-logo" aria-label="JovemConnect — página inicial">
             <img src="assets/img/marca/jovemconnect-vertical.png" alt="JovemConnect" width="546" height="420">
@@ -72,7 +67,7 @@ if (isset($_SESSION['empresa_id'])) {
 </div>
 </div>
 
-<!-- Stage 4: assistente + acessibilidade (as preferências do usuário passam a valer aqui também) -->
+<!-- Assistente + acessibilidade (as preferências do usuário passam a valer aqui também) -->
 <?php include __DIR__ . '/includes/assistente.php'; ?>
 
 </body>

@@ -22,10 +22,8 @@
 -->
 
 <?php
-// Stage 3: chat (respostas predefinidas), painel de acessibilidade e FABs
-// foram movidos para includes/assistente.php — reaproveitado também pelas
-// páginas com HTML próprio. O chat antes chamava includes/chat_ajax.php,
-// arquivo que nunca existiu (toda pergunta caía em "indisponível").
+// Assistente, painel de acessibilidade e botões flutuantes vêm de
+// includes/assistente.php (o mesmo componente das páginas com HTML próprio).
 include __DIR__ . '/assistente.php';
 ?>
 

@@ -1,22 +1,6 @@
 <?php
 /* ============================================================
    logout.php — Encerramento de sessão
-
-   ❌ PROBLEMAS DO ORIGINAL (todos corrigidos aqui):
-   1. $_SESSION['usuario_nome'] / ['usuario_id'] / ['usuario_tipo']
-      → chaves que NUNCA foram escritas no projeto.
-      O projeto usa empresa_id/empresa_nome e jovem_id/jovem_nome.
-      O log sempre gravava "Desconhecido / Sem ID / Desconhecido".
-
-   2. Sequência incompleta de destruição de sessão:
-      só fazia session_destroy() sem session_unset() nem
-      limpeza do cookie → a sessão do browser poderia persistir.
-      Sequência correta:
-        session_unset()      → limpa $_SESSION da memória
-        invalidar cookie     → remove o cookie PHPSESSID do browser
-        session_destroy()    → destrói os dados no servidor
-
-   3. logger.php incluído sem verificar se existe.
    ============================================================ */
 session_start();
 
@@ -28,10 +12,8 @@ $tipo_usuario = isset($_SESSION['jovem_id']) ? 'jovem' : (isset($_SESSION['empre
 // ── Logger (opcional — não quebra se não existir) ─────────────────────────────
 if (file_exists(__DIR__ . '/includes/logger.php')) {
     require_once __DIR__ . '/includes/logger.php';
-    registrar_log(
-        "Logout: '{$nome_usuario}' (ID: {$id_usuario} | tipo: {$tipo_usuario})",
-        'INFO'
-    );
+    // sem o nome da pessoa: tipo e id interno bastam para auditoria
+    jc_log_seguranca('logout', 'info', ['tipo' => $tipo_usuario]);
 }
 
 // ── Sequência correta de destruição de sessão ─────────────────────────────────

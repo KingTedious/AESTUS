@@ -1,19 +1,19 @@
 <?php
 /* ============================================================
-   includes/locais.php  (Stage 5.1)
+   includes/locais.php
 
    Local de trabalho das vagas.
 
    - Endereço principal da empresa = colunas da tabela `empresas`
-     (cep, logradouro, numero, complemento, bairro, cidade, estado —
-     Stage 3). É a sede e o local padrão das vagas. Não é copiado
+     (cep, logradouro, numero, complemento, bairro, cidade, estado).
+     É a sede e o local padrão das vagas. Não é copiado
      para outra tabela.
    - Outros locais da empresa (escritório, filial, unidade ou outro)
      ficam em `empresa_locais`, com o mesmo formato de endereço.
    - Cada vaga diz onde é o trabalho:
        vagas.local_trabalho = 'empresa' → endereço principal da empresa
        vagas.local_trabalho = 'local'   → vagas.local_id (empresa_locais)
-       vagas.local_trabalho = NULL      → vaga anterior à Stage 5.1: usa a
+       vagas.local_trabalho = NULL      → vaga antiga: usa a
                                           cidade/UF/CEP digitados na vaga;
                                           sem eles, o endereço da empresa.
      vagas.cidade/estado/cep continuam preenchidos (cópia do local),
@@ -42,7 +42,7 @@ if (!function_exists('jc_locais_disponiveis')) {
         ];
     }
 
-    /** true quando a migração da Stage 5.1 (e a da Stage 3) já foram aplicadas. */
+    /** true quando as migrações de locais de trabalho e de endereço da empresa já foram aplicadas. */
     function jc_locais_disponiveis(mysqli $conn): bool {
         static $ok = null;
         if ($ok === null) {
@@ -165,7 +165,7 @@ if (!function_exists('jc_locais_disponiveis')) {
             $origem = 'empresa';
             $rotulo = 'Endereço principal da empresa';
         } else {
-            // Vaga anterior à Stage 5.1 (ou local removido): campos da própria vaga
+            // Vaga antiga (ou local removido): campos da própria vaga
             $proprio = jc_local_partes($r, '');
             $proprio['logradouro'] = $proprio['numero'] = $proprio['complemento'] = $proprio['bairro'] = '';
             if ($proprio['cidade'] !== '' || $proprio['cep'] !== '') {

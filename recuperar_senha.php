@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
+require_once __DIR__ . '/includes/csrf.php';   // Sessao endurecida + CSRF
 require_once __DIR__ . '/includes/config.php';
 require_once __DIR__ . '/includes/mailer.php';
 
@@ -77,6 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_solicitar_codigo
             $_SESSION['recuperacao_tabela'] = $tabelaEncontrada;
         }
 
+        jc_log_seguranca('senha.recuperacao_solicitada', 'info', ['conta_encontrada' => (bool) $tabelaEncontrada]);
         // Avança a etapa mesmo se o e-mail não existir (boa prática de segurança)
         $_SESSION['recuperacao_etapa'] = 2;
         $_SESSION['recuperacao_email_mascarado'] = mascararEmail($emailInput);
@@ -117,6 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_validar_codigo_r
         // Mesma mensagem independentemente do motivo (conta inexistente, código
         // errado ou expirado) — evita confirmar/negar existência da conta.
         $mensagemErro = "Código incorreto ou expirado.";
+        jc_log_seguranca('senha.codigo_recusado', 'aviso');
     }
 }
 
@@ -165,6 +167,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_definir_nova_sen
             unset($_SESSION['recuperacao_etapa'], $_SESSION['recuperacao_email_mascarado'],
                   $_SESSION['recuperacao_email_raw'], $_SESSION['recuperacao_tabela'], $_SESSION['recuperacao_codigo_ok']);
 
+            jc_log_seguranca('senha.redefinida', 'info', ['tipo' => $tipoLogin]);
             $_SESSION['sucesso_login'] = "Senha redefinida com sucesso! Faça login com sua nova senha.";
             header("Location: {$tipoLogin}/login.php");
             exit;
@@ -190,13 +193,13 @@ if (isset($_GET['reenviar'])) {
     <link rel="icon" type="image/png" sizes="32x32" href="assets/img/marca/jovemconnect-icone-32.png">
     <link rel="apple-touch-icon" href="assets/img/marca/jovemconnect-icone-180.png">
     <script>
-        (function () {   // Stage 4: aplica o tema salvo, como nas outras telas
+        (function () {   // Aplica o tema salvo, como nas outras telas
             try { var t = localStorage.getItem('jc-theme'); if (t) document.documentElement.setAttribute('data-theme', t); } catch (e) {}
         }());
     </script>
     
     <!-- Estilos identicos ao design da imagem.
-         Stage 4: cores pelas variáveis do style.css (antes fixas em hexadecimal —
+         Cores pelas variáveis do style.css (antes fixas em hexadecimal —
          a página ficava sempre escura e o alto contraste/dislexia não funcionavam) -->
     <style>
         body {
@@ -221,7 +224,7 @@ if (isset($_GET['reenviar'])) {
             box-sizing: border-box;
         }
 
-        /* Stage 5: marca oficial (versão vertical) no lugar do ícone 💼 + texto */
+        /* Marca oficial (versão vertical) no lugar do ícone 💼 + texto */
         .brand-marca {
             margin: 0 0 24px 0;
         }
@@ -263,7 +266,7 @@ if (isset($_GET['reenviar'])) {
             position: relative;
         }
 
-        /* Stage 4: os ícones são <span> (o seletor só pegava <i>) — ficavam
+        /* Os ícones são <span> (o seletor só pegava <i>) — ficavam
            numa linha separada, acima do campo */
         .input-wrapper i,
         .input-wrapper > span {
@@ -297,7 +300,7 @@ if (isset($_GET['reenviar'])) {
         .btn-primary {
             width: 100%;
             padding: 12px;
-            background-color: var(--accent-fill);   /* Stage 5: azul da marca + texto escuro (5,5:1) */
+            background-color: var(--accent-fill);   /* Azul da marca + texto escuro (5,5:1) */
             color: var(--on-accent);
             border: none;
             border-radius: 8px;
@@ -370,7 +373,7 @@ if (isset($_GET['reenviar'])) {
 <body>
 
     <div class="auth-card">
-        <!-- Stage 5: marca oficial (vertical) -->
+        <!-- Marca oficial (vertical) -->
         <h1 class="brand-marca marca marca-vertical"><img src="assets/img/marca/jovemconnect-vertical.png" alt="JovemConnect" width="546" height="420"></h1>
 
         <?php if ($mensagemErro): ?>
@@ -384,7 +387,7 @@ if (isset($_GET['reenviar'])) {
             <h2 class="page-title">Recuperar senha</h2>
             <p class="page-desc">Informe seu e-mail para receber as instruções de redefinição.</p>
 
-            <!-- Stage 4: envio único — um 2º clique mandava outro código e o 1º e-mail deixava de valer -->
+            <!-- Envio único — um 2º clique mandava outro código e o 1º e-mail deixava de valer -->
             <form action="recuperar_senha.php" method="POST" data-envio-unico="Enviando...">
                 <input type="hidden" name="acao_solicitar_codigo" value="1">
                 <?= csrf_field() ?>
@@ -398,7 +401,7 @@ if (isset($_GET['reenviar'])) {
                 <button type="submit" class="btn-primary">Enviar e-mail</button>
             </form>
 
-            <a href="jovem/login.php" class="back-link">Voltar para o login</a><!-- Stage 3: login.php não existe na raiz (404) -->
+            <a href="jovem/login.php" class="back-link">Voltar para o login</a><!-- Login.php não existe na raiz (404) -->
 
         <?php elseif ($etapa === 2): ?>
             <!-- ETAPA 2: DIGITAR O CÓDIGO RECEBIDO -->
@@ -426,7 +429,7 @@ if (isset($_GET['reenviar'])) {
                 </a>
             </div>
 
-            <a href="jovem/login.php" class="back-link">Voltar para o login</a><!-- Stage 3: login.php não existe na raiz (404) -->
+            <a href="jovem/login.php" class="back-link">Voltar para o login</a><!-- Login.php não existe na raiz (404) -->
 
         <?php else: ?>
             <!-- ETAPA 3: DEFINIR NOVA SENHA -->
@@ -453,12 +456,12 @@ if (isset($_GET['reenviar'])) {
                 <button type="submit" class="btn-primary">Redefinir senha</button>
             </form>
 
-            <!-- Stage 4: a última etapa não tinha caminho de volta -->
+            <!-- A última etapa não tinha caminho de volta -->
             <a href="jovem/login.php" class="back-link">Voltar para o login</a>
         <?php endif; ?>
     </div>
 
-    <!-- Stage 4: assistente + acessibilidade (as preferências do usuário passam a valer aqui também) -->
+    <!-- Assistente + acessibilidade (as preferências do usuário passam a valer aqui também) -->
     <?php include __DIR__ . '/includes/assistente.php'; ?>
 
 </body>

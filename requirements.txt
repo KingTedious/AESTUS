@@ -1,7 +1,6 @@
-# Requisitos do Sistema - JovemConnect v2.59
-#
-# Stage 3: as linhas de documentacao abaixo viraram comentarios ("#") para que
-# "pip install -r requirements.txt" funcione — antes o pip parava em "[Ambiente]".
+# Requisitos do Sistema - JovemConnect
+# (linhas com "#" são comentários; "pip install -r requirements.txt" ignora)
+# O servidor de IA precisa só de flask e flask-cors (é o que o iniciar_ia.bat instala).
 #
 # [Ambiente]
 # - Servidor: Apache 2.4+

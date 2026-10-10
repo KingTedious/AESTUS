@@ -13,7 +13,7 @@
    2. PDO em projeto mysqli.
    3. Chaves de sessão erradas.
    ============================================================ */
-require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Sessao endurecida + CSRF
 
 // Bloqueia GET direto na URL
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -30,6 +30,7 @@ $email = trim($_POST['email'] ?? '');
 $senha = $_POST['senha']      ?? '';
 
 if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL) || empty($senha)) {
+    jc_log_seguranca('login.falha', 'aviso', ['tipo' => 'jovem', 'motivo' => 'campos_invalidos']);
     $_SESSION['erro_login'] = "Preencha todos os campos corretamente.";
     header("Location: login.php");
     exit;
@@ -65,11 +66,14 @@ if ($jovem && password_verify($senha, $jovem['senha'])) {
     $stmt_ul->execute();
     $stmt_ul->close();
 
+    jc_log_seguranca('login.sucesso', 'info', ['tipo' => 'jovem']);
     header("Location: ../dashboard/jovem.php");
     exit;
 }
 
 // ── Credenciais inválidas ─────────────────────────────────────────────────────
+// e-mail inexistente e senha errada geram o MESMO evento (não revela qual foi)
+jc_log_seguranca('login.falha', 'aviso', ['tipo' => 'jovem', 'motivo' => 'credenciais']);
 $_SESSION['erro_login'] = "E-mail ou senha incorretos. Tente novamente.";
 header("Location: login.php");
 exit;

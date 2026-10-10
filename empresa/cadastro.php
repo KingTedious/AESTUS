@@ -2,14 +2,14 @@
 /* ============================================================
    empresa/cadastro.php
    ============================================================ */
-require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Sessao endurecida + CSRF
 
 // Já logado → redireciona direto
 if (isset($_SESSION['empresa_id'])) {
     header("Location: ../dashboard/empresa.php");
     exit;
 }
-// Stage 4: jovem logado também vai para o painel dele (antes via o formulário
+// Jovem logado também vai para o painel dele (antes via o formulário
 // e, ao enviar, a sessão ficava com jovem E empresa ao mesmo tempo)
 if (isset($_SESSION['jovem_id'])) {
     header("Location: ../dashboard/jovem.php");
@@ -17,128 +17,155 @@ if (isset($_SESSION['jovem_id'])) {
 }
 
 require_once dirname(__DIR__) . "/includes/config.php";
-require_once dirname(__DIR__) . "/includes/endereco_empresa.php";   // Stage 3: endereço completo
+require_once dirname(__DIR__) . "/includes/endereco_empresa.php";   // endereço completo da empresa
+require_once dirname(__DIR__) . "/includes/termos.php";             // versão e registro do aceite
+require_once dirname(__DIR__) . "/includes/etapas.php";             // formulário em etapas
 
-$erros  = [];
-$campos = []; // guarda os valores para repopular o form em caso de erro
-$tem_endereco = empresa_tem_endereco($conn);   // Stage 3: colunas da migração aditiva já existem?
+$erros  = [];   // chave = nome do campo (mensagem aparece perto dele)
+$campos = [];   // valores para repreencher o formulário quando houver erro
+$tem_endereco = empresa_tem_endereco($conn);   // colunas de endereço completo já existem?
+
+/* Em que etapa fica cada campo (a página reabre na etapa do primeiro erro). */
+$etapa_dos_campos = [
+    'cnpj' => 1, 'nome_empresa' => 1, 'email' => 1, 'senha' => 1, 'confirmar_senha' => 1,
+    'cep' => 2, 'cidade' => 2, 'estado' => 2,
+    'area_atuacao' => 3, 'descricao' => 3, 'site_oficial' => 3,
+    'aceite_termos' => 4, 'geral' => 4,
+];
 
 /* ============================================================
-   PROCESSAMENTO POST
-   Todo PHP antes de qualquer output HTML.
+   PROCESSAMENTO POST — todo PHP antes de qualquer HTML
    ============================================================ */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_require();
 
-    // ── Leitura e sanitização básica ──────────────────────────────────────────
-    // Stage 3: limites = tamanho das colunas + endereço completo (CEP primeiro)
+    // ── Leitura e limpeza (limites = tamanho das colunas) ─────────────────────
     $campos = [
         'nome_empresa' => mb_substr(trim($_POST['nome_empresa'] ?? ''), 0, 150),
-        'email'        => trim($_POST['email']        ?? ''),   // validado abaixo (não cortado)
+        'email'        => trim($_POST['email']        ?? ''),
         'cnpj'         => trim($_POST['cnpj']         ?? ''),
         'area_atuacao' => mb_substr(trim($_POST['area_atuacao'] ?? ''), 0, 100),
         'cidade'       => mb_substr(trim($_POST['cidade']       ?? ''), 0, 100),
         'estado'       => mb_substr(strtoupper(trim($_POST['estado'] ?? '')), 0, 2),
+        'descricao'    => mb_substr(trim((string) ($_POST['descricao'] ?? '')), 0, 2000),
+        'site_oficial' => mb_substr(trim((string) ($_POST['site_oficial'] ?? '')), 0, 255),
     ] + endereco_empresa_do_post();
     $senha      = $_POST['senha']           ?? '';
     $conf_senha = $_POST['confirmar_senha'] ?? '';
+    $aceite     = ($_POST['aceite_termos'] ?? '') === '1';
+    $campos['aceite_termos'] = $aceite;
 
     // ── Validações ────────────────────────────────────────────────────────────
-    if (empty($campos['nome_empresa']))
-        $erros[] = 'Nome da empresa é obrigatório.';
+    if ($campos['nome_empresa'] === '')
+        $erros['nome_empresa'] = 'Informe o nome da empresa.';
 
-    if (empty($campos['email']))
-        $erros[] = 'E-mail corporativo é obrigatório.';
+    if ($campos['email'] === '')
+        $erros['email'] = 'Informe o e-mail de acesso.';
     elseif (!filter_var($campos['email'], FILTER_VALIDATE_EMAIL))
-        $erros[] = 'Formato de e-mail inválido.';
+        $erros['email'] = 'Formato de e-mail inválido.';
     elseif (mb_strlen($campos['email']) > 100)
-        $erros[] = 'E-mail muito longo (máximo 100 caracteres).';
+        $erros['email'] = 'E-mail muito longo (máximo 100 caracteres).';
 
-    $cnpj_numeros = preg_replace('/\D/', '', $campos['cnpj']);
-    if (strlen($cnpj_numeros) !== 14)
-        $erros[] = 'CNPJ inválido (deve ter 14 dígitos).';
+    if (strlen(preg_replace('/\D/', '', $campos['cnpj'])) !== 14)
+        $erros['cnpj'] = 'CNPJ inválido (deve ter 14 dígitos).';
     else
-        $campos['cnpj'] = cnpj_formatado($campos['cnpj']);   // Stage 3: formato único 00.000.000/0000-00
+        $campos['cnpj'] = cnpj_formatado($campos['cnpj']);   // formato único 00.000.000/0000-00
 
     if ($campos['cep'] !== '' && strlen($campos['cep']) !== 8)
-        $erros[] = 'CEP inválido (deve ter 8 dígitos).';
+        $erros['cep'] = 'CEP inválido (deve ter 8 dígitos).';
+    if ($campos['estado'] !== '' && !preg_match('/^[A-Z]{2}$/', $campos['estado']))
+        $erros['estado'] = 'Use a sigla do estado com 2 letras (ex.: SP).';
 
-    if (empty($senha))
-        $erros[] = 'Senha é obrigatória.';
+    if ($campos['site_oficial'] !== '' && !filter_var(
+            preg_match('~^https?://~i', $campos['site_oficial']) ? $campos['site_oficial'] : 'https://' . $campos['site_oficial'],
+            FILTER_VALIDATE_URL))
+        $erros['site_oficial'] = 'Endereço do site inválido.';
+
+    if ($senha === '')
+        $erros['senha'] = 'Crie uma senha.';
     elseif (strlen($senha) < 8)
-        $erros[] = 'Senha deve ter pelo menos 8 caracteres.';
+        $erros['senha'] = 'A senha deve ter pelo menos 8 caracteres.';
     elseif ($senha !== $conf_senha)
-        $erros[] = 'As senhas não coincidem.';
+        $erros['confirmar_senha'] = 'As senhas não coincidem.';
 
-    // ── Verificação de duplicidade (prepared statement) ───────────────────────
+    if (!$aceite)
+        $erros['aceite_termos'] = 'Para criar a conta, leia e aceite os Termos de Uso e a Política de Privacidade.';
+
+    // ── Duplicidade (e-mail ou CNPJ já usados) ────────────────────────────────
     if (empty($erros)) {
-        $stmt_check = $conn->prepare(
-            "SELECT id FROM empresas WHERE email = ? OR cnpj = ? LIMIT 1"
-        );
+        $stmt_check = $conn->prepare("SELECT id FROM empresas WHERE email = ? OR cnpj = ? LIMIT 1");
         $stmt_check->bind_param("ss", $campos['email'], $campos['cnpj']);
         $stmt_check->execute();
         $stmt_check->store_result();
-
         if ($stmt_check->num_rows > 0)
-            $erros[] = 'E-mail ou CNPJ já cadastrado na plataforma.';
-
+            $erros['email'] = 'E-mail ou CNPJ já cadastrado na plataforma. Se a conta é sua, faça login ou recupere a senha.';
         $stmt_check->close();
     }
 
-    // ── Inserção (prepared statement) ─────────────────────────────────────────
+    // ── Inserção ──────────────────────────────────────────────────────────────
     if (empty($erros)) {
         $senha_hash = password_hash($senha, PASSWORD_DEFAULT);
-
-        if (empresa_tem_endereco($conn)) {
-            // Stage 3: endereço completo (colunas da migração aditiva)
-            $stmt_ins = $conn->prepare(
-                "INSERT INTO empresas
-                    (nome_empresa, email, senha, cnpj, cidade, estado, area_atuacao,
-                     cep, logradouro, numero, complemento, bairro)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-            );
-            $stmt_ins->bind_param(
-                "ssssssssssss",
-                $campos['nome_empresa'], $campos['email'], $senha_hash, $campos['cnpj'],
-                $campos['cidade'], $campos['estado'], $campos['area_atuacao'],
-                $campos['cep'], $campos['logradouro'], $campos['numero'],
-                $campos['complemento'], $campos['bairro']
-            );
-        } else {
-            // Migração ainda não aplicada: mesmo INSERT de antes (só cidade/UF)
-            $stmt_ins = $conn->prepare(
-                "INSERT INTO empresas
-                    (nome_empresa, email, senha, cnpj, cidade, estado, area_atuacao)
-                 VALUES (?, ?, ?, ?, ?, ?, ?)"
-            );
-            $stmt_ins->bind_param(
-                "sssssss",
-                $campos['nome_empresa'],
-                $campos['email'],
-                $senha_hash,
-                $campos['cnpj'],
-                $campos['cidade'],
-                $campos['estado'],
-                $campos['area_atuacao']
-            );
-        }
-
-        if ($stmt_ins->execute()) {
-            // Login automático após cadastro bem-sucedido
-            $_SESSION['empresa_id']   = $conn->insert_id;
-            $_SESSION['empresa_nome'] = $campos['nome_empresa'];
-            jc_session_regenerate(); // MED-001
+        $descricao  = $campos['descricao'] !== '' ? $campos['descricao'] : null;
+        $site       = $campos['site_oficial'] !== '' ? $campos['site_oficial'] : null;
+        try {
+            if ($tem_endereco) {
+                $stmt_ins = $conn->prepare(
+                    "INSERT INTO empresas
+                        (nome_empresa, email, senha, cnpj, cidade, estado, area_atuacao, descricao, site_oficial,
+                         cep, logradouro, numero, complemento, bairro)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                );
+                $stmt_ins->bind_param(
+                    "ssssssssssssss",
+                    $campos['nome_empresa'], $campos['email'], $senha_hash, $campos['cnpj'],
+                    $campos['cidade'], $campos['estado'], $campos['area_atuacao'], $descricao, $site,
+                    $campos['cep'], $campos['logradouro'], $campos['numero'],
+                    $campos['complemento'], $campos['bairro']
+                );
+            } else {
+                // migração do endereço completo ainda não aplicada: só cidade/UF
+                $stmt_ins = $conn->prepare(
+                    "INSERT INTO empresas
+                        (nome_empresa, email, senha, cnpj, cidade, estado, area_atuacao, descricao, site_oficial)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                );
+                $stmt_ins->bind_param(
+                    "sssssssss",
+                    $campos['nome_empresa'], $campos['email'], $senha_hash, $campos['cnpj'],
+                    $campos['cidade'], $campos['estado'], $campos['area_atuacao'], $descricao, $site
+                );
+            }
+            $stmt_ins->execute();
+            $novo_id = intval($conn->insert_id);
             $stmt_ins->close();
+            jc_termos_registrar($conn, 'empresas', $novo_id);
 
-            // Etapa 2: antes de ir ao dashboard, passa pela verificação de conta.
+            // Login automático após o cadastro
+            $_SESSION['empresa_id']   = $novo_id;
+            $_SESSION['empresa_nome'] = $campos['nome_empresa'];
+            jc_session_regenerate();
+            jc_log_seguranca('cadastro.concluido', 'info', ['tipo' => 'empresa']);
+            // Antes do painel, a empresa passa pela verificação da conta
             header("Location: ../verificacoes/escolher_verificacao.php");
             exit;
+        } catch (mysqli_sql_exception $e) {
+            if ($e->getCode() === 1062) {   // e-mail/CNPJ gravado por outro envio ao mesmo tempo
+                $erros['email'] = 'E-mail ou CNPJ já cadastrado na plataforma. Se a conta é sua, faça login ou recupere a senha.';
+            } else {
+                jc_log_excecao($e, 'cadastro.erro_banco');
+                $erros['geral'] = 'Erro interno ao cadastrar. Tente novamente.';
+            }
         }
+    }
 
-        $erros[] = 'Erro interno ao cadastrar. Tente novamente.';
-        $stmt_ins->close();
+    if ($erros) {
+        jc_log_seguranca('cadastro.falha', 'aviso', ['tipo' => 'empresa', 'campos' => array_map('strval', array_keys($erros))]);
     }
 }
+$etapa_erro = $erros ? jc_etapa_do_erro($erros, $etapa_dos_campos) : 1;
+$err  = fn(string $campo) => jc_campo_erro($erros, $campo);
+$aria = fn(string $campo) => jc_campo_aria($erros, $campo);
+$val  = fn(string $campo) => htmlspecialchars((string) ($campos[$campo] ?? ''), ENT_QUOTES);
 ?>
 <!DOCTYPE html>
 <html lang="pt-br" data-theme="dark">
@@ -152,165 +179,157 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </head>
 <body>
 
-<!-- Barra de progresso (topo) -->
-<div class="page-progress">
-    <div class="page-progress-fill" style="width:100%;"></div>
-</div>
 
 <div class="form-page">
 <div class="form-container">
 
-    <!-- Stage 5: marca oficial vertical (antes: texto improvisado "JovemAprendiz Conecta") -->
+    <!-- Marca oficial vertical -->
     <div class="form-page-logo">
         <a href="../index.php" class="marca marca-vertical nav-logo" aria-label="JovemConnect — página inicial">
             <img src="../assets/img/marca/jovemconnect-vertical.png" alt="JovemConnect" width="546" height="420">
         </a>
     </div>
 
-    <!-- Stage 3: volta para a escolha Jovem/Empresa -->
+    <!-- Volta para a escolha Jovem/Empresa -->
     <p style="margin:0 0 12px;"><a href="../comecar.php" class="back-link"><span class="i i-arrow-left" aria-hidden="true"></span> Voltar</a></p>
 
-    <!-- ── Alertas de erro ─────────────────────────────────────────────────── -->
+    <!-- ── Resumo dos erros do servidor (anunciado e focado ao abrir) ─────── -->
     <?php if (!empty($erros)): ?>
-    <!-- Stage 4: anunciado e focado ao abrir (antes o leitor de tela não sabia do erro) -->
     <div class="form-card" id="errosCadastro" role="alert" tabindex="-1"
          style="border-color:rgba(239,68,68,.4);margin-bottom:0;">
-        <?php foreach ($erros as $erro): ?>
-        <p class="form-error"><span class="i i-alert-triangle" aria-hidden="true"></span> <?= htmlspecialchars($erro) ?></p>
-        <?php endforeach; ?>
+        <p class="form-error" style="font-weight:700;"><span class="i i-alert-triangle" aria-hidden="true"></span> Confira <?= count($erros) === 1 ? 'o campo indicado' : 'os campos indicados' ?>:</p>
+        <ul class="erros-lista">
+            <?php foreach ($erros as $erro): ?>
+            <li><?= htmlspecialchars($erro) ?></li>
+            <?php endforeach; ?>
+        </ul>
     </div>
     <?php endif; ?>
 
-    <!-- Stage 4: data-envio-unico evita cadastro em dobro com duplo clique -->
-    <form method="POST" id="formEmpresa" novalidate data-envio-unico="Registrando empresa...">
+    <!-- Formulário em etapas (includes/etapas.php). Sem JavaScript, todas as
+         etapas aparecem juntas. data-envio-unico evita cadastro em dobro. -->
+    <form method="POST" id="formEmpresa" novalidate data-envio-unico="Registrando empresa..."
+          data-etapas data-etapa-inicial="<?= intval($etapa_erro) ?>">
         <?= csrf_field() ?>
 
-        <!-- ================================================================
-             CARD 1 — Cabeçalho do formulário
-             ================================================================ -->
         <div class="form-card">
             <div class="form-page-title">
                 <span class="i i-building" aria-hidden="true"></span>
-                <h2>Cadastro de Empresa</h2>
+                <h1 style="font-size:22px;">Cadastro de Empresa</h1>
             </div>
             <p class="form-page-subtitle">
-                Registre sua empresa para anunciar vagas e contratar jovens talentos.
+                Registre sua empresa em 4 etapas para anunciar vagas e encontrar jovens talentos.
             </p>
-            <!-- Stage 4: antes nada indicava quais campos eram obrigatórios -->
             <p class="text-secondary" style="font-size:12px;margin-top:6px;">Campos com * são obrigatórios.</p>
         </div>
 
         <!-- ================================================================
-             CARD 2 — Dados Empresariais
+             ETAPA 1 — Identificação da empresa e acesso
              ================================================================ -->
-        <div class="form-card">
-            <div class="form-section-header">
-                <span class="i i-building" aria-hidden="true"></span> Dados Empresariais
-            </div>
+        <section class="etapa form-card" data-etapa="1" data-titulo="Identificação" aria-labelledby="etapa1Titulo">
+            <h2 class="etapa-titulo" id="etapa1Titulo"><span class="i i-building" aria-hidden="true"></span> Identificação da empresa</h2>
+            <p class="etapa-descricao">CNPJ, nome e os dados de acesso à conta.</p>
 
-            <!-- CNPJ com botão de consulta automática -->
             <div class="form-group">
                 <label class="form-label" for="cnpj">CNPJ *</label>
                 <div class="input-row">
-                    <input
-                        type="text"
-                        id="cnpj"
-                        name="cnpj"
-                        class="form-control"
-                        placeholder="00.000.000/0000-00"
-                        maxlength="18"
-                        value="<?= htmlspecialchars($campos['cnpj'] ?? '') ?>"
-                        autocomplete="off"
-                        required>
-                    <button
-                        type="button"
-                        class="btn-icon"
-                        id="btnBuscarCnpj"
-                        title="Consultar CNPJ automaticamente"
-                        aria-label="Buscar CNPJ">
-                        <span class="i i-search" aria-hidden="true"></span>
-                    </button>
+                    <input type="text" id="cnpj" name="cnpj" class="form-control" placeholder="00.000.000/0000-00"
+                           maxlength="18" inputmode="numeric" value="<?= $val('cnpj') ?>" autocomplete="off" required
+                           data-digitos="14" data-erro-digitos="O CNPJ tem 14 números." data-revisao="CNPJ"
+                           aria-describedby="cnpjStatus"<?= $aria('cnpj') ?>>
+                    <button type="button" class="btn-icon" id="btnBuscarCnpj" title="Consultar CNPJ automaticamente"
+                            aria-label="Buscar dados pelo CNPJ"><span class="i i-search" aria-hidden="true"></span></button>
                 </div>
+                <small id="cnpjStatus" class="text-muted" style="font-size:12px;" aria-live="polite"></small>
+                <?= $err('cnpj') ?>
             </div>
 
-            <!-- Nome da Empresa -->
             <div class="form-group">
-                <label class="form-label" for="nomeEmpresa">Nome da Empresa (Razão Social) *</label>
-                <input
-                    type="text"
-                    id="nomeEmpresa"
-                    name="nome_empresa"
-                    class="form-control"
-                    placeholder="Empresa LTDA"
-                    value="<?= htmlspecialchars($campos['nome_empresa'] ?? '') ?>"
-                    required>
+                <label class="form-label" for="nomeEmpresa">Nome da empresa (razão social ou nome de exibição) *</label>
+                <input type="text" id="nomeEmpresa" name="nome_empresa" class="form-control" placeholder="Empresa LTDA"
+                       maxlength="150" value="<?= $val('nome_empresa') ?>" required data-revisao="Empresa"
+                       data-erro-vazio="Informe o nome da empresa."<?= $aria('nome_empresa') ?>>
+                <?= $err('nome_empresa') ?>
             </div>
 
-            <!-- Área de Atuação (Stage 3: cidade/UF foram para o card Endereço) -->
+            <div class="form-group">
+                <label class="form-label" for="email">E-mail de acesso *</label>
+                <div class="input-group">
+                    <span class="input-icon i i-mail" aria-hidden="true"></span>
+                    <input type="email" id="email" name="email" class="form-control" placeholder="rh@empresa.com.br"
+                           maxlength="100" value="<?= $val('email') ?>" required autocomplete="email" data-revisao="E-mail"
+                           data-erro-vazio="Informe o e-mail de acesso."<?= $aria('email') ?>>
+                </div>
+                <?= $err('email') ?>
+            </div>
+
             <div class="form-row">
                 <div class="form-group">
-                    <label class="form-label" for="areaAtuacao">Área de Atuação</label>
-                    <input
-                        type="text"
-                        id="areaAtuacao"
-                        name="area_atuacao"
-                        class="form-control"
-                        placeholder="Ex: Tecnologia, Varejo"
-                        value="<?= htmlspecialchars($campos['area_atuacao'] ?? '') ?>">
+                    <label class="form-label" for="senha">Senha *</label>
+                    <div class="input-group">
+                        <span class="input-icon i i-lock" aria-hidden="true"></span>
+                        <input type="password" id="senha" name="senha" class="form-control" placeholder="••••••••"
+                               minlength="8" required autocomplete="new-password" aria-describedby="senhaAjuda"
+                               data-erro-vazio="Crie uma senha."<?= $aria('senha') ?>>
+                    </div>
+                    <small id="senhaAjuda" class="text-secondary" style="font-size:12px;">Mínimo de 8 caracteres.</small>
+                    <?= $err('senha') ?>
                 </div>
-
+                <div class="form-group">
+                    <label class="form-label" for="confirmarSenha">Confirmar senha *</label>
+                    <div class="input-group">
+                        <span class="input-icon i i-lock" aria-hidden="true"></span>
+                        <input type="password" id="confirmarSenha" name="confirmar_senha" class="form-control" placeholder="••••••••"
+                               minlength="8" required autocomplete="new-password" data-igual-a="senha"
+                               data-erro-igual="As senhas não coincidem." data-erro-vazio="Repita a senha."<?= $aria('confirmar_senha') ?>>
+                    </div>
+                    <?= $err('confirmar_senha') ?>
+                </div>
             </div>
-
-        </div><!-- /.form-card dados empresariais -->
+        </section>
 
         <!-- ================================================================
-             CARD — Endereço (Stage 3)
-             Digite o CEP primeiro: rua, bairro, cidade e UF são preenchidos
-             automaticamente (ViaCEP); número e complemento ficam manuais.
-             Antes só existia o campo combinado "Cidade / Estado".
+             ETAPA 2 — Endereço principal (sede)
+             Outros endereços (escritórios, filiais) ficam em "Locais de
+             trabalho", depois do cadastro — este é o endereço principal.
              ================================================================ -->
-        <div class="form-card">
-            <div class="form-section-header">
-                <span class="i i-map-pin" aria-hidden="true"></span> Endereço
-            </div>
+        <section class="etapa form-card" data-etapa="2" data-titulo="Endereço principal" aria-labelledby="etapa2Titulo">
+            <h2 class="etapa-titulo" id="etapa2Titulo"><span class="i i-map-pin" aria-hidden="true"></span> Endereço principal</h2>
+            <p class="etapa-descricao">O endereço da sede é o local padrão das vagas. Escritórios e filiais podem ser
+                cadastrados depois, em "Locais de trabalho".</p>
 
             <?php if ($tem_endereco): ?>
             <div class="form-row">
                 <div class="form-group">
                     <label class="form-label" for="cep">CEP</label>
-                    <input type="text" id="cep" name="cep" class="form-control"
-                           placeholder="00000-000" maxlength="9" inputmode="numeric"
-                           autocomplete="postal-code"
-                           value="<?= htmlspecialchars($campos['cep'] ?? '') ?>">
+                    <input type="text" id="cep" name="cep" class="form-control" placeholder="00000-000" maxlength="9"
+                           inputmode="numeric" autocomplete="postal-code" value="<?= $val('cep') ?>" data-digitos="8"
+                           data-erro-digitos="O CEP tem 8 números." aria-describedby="cepStatus"<?= $aria('cep') ?>>
                     <small id="cepStatus" class="text-muted" style="font-size:12px;" aria-live="polite"></small>
+                    <?= $err('cep') ?>
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="logradouro">Rua / Logradouro</label>
-                    <input type="text" id="logradouro" name="logradouro" class="form-control"
-                           maxlength="150" autocomplete="address-line1"
-                           value="<?= htmlspecialchars($campos['logradouro'] ?? '') ?>">
+                    <input type="text" id="logradouro" name="logradouro" class="form-control" maxlength="150"
+                           autocomplete="address-line1" value="<?= $val('logradouro') ?>" data-revisao="Rua">
                 </div>
             </div>
-
             <div class="form-row">
                 <div class="form-group">
                     <label class="form-label" for="numero">Número</label>
-                    <input type="text" id="numero" name="numero" class="form-control"
-                           maxlength="10" placeholder="Ex: 123 ou S/N"
-                           value="<?= htmlspecialchars($campos['numero'] ?? '') ?>">
+                    <input type="text" id="numero" name="numero" class="form-control" maxlength="10" placeholder="Ex: 123 ou S/N"
+                           value="<?= $val('numero') ?>" data-revisao="Número">
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="complemento">Complemento</label>
-                    <input type="text" id="complemento" name="complemento" class="form-control"
-                           maxlength="100" placeholder="Ex: Sala 4, Bloco B"
-                           value="<?= htmlspecialchars($campos['complemento'] ?? '') ?>">
+                    <input type="text" id="complemento" name="complemento" class="form-control" maxlength="100"
+                           placeholder="Ex: Sala 4, Bloco B" value="<?= $val('complemento') ?>">
                 </div>
             </div>
-
             <div class="form-group">
                 <label class="form-label" for="bairro">Bairro</label>
-                <input type="text" id="bairro" name="bairro" class="form-control" maxlength="100"
-                       value="<?= htmlspecialchars($campos['bairro'] ?? '') ?>">
+                <input type="text" id="bairro" name="bairro" class="form-control" maxlength="100" value="<?= $val('bairro') ?>"
+                       data-revisao="Bairro">
             </div>
             <?php endif; ?>
 
@@ -318,174 +337,145 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="form-group">
                     <label class="form-label" for="cidade">Cidade</label>
                     <input type="text" id="cidade" name="cidade" class="form-control" maxlength="100"
-                           autocomplete="address-level2"
-                           value="<?= htmlspecialchars($campos['cidade'] ?? '') ?>">
+                           autocomplete="address-level2" value="<?= $val('cidade') ?>" data-revisao="Cidade"<?= $aria('cidade') ?>>
+                    <?= $err('cidade') ?>
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="estado">UF</label>
-                    <input type="text" id="estado" name="estado" class="form-control" maxlength="2"
-                           placeholder="SP" autocomplete="address-level1"
-                           value="<?= htmlspecialchars($campos['estado'] ?? '') ?>">
+                    <input type="text" id="estado" name="estado" class="form-control" maxlength="2" placeholder="SP"
+                           autocomplete="address-level1" value="<?= $val('estado') ?>" data-uf data-revisao="UF"<?= $aria('estado') ?>>
+                    <?= $err('estado') ?>
                 </div>
             </div>
-        </div><!-- /.form-card endereço -->
+        </section>
 
         <!-- ================================================================
-             CARD 3 — Acesso
+             ETAPA 3 — Perfil da empresa (opcional)
              ================================================================ -->
-        <div class="form-card">
-            <div class="form-section-header">
-                <span class="i i-lock" aria-hidden="true"></span> Acesso
-            </div>
+        <section class="etapa form-card" data-etapa="3" data-titulo="Perfil da empresa" aria-labelledby="etapa3Titulo">
+            <h2 class="etapa-titulo" id="etapa3Titulo"><span class="i i-briefcase" aria-hidden="true"></span> Perfil da empresa</h2>
+            <p class="etapa-descricao">Opcional — ajuda os jovens a conhecer a empresa. Dá para completar depois, no perfil.</p>
 
-            <!-- E-mail -->
             <div class="form-group">
-                <label class="form-label" for="email">E-mail Corporativo *</label>
-                <div class="input-group">
-                    <span class="input-icon i i-mail" aria-hidden="true"></span>
-                    <input
-                        type="email"
-                        id="email"
-                        name="email"
-                        class="form-control"
-                        placeholder="rh@empresa.com.br"
-                        value="<?= htmlspecialchars($campos['email'] ?? '') ?>"
-                        required>
-                </div>
+                <label class="form-label" for="areaAtuacao">Área de atuação</label>
+                <input type="text" id="areaAtuacao" name="area_atuacao" class="form-control" maxlength="100"
+                       placeholder="Ex: Tecnologia, Varejo" value="<?= $val('area_atuacao') ?>" data-revisao="Área de atuação">
             </div>
-
-            <!-- Senha + Confirmar Senha (grid 2 colunas) -->
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label" for="senha">Senha *</label>
-                    <div class="input-group">
-                        <span class="input-icon i i-lock" aria-hidden="true"></span>
-                        <input
-                            type="password"
-                            id="senha"
-                            name="senha"
-                            class="form-control"
-                            placeholder="••••••••"
-                            minlength="8"
-                            aria-describedby="senhaAjuda"
-                            required>
-                    </div>
-                    <!-- Stage 4: a regra só aparecia depois do erro -->
-                    <small id="senhaAjuda" class="text-secondary" style="font-size:12px;">Mínimo de 8 caracteres.</small>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="confirmarSenha">Confirmar Senha *</label>
-                    <div class="input-group">
-                        <span class="input-icon i i-lock" aria-hidden="true"></span>
-                        <input
-                            type="password"
-                            id="confirmarSenha"
-                            name="confirmar_senha"
-                            class="form-control"
-                            placeholder="••••••••"
-                            minlength="8"
-                            required>
-                    </div>
-                </div>
+            <div class="form-group">
+                <label class="form-label" for="descricaoEmpresa">Sobre a empresa</label>
+                <textarea id="descricaoEmpresa" name="descricao" class="form-control" rows="3" maxlength="2000"
+                          placeholder="O que a empresa faz e como é trabalhar nela."
+                          data-revisao="Sobre a empresa"><?= $val('descricao') ?></textarea>
             </div>
-
-        </div><!-- /.form-card acesso -->
+            <div class="form-group">
+                <label class="form-label" for="siteOficial">Site</label>
+                <input type="text" id="siteOficial" name="site_oficial" class="form-control" maxlength="255" inputmode="url"
+                       placeholder="www.empresa.com.br" value="<?= $val('site_oficial') ?>" data-revisao="Site"<?= $aria('site_oficial') ?>>
+                <?= $err('site_oficial') ?>
+            </div>
+        </section>
 
         <!-- ================================================================
-             CARD 4 — Submit
+             ETAPA 4 — Revisão e conclusão
              ================================================================ -->
-        <div class="form-submit-card">
-            <button type="submit" class="btn btn-primary btn-full btn-lg">
-                Registrar Empresa
-            </button>
-            <p style="text-align:center;font-size:13px;color:var(--text-secondary);">
-                Sua empresa já é parceira?
-                <a href="login.php" class="font-semibold">Faça login</a>
-            </p>
-        </div>
+        <section class="etapa form-card" data-etapa="4" data-titulo="Revisão" aria-labelledby="etapa4Titulo">
+            <h2 class="etapa-titulo" id="etapa4Titulo"><span class="i i-list-checks" aria-hidden="true"></span> Revisão e conclusão</h2>
+            <p class="etapa-descricao">Confira os dados antes de criar a conta.</p>
 
+            <div class="etapas-revisao" data-etapas-revisao>
+                <p class="text-secondary" style="font-size:13px;">Confira as informações das etapas anteriores antes de concluir.</p>
+            </div>
+
+            <div class="etapa-aceite">
+                <label class="form-check">
+                    <input type="checkbox" name="aceite_termos" value="1" required
+                           data-erro-vazio="Para criar a conta, leia e aceite os Termos de Uso e a Política de Privacidade."
+                           <?= !empty($campos['aceite_termos']) ? 'checked' : '' ?><?= $aria('aceite_termos') ?>>
+                    <span class="form-check-label">Li e aceito os
+                        <a class="link-botao" href="../documentos.php?doc=termos" target="_blank" rel="noopener" data-jc-modal-abrir="modalTermos">Termos de Uso</a> e a
+                        <a class="link-botao" href="../documentos.php?doc=privacidade" target="_blank" rel="noopener" data-jc-modal-abrir="modalPrivacidade">Política de Privacidade</a>. *</span>
+                </label>
+                <?= $err('aceite_termos') ?>
+            </div>
+            <?= $err('geral') ?>
+
+            <div class="form-submit-card" data-etapas-fim>
+                <button type="submit" class="btn btn-primary btn-full btn-lg">Registrar empresa</button>
+                <p style="text-align:center;font-size:13px;color:var(--text-secondary);">
+                    Sua empresa já é parceira? <a href="login.php" class="font-semibold">Faça login</a>
+                </p>
+            </div>
+        </section>
     </form>
 
 </div><!-- /.form-container -->
 </div><!-- /.form-page -->
 
-<!-- FABs + Assistente + Acessibilidade (Stage 4: antes o botão ♿ não tinha painel nem script) -->
+<?php include dirname(__DIR__) . '/includes/institucional.php'; ?>
 <?php include dirname(__DIR__) . '/includes/assistente.php'; ?>
+<?= jc_etapas_script() ?>
 
-<!-- ============================================================
-     SCRIPTS
-     ============================================================ -->
 <script>
-/* ── Aplica tema salvo ─────────────────────────────────────── */
+/* Tema salvo */
 const savedTheme = localStorage.getItem('jc-theme');
 if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
 
-/* Stage 4: com erro de validação, o foco vai para a lista de erros no topo */
+/* Erro do servidor: o foco vai para o resumo dos erros */
 document.getElementById('errosCadastro')?.focus();
 
-/* ── Máscara de CNPJ ───────────────────────────────────────── */
+/* Máscara do CNPJ (00.000.000/0000-00) */
 document.getElementById('cnpj')?.addEventListener('input', function () {
     let v = this.value.replace(/\D/g, '').slice(0, 14);
-    v = v.replace(/^(\d{2})(\d)/,           '$1.$2');
-    v = v.replace(/^(\d{2})\.(\d{3})(\d)/,  '$1.$2.$3');
-    v = v.replace(/\.(\d{3})(\d)/,          '.$1/$2');
-    v = v.replace(/(\d{4})(\d)/,            '$1-$2');
+    v = v.replace(/^(\d{2})(\d)/,          '$1.$2');
+    v = v.replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3');
+    v = v.replace(/\.(\d{3})(\d)/,         '.$1/$2');
+    v = v.replace(/(\d{4})(\d)/,           '$1-$2');
     this.value = v;
 });
 
-/* ── Busca CNPJ via BrasilAPI ──────────────────────────────── */
+/* CNPJ → nome, cidade/UF e CEP (BrasilAPI). Só preenche o que está vazio
+   (o nome é trocado pela razão social). O resultado aparece embaixo do campo. */
 document.getElementById('btnBuscarCnpj')?.addEventListener('click', async function () {
     const cnpjRaw = document.getElementById('cnpj').value.replace(/\D/g, '');
-
+    const status  = document.getElementById('cnpjStatus');
     if (cnpjRaw.length !== 14) {
-        alert('Digite um CNPJ completo (14 dígitos) antes de buscar.');
+        if (status) status.textContent = 'Digite o CNPJ completo (14 números) antes de buscar.';
         return;
     }
-
-    this.innerHTML = '<span class="i i-loader spin" aria-hidden="true"></span>';   // Stage 5: ícone de carregamento
+    this.replaceChildren(jcIcone('loader'));
+    this.firstChild?.classList.add('spin');
     this.setAttribute('aria-busy', 'true');
-    this.disabled    = true;
-
+    this.disabled = true;
+    if (status) status.textContent = 'Consultando o CNPJ...';
     try {
         const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpjRaw}`);
-
-        // Stage 4: CNPJ inexistente ≠ falha de conexão (antes a falha aparecia em inglês: "Failed to fetch")
         if (!res.ok) throw Object.assign(new Error('CNPJ não encontrado'), { naoEncontrado: true });
-
         const data = await res.json();
-
-        // Preenche campos automaticamente com os dados retornados
         const nomeEl = document.getElementById('nomeEmpresa');
-        if (nomeEl && data.razao_social)
-            nomeEl.value = data.razao_social;
-
-        // Cidade/UF do CNPJ (como antes), só se ainda estiverem vazios
+        if (nomeEl && data.razao_social) nomeEl.value = data.razao_social;
         const cidEl = document.getElementById('cidade');
         const ufEl  = document.getElementById('estado');
         if (cidEl && !cidEl.value.trim() && data.municipio) cidEl.value = data.municipio;
         if (ufEl  && !ufEl.value.trim()  && data.uf)        ufEl.value  = data.uf;
-
-        // Stage 3: usa o CEP do CNPJ para preencher o endereço pelo mesmo fluxo do campo CEP
         const cepCnpj = document.getElementById('cep');
         if (cepCnpj && !cepCnpj.value.trim() && data.cep) {
             cepCnpj.value = String(data.cep).replace(/\D/g, '').replace(/^(\d{5})(\d{3})$/, '$1-$2');
             buscarCep();
         }
-
+        if (status) status.replaceChildren(jcIcone('check-circle'), ' Dados preenchidos pelo CNPJ. Confira antes de continuar.');
     } catch (err) {
-        alert(err?.naoEncontrado
+        if (status) status.textContent = err?.naoEncontrado
             ? 'CNPJ não encontrado. Confira o número ou preencha os dados manualmente.'
-            : 'Não foi possível consultar o CNPJ agora. Preencha os dados manualmente.');
+            : 'Não foi possível consultar o CNPJ agora. Preencha os dados manualmente.';
     } finally {
-        this.innerHTML = '<span class="i i-search" aria-hidden="true"></span>';
+        this.replaceChildren(jcIcone('search'));
         this.removeAttribute('aria-busy');
-        this.disabled    = false;
+        this.disabled = false;
     }
 });
 
-/* ── Stage 3: endereço — CEP primeiro (ViaCEP); número e complemento manuais ── */
-// Revisão Stage 3: começa com o CEP já preenchido — só focar/sair do campo não
-// rebusca nem sobrescreve rua/bairro digitados à mão (CEPs gerais de cidade)
+/* CEP → rua, bairro, cidade e UF (ViaCEP); número e complemento são digitados.
+   Não rebusca o CEP já preenchido (não sobrescreve o que foi digitado à mão). */
 let ultimoCepBuscado = (document.getElementById('cep')?.value || '').replace(/\D/g, '');
 async function buscarCep() {
     const cepEl  = document.getElementById('cep');
@@ -519,19 +509,6 @@ document.getElementById('cep')?.addEventListener('input', function () {
     if (v.length === 9) buscarCep();
 });
 document.getElementById('cep')?.addEventListener('blur', buscarCep);
-
-document.getElementById('formEmpresa')?.addEventListener('submit', function (e) {
-    // Stage 3: cidade/UF agora são campos próprios (preenchidos pelo CEP) —
-    // não existe mais o campo combinado "Cidade - UF" para separar aqui.
-
-    // Validação client-side: senhas coincidem?
-    const s1 = document.getElementById('senha')?.value;
-    const s2 = document.getElementById('confirmarSenha')?.value;
-    if (s1 !== s2) {
-        e.preventDefault();
-        alert('As senhas não coincidem. Verifique e tente novamente.');
-    }
-});
 </script>
 
 </body>

@@ -1,56 +1,215 @@
 <?php
-// Garante que a sessão está ativa para conseguirmos identificar quem gerou o log
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+/* ============================================================
+   includes/logger.php — registro de eventos (logs) do JovemConnect
 
-/**
- * Função global para registar eventos técnicos no sistema.
- * 
- * @param string $mensagem Texto descritivo sobre o que aconteceu.
- * @param string $nivel Categoria do evento (INFO, WARNING, ERROR).
- */
-function registrar_log($mensagem, $nivel = 'INFO') {
-    // 1. Define o caminho da pasta e do arquivo de log de forma absoluta
-    $diretorio_logs = __DIR__ . '/../logs';
-    $arquivo_log = $diretorio_logs . '/sistema.log';
+   Cada evento vira UMA linha JSON num arquivo de log:
+     {"ts":"2026-10-10T09:30:00-03:00","nivel":"info","componente":"php",
+      "evento":"login.sucesso","req":"a1b2c3d4e5f60718","usuario":"jovem:12",...}
 
-    // 2. Cria a pasta "logs" automaticamente se ela ainda não existir no servidor
-    if (!is_dir($diretorio_logs)) {
-        mkdir($diretorio_logs, 0755, true);
+   Arquivos (pasta definida por JC_LOG_DIR no .env; padrão: logs/ do projeto,
+   bloqueada para o navegador pelo logs/.htaccess):
+     app.log        → funcionamento: erros, Match, IA, Flask, vagas, candidaturas
+     seguranca.log  → auditoria: login, cadastro, conta, CSRF, acesso negado
+   O Flask grava ia.log na mesma pasta (IA/recomendar.py).
+
+   Proteções:
+   - Campos sensíveis (senha, token, CPF, telefone, e-mail, CEP, chave...)
+     são trocados por "[removido]" antes de gravar, pelo NOME do campo.
+   - Textos são cortados (300 caracteres) e não podem quebrar a linha:
+     o JSON escapa \n e \r, então ninguém consegue "inventar" um evento.
+   - IP só aparece em eventos de segurança e anonimizado (último bloco = 0).
+   - Rotação: um arquivo por dia (e um novo se passar de 2 MB) → o atual
+     vira app-AAAAMMDD-HHMMSS.log. Arquivos antigos com mais de 30 dias são
+     apagados na próxima gravação (no máximo 60 por tipo). Configurável:
+     JC_LOG_MAX_MB, JC_LOG_DIAS.
+   - Se não der para gravar (pasta sem permissão, disco cheio), o site
+     continua funcionando: a falha vai só para o error_log do PHP.
+
+   Uso:
+     jc_log('vaga.criada', 'info', ['vaga' => $vaga_id]);
+     jc_log_seguranca('login.falha', 'aviso', ['tipo' => 'jovem']);
+     jc_log_excecao($e);              // erros inesperados
+     registrar_log('texto', 'ERROR'); // forma antiga — continua funcionando
+   ============================================================ */
+
+if (!function_exists('jc_log')) {
+
+    /** Identificador desta requisição (correlaciona PHP → Flask → Gemini). Não é a sessão. */
+    function jc_req_id(): string {
+        static $id = null;
+        if ($id === null) {
+            $recebido = $_SERVER['HTTP_X_REQUEST_ID'] ?? '';
+            $id = (is_string($recebido) && preg_match('/^[a-f0-9]{16,32}$/', $recebido))
+                ? $recebido
+                : bin2hex(random_bytes(8));
+        }
+        return $id;
     }
 
-    // 3. Captura os metadados do utilizador atual para auditoria.
-    //    Chaves reais da sessão nesta versão: jovem_id/jovem_nome (jovem) e
-    //    empresa_id/empresa_nome (empresa) — não existe 'usuario_id'/'usuario_tipo'
-    //    em nenhum outro ponto do sistema. Corrigido na Etapa 4 (V3.10).
-    $data_hora    = date('Y-m-d H:i:s');
-    $ip_usuario   = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
-
-    if (isset($_SESSION['jovem_id'])) {
-        $usuario_id   = $_SESSION['jovem_id'];
-        $usuario_tipo = 'JOVEM';
-    } elseif (isset($_SESSION['empresa_id'])) {
-        $usuario_id   = $_SESSION['empresa_id'];
-        $usuario_tipo = 'EMPRESA';
-    } else {
-        $usuario_id   = 'ANONIMO';
-        $usuario_tipo = 'VISITANTE';
+    /** Lê uma configuração do ambiente (.env já carregado por includes/env.php). */
+    function jc_log_config(string $nome, string $padrao): string {
+        $v = getenv($nome);
+        return ($v === false || $v === '') ? $padrao : $v;
     }
 
-    // 4. Formata a linha de texto de forma padronizada e limpa
-    // PHP_EOL adiciona uma quebra de linha correta no fim (Enter)
-    $linha_log = sprintf(
-        "[%s] [%s] [IP: %s] [USER: %s (%s)] - %s" . PHP_EOL,
-        $data_hora,
-        strtoupper($nivel), // Garante que o nível fica em letras maiúsculas
-        $ip_usuario,
-        $usuario_id,
-        $usuario_tipo,
-        $mensagem
-    );
+    /** Pasta dos logs (criada se não existir). */
+    function jc_log_dir(): string {
+        $dir = jc_log_config('JC_LOG_DIR', dirname(__DIR__) . '/logs');
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0750, true);
+        }
+        return rtrim($dir, '/\\');
+    }
 
-    // 5. Grava o texto no arquivo. 
-    // FILE_APPEND faz com que o texto seja adicionado no final do arquivo, sem apagar o que já lá estava.
-    file_put_contents($arquivo_log, $linha_log, FILE_APPEND);
+    /** Nomes de campo que NUNCA são gravados (comparação sem maiúsculas/acentos). */
+    function jc_log_campo_proibido(string $campo): bool {
+        $c = strtolower($campo);
+        foreach (['senha', 'password', 'pass', 'token', 'csrf', 'cookie', 'sess', 'cpf', 'cnpj',
+                  'telefone', 'phone', 'email', 'e-mail', 'cep', 'endereco', 'logradouro', 'numero',
+                  'chave', 'key', 'secret', 'segredo', 'codigo', 'curriculo', 'mensagem', 'resposta',
+                  'prompt', 'nascimento', 'authorization'] as $p) {
+            if (str_contains($c, $p)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Limpa um valor: tira caracteres de controle, corta e remove campos proibidos. */
+    function jc_log_limpar($valor, int $nivel = 0) {
+        if (is_array($valor)) {
+            if ($nivel > 3) {
+                return '[...]';
+            }
+            $saida = [];
+            foreach (array_slice($valor, 0, 30, true) as $k => $v) {
+                $saida[$k] = (is_string($k) && jc_log_campo_proibido($k)) ? '[removido]' : jc_log_limpar($v, $nivel + 1);
+            }
+            return $saida;
+        }
+        if (is_bool($valor) || is_int($valor) || is_float($valor) || $valor === null) {
+            return $valor;
+        }
+        $texto = preg_replace('/[\x00-\x1F\x7F]+/u', ' ', (string) $valor) ?? '';
+        // e-mails e sequências longas de dígitos (CPF, telefone, cartão) que escaparem pelo texto
+        $texto = preg_replace('/[^\s@"\']+@[^\s@"\']+/', '[e-mail]', $texto) ?? '';
+        $texto = preg_replace('/\d[\d.\-\/ ]{8,}\d/', '[número]', $texto) ?? '';
+        return mb_substr($texto, 0, 300);
+    }
+
+    /** Quem fez a ação (tipo:id interno) — sem nome nem e-mail. */
+    function jc_log_usuario(): string {
+        // $_SESSION continua legível depois de session_write_close()
+        if (isset($_SESSION) && is_array($_SESSION)) {
+            if (isset($_SESSION['jovem_id'])) {
+                return 'jovem:' . intval($_SESSION['jovem_id']);
+            }
+            if (isset($_SESSION['empresa_id'])) {
+                return 'empresa:' . intval($_SESSION['empresa_id']);
+            }
+        }
+        return 'visitante';
+    }
+
+    /** IP anonimizado (IPv4: último bloco = 0; IPv6: só os 3 primeiros grupos). */
+    function jc_log_ip(): string {
+        $ip = $_SERVER['REMOTE_ADDR'] ?? '';
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+            return preg_replace('/\.\d+$/', '.0', $ip);
+        }
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+            return implode(':', array_slice(explode(':', $ip), 0, 3)) . '::';
+        }
+        return '-';
+    }
+
+    /** Rotação diária ou por tamanho + retenção por idade (e quantidade). */
+    function jc_log_rotacionar(string $arquivo): void {
+        $max = max(1, intval(jc_log_config('JC_LOG_MAX_MB', '2'))) * 1024 * 1024;
+        clearstatcache(true, $arquivo);
+        if (!is_file($arquivo)) {
+            return;
+        }
+        // Data do primeiro evento do arquivo (início da linha: {"ts":"AAAA-MM-DD...)
+        $inicio = (string) @file_get_contents($arquivo, false, null, 0, 20);
+        $dia    = preg_match('/"ts":"(\d{4}-\d{2}-\d{2})/', $inicio, $m) ? $m[1] : date('Y-m-d');
+        if (filesize($arquivo) < $max && $dia === date('Y-m-d')) {
+            return;
+        }
+        $base = substr($arquivo, 0, -4);   // tira ".log"
+        @rename($arquivo, $base . '-' . date('Ymd-His') . '.log');
+        $antigos = glob($base . '-*.log') ?: [];
+        rsort($antigos);                    // nomes com data: mais novo primeiro
+        $dias = max(1, intval(jc_log_config('JC_LOG_DIAS', '30')));
+        foreach ($antigos as $i => $velho) {
+            if ($i >= 60 || @filemtime($velho) < time() - $dias * 86400) {
+                @unlink($velho);
+            }
+        }
+    }
+
+    /**
+     * Grava um evento.
+     * @param string $evento  nome curto "area.acao" (ex.: "vaga.criada")
+     * @param string $nivel   debug | info | aviso | erro
+     * @param array  $dados   detalhes NÃO sensíveis (ids, contagens, motivo, duração)
+     * @param string $arquivo 'app' ou 'seguranca'
+     */
+    function jc_log(string $evento, string $nivel = 'info', array $dados = [], string $arquivo = 'app'): void {
+        try {
+            $linha = [
+                'ts'         => date('c'),
+                'nivel'      => in_array($nivel, ['debug', 'info', 'aviso', 'erro'], true) ? $nivel : 'info',
+                'componente' => 'php',
+                'evento'     => preg_replace('/[^a-z0-9_.\-]/i', '', $evento) ?: 'evento',
+                'req'        => jc_req_id(),
+                'usuario'    => jc_log_usuario(),
+                'pagina'     => jc_log_limpar(strtok($_SERVER['SCRIPT_NAME'] ?? '-', '?')),
+            ];
+            if ($arquivo === 'seguranca') {
+                $linha['ip'] = jc_log_ip();
+            }
+            if ($dados) {
+                $linha['dados'] = jc_log_limpar($dados);
+            }
+            $json = json_encode($linha, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+            $destino = jc_log_dir() . '/' . ($arquivo === 'seguranca' ? 'seguranca' : 'app') . '.log';
+            jc_log_rotacionar($destino);
+            if (@file_put_contents($destino, $json . PHP_EOL, FILE_APPEND | LOCK_EX) === false) {
+                error_log('[JovemConnect] não foi possível gravar o log em ' . basename($destino));
+            }
+        } catch (Throwable $e) {
+            error_log('[JovemConnect] falha no logger: ' . get_class($e));
+        }
+    }
+
+    /** Evento de segurança/auditoria (vai para seguranca.log, com IP anonimizado). */
+    function jc_log_seguranca(string $evento, string $nivel = 'info', array $dados = []): void {
+        jc_log($evento, $nivel, $dados, 'seguranca');
+    }
+
+    /**
+     * Erro inesperado. Não grava a mensagem crua de erros de banco (pode ter SQL e
+     * dados digitados) — só o código; nas demais, a mensagem passa pela limpeza.
+     */
+    function jc_log_excecao(Throwable $e, string $evento = 'erro.inesperado'): void {
+        $dados = [
+            'tipo'  => get_class($e),
+            'local' => basename($e->getFile()) . ':' . $e->getLine(),
+        ];
+        if ($e instanceof mysqli_sql_exception) {
+            $dados['errno'] = $e->getCode();
+            $dados['sqlstate'] = method_exists($e, 'getSqlState') ? $e->getSqlState() : '';
+        } else {
+            // valores entre aspas costumam ser dados → "?"
+            $dados['detalhe'] = preg_replace('/([\'"]).*?\1/u', '?', $e->getMessage());
+        }
+        jc_log($evento, 'erro', $dados);
+    }
+
+    /** Forma antiga (texto livre) — mantida para os arquivos que ainda a usam. */
+    function registrar_log($mensagem, $nivel = 'INFO'): void {
+        $mapa = ['ERROR' => 'erro', 'WARNING' => 'aviso', 'WARN' => 'aviso', 'DEBUG' => 'debug'];
+        jc_log('legado', $mapa[strtoupper((string) $nivel)] ?? 'info', ['texto' => (string) $mensagem]);
+    }
 }

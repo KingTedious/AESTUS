@@ -1,5 +1,5 @@
 <?php
-require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Sessao endurecida + CSRF
 require_once dirname(__DIR__) . '/includes/config.php';
 require_once dirname(__DIR__) . '/includes/auth.php';
 require_once dirname(__DIR__) . '/includes/sms.php';
@@ -44,7 +44,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_enviar_sms'])) {
         $update->execute();
         $update->close();
 
-        if (enviarCodigoSMS($novoTelefone, $novoCodigo)) {
+        $sms_ok = enviarCodigoSMS($novoTelefone, $novoCodigo);
+        jc_log_seguranca('verificacao.telefone.enviado', $sms_ok ? 'info' : 'aviso', ['ok' => (bool) $sms_ok]);
+        if ($sms_ok) {
             $mensagemSucesso = "Código SMS enviado com sucesso para " . htmlspecialchars($novoTelefone) . "!";
             $user['telefone'] = $novoTelefone;
             $user['codigo_telefone'] = $novoCodigo;
@@ -69,9 +71,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_validar_codigo']
         $update->execute();
         $update->close();
 
+        jc_log_seguranca('verificacao.telefone.sucesso', 'info');
         header("Location: ../dashboard/index.php?phone_verified=1");
         exit;
     } else {
+        jc_log_seguranca('verificacao.telefone.falha', 'aviso');
         $mensagemErro = "Código incorreto ou expirado. Tente novamente.";
     }
 }
@@ -90,7 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_validar_codigo']
 
 <?php include_once dirname(__DIR__) . '/includes/header.php'; ?>
 
-<!-- Stage 5.1: 60 px da barra fixa + 40 px de respiro (antes o topo ficava atrás da barra) -->
+<!-- 60 px da barra fixa + 40 px de respiro -->
 <main class="container verificacao-main" style="padding: 100px 16px 40px; max-width: 480px; margin: 0 auto;">
     <div class="card" style="text-align: center; padding: 32px 24px;">
         <div class="icone-destaque" aria-hidden="true"><span class="i i-smartphone" aria-hidden="true"></span></div>
@@ -141,7 +145,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_validar_codigo']
                 <button type="submit" class="btn btn-primary btn-full">Confirmar Código</button>
             </form>
         <?php endif; ?>
-        <!-- Stage 4: saídas explícitas (antes só pelo logo do topo) -->
+        <!-- Saídas explícitas -->
         <p style="margin-top: 24px; font-size: 13px; display: flex; flex-direction: column; gap: 8px; align-items: center;">
             <a href="escolher_verificacao.php" class="back-link"><span class="i i-arrow-left" aria-hidden="true"></span> Escolher outra forma de verificação</a>
             <a href="../dashboard/index.php" class="back-link">Verificar depois e ir para o meu painel <span class="i i-arrow-right" aria-hidden="true"></span></a>

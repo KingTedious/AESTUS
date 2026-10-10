@@ -10,16 +10,6 @@
      // 2. (opcional) defina $page_title antes do include:
      //    $page_title = 'Minhas Candidaturas';
      //    include '../includes/header.php';
-
-   ❌ PROBLEMAS DO ORIGINAL (todos corrigidos aqui):
-     · Somente suporte a $_SESSION['jovem_id'] — empresa invisível
-     · Todos os estilos inline (sem classes do design system)
-     · Variáveis CSS inexistentes: --primary, --text-main
-     · Google Fonts duplicado (Inter carregado duas vezes + Poppins
-       que não é usada em nenhuma outra parte do projeto)
-     · Sem data-theme no <html> → tema nunca aplicado pelo CSS
-     · Sem título dinâmico → todas as páginas mostram o mesmo título
-     · Sem navbar pública para usuários não logados
    ============================================================ */
 
 // Segurança: session_status evita "headers already sent" se
@@ -56,7 +46,7 @@ $_hdr_title = !empty($page_title)
 
     <!-- Design System JovemConnect v3.00 -->
     <link rel="stylesheet" href="../Assets/css/style.css">
-    <!-- Stage 5: ícone da aba = símbolo oficial -->
+    <!-- Ícone da aba = símbolo oficial -->
     <link rel="icon" type="image/png" sizes="32x32" href="../assets/img/marca/jovemconnect-icone-32.png">
     <link rel="apple-touch-icon" href="../assets/img/marca/jovemconnect-icone-180.png">
 
@@ -91,7 +81,7 @@ $_hdr_title = !empty($page_title)
     </a>
 
     <!-- Barra de busca central.
-         Stage 4: antes era só um campo solto — nenhuma página tratava a busca
+         Antes era só um campo solto — nenhuma página tratava a busca
          e digitar não fazia nada. Para o jovem, agora busca de verdade na
          lista de vagas. Para a empresa não existe busca global de candidatos,
          então o campo não aparece (o painel da empresa tem a busca dele). -->
@@ -124,7 +114,7 @@ $_hdr_title = !empty($page_title)
             🌙
         </button>
 
-        <!-- Atalhos e perfil (Stage 4: mesmos atalhos dos dashboards em todas as páginas internas) -->
+        <!-- Atalhos e perfil (mesmos atalhos dos dashboards em todas as páginas internas) -->
         <?php if ($_hdr_jovem): ?>
             <a href="../candidaturas/minhas.php" class="icon-btn" title="Minhas candidaturas" aria-label="Minhas candidaturas"><span class="i i-clipboard-list" aria-hidden="true"></span></a>
             <a href="../Vagas/favoritos.php"     class="icon-btn" title="Vagas favoritas"     aria-label="Vagas favoritas"><span class="i i-star" aria-hidden="true"></span></a>
@@ -159,7 +149,7 @@ $_hdr_title = !empty($page_title)
 
     <div class="nav-links">
         <a href="../index.php#sobre">Sobre</a>
-        <a href="../jovem/login.php">Entrar</a><!-- Stage 4: mesmo destino do "Entrar" da página inicial (a tela tem as abas Jovem/Empresa) -->
+        <a href="../jovem/login.php">Entrar</a><!-- Mesmo destino do "Entrar" da página inicial (a tela tem as abas Jovem/Empresa) -->
     </div>
 
     <div class="nav-actions">
@@ -170,7 +160,7 @@ $_hdr_title = !empty($page_title)
             aria-label="Alternar tema claro/escuro">
             🌙
         </button>
-        <a href="../comecar.php" class="btn btn-primary btn-sm">Começar</a><!-- Stage 3: antes ia ao login de empresa -->
+        <a href="../comecar.php" class="btn btn-primary btn-sm">Começar</a>
     </div>
 
 </nav><!-- /.navbar -->

@@ -2,7 +2,7 @@
 /* ============================================================
    dashboard/jovem.php
    ============================================================ */
-require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Sessao endurecida + CSRF
 
 if (!isset($_SESSION['jovem_id'])) {
     header("Location: ../jovem/login.php");
@@ -111,7 +111,7 @@ $noticias = [
 
     <div class="navbar-inner-right">
         <button class="icon-btn btn-theme" id="btnTheme" title="Alternar tema" aria-label="Alternar tema">🌙</button>
-        <!-- Stage 3: páginas existentes que não tinham nenhum link de acesso -->
+        <!-- Páginas existentes que não tinham nenhum link de acesso -->
         <a href="../candidaturas/minhas.php" class="icon-btn" title="Minhas candidaturas" aria-label="Minhas candidaturas"><span class="i i-clipboard-list" aria-hidden="true"></span></a>
         <a href="../Vagas/favoritos.php" class="icon-btn" title="Vagas favoritas" aria-label="Vagas favoritas"><span class="i i-star" aria-hidden="true"></span></a>
         <a href="../jovem/perfil.php"  class="icon-btn" title="Meu Perfil" aria-label="Meu Perfil"><span class="i i-user" aria-hidden="true"></span></a>
@@ -164,7 +164,7 @@ $noticias = [
                 </div>
                 <?php endforeach; ?>
 
-                <!-- Stage 4: era um link para "#" (não levava a lugar nenhum); as notícias ainda são fixas -->
+                <!-- Era um link para "#" (não levava a lugar nenhum); as notícias ainda são fixas -->
                 <span class="news-see-all" style="cursor:default;opacity:.75;">Mais notícias em breve</span>
 
             </div>
@@ -202,7 +202,7 @@ $noticias = [
                 <!-- Título + badge de área -->
                 <div class="job-card-top">
                     <h3 class="job-card-title">
-                        <!-- Stage 4: link de verdade — antes só o clique do mouse no card abria a vaga
+                        <!-- Link de verdade — antes só o clique do mouse no card abria a vaga
                              (pelo teclado não havia como chegar aos detalhes) -->
                         <a href="../Vagas/listar.php?id=<?= intval($vaga['id']) ?>&amp;voltar=painel"
                            onclick="event.stopPropagation()"
@@ -295,7 +295,7 @@ $noticias = [
 
 <!-- ============================================================
      ASSISTENTE + ACESSIBILIDADE + FABs
-     Stage 4: este painel tinha uma cópia própria do chat e do painel de
+     Este painel tinha uma cópia própria do chat e do painel de
      acessibilidade, com outras chaves no localStorage (a preferência ligada
      aqui se perdia nas outras páginas). Agora usa o mesmo componente de
      todas as páginas.
@@ -352,16 +352,16 @@ async function avaliarMatch(vagaId, btn) {
         });
 
         if (!res.ok) {
-            // Stage 3: guarda o motivo devolvido pelo servidor (ex.: "Servidor de IA indisponível.")
+            // Guarda o motivo devolvido pelo servidor (ex.: "Servidor de IA indisponível.")
             const corpo = await res.json().catch(() => ({}));
-            // Stage 4: sem motivo do servidor, mensagem amigável (antes aparecia "HTTP 500")
+            // Sem motivo do servidor, mensagem amigável
             throw Object.assign(new Error(corpo.error || 'Não foi possível avaliar agora.'), { amigavel: true });
         }
 
         const { score, analise } = await res.json();
 
-        btn.replaceChildren(jcIcone('sparkles'), `Match: ${score ?? '--'}%`);   // Stage 5: ícone + texto
-        // Stage 5.1: atalho para a análise detalhada (composição da nota, local, contexto)
+        btn.replaceChildren(jcIcone('sparkles'), `Match: ${score ?? '--'}%`);   // Ícone + texto
+        // Atalho para a análise detalhada (composição da nota, local, contexto)
         const rodape = btn.closest('.job-card-footer');
         if (rodape && !rodape.querySelector('.match-link')) {
             const link = document.createElement('a');
@@ -371,13 +371,13 @@ async function avaliarMatch(vagaId, btn) {
             rodape.appendChild(link);
         }
         btn.style.color = 'var(--accent)';
-        btn.classList.add('match-resultado');   // Stage 5.1: resultado legível (sem o esmaecido de desabilitado)
+        btn.classList.add('match-resultado');   // Resultado legível (sem o esmaecido de desabilitado)
         btn.title       = analise ?? '';
 
     } catch (err) {
         btn.disabled  = false;
-        // Stage 3: antes o botão só voltava ao normal, sem explicar o que houve
-        // Stage 4: erro de rede/resposta inválida não aparece em inglês ("Failed to fetch")
+        // Antes o botão só voltava ao normal, sem explicar o que houve
+        // Erro de rede/resposta inválida não aparece em inglês ("Failed to fetch")
         btn.replaceChildren(jcIcone('sparkles'), err?.amigavel ? err.message : 'Não foi possível avaliar agora. Tente de novo.');
         btn.title       = 'Clique para tentar novamente';
         setTimeout(() => { btn.innerHTML = '<span class="i i-sparkles" aria-hidden="true"></span> Avaliar Match com IA'; btn.title = ''; }, 3500);
@@ -385,9 +385,9 @@ async function avaliarMatch(vagaId, btn) {
     }
 }
 
-/* Stage 4: chat e acessibilidade agora vêm de includes/assistente.php */
+/* Chat e acessibilidade agora vêm de includes/assistente.php */
 
-/* Stage 4: confirmação depois da verificação da conta (o aviso se perdia no caminho) */
+/* Confirmação depois da verificação da conta (o aviso se perdia no caminho) */
 (function () {
     const v = new URLSearchParams(location.search).get('verificado');
     if (v !== 'email' && v !== 'telefone') return;

@@ -2,7 +2,7 @@
 /* ============================================================
    empresa/perfil.php
    ============================================================ */
-require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Sessao endurecida + CSRF
 
 if (!isset($_SESSION['empresa_id'])) {
     header("Location: login.php");
@@ -10,8 +10,8 @@ if (!isset($_SESSION['empresa_id'])) {
 }
 
 require_once dirname(__DIR__) . "/includes/config.php";
-require_once dirname(__DIR__) . "/includes/endereco_empresa.php";   // Stage 3: endereço completo
-require_once dirname(__DIR__) . "/includes/locais.php";             // Stage 5.1: locais de trabalho
+require_once dirname(__DIR__) . "/includes/endereco_empresa.php";   // Endereço completo
+require_once dirname(__DIR__) . "/includes/locais.php";             // Locais de trabalho
 
 $empresa_id = intval($_SESSION['empresa_id']);
 
@@ -22,7 +22,7 @@ $saved = isset($_GET['saved']) ? (int)$_GET['saved'] : 0; // 1=ok, 2=erro
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_require();
 
-    // Stage 3: limites = tamanho das colunas (antes, texto longo = erro fatal)
+    // Limites = tamanho das colunas
     $nome_empresa      = mb_substr(trim($_POST['nome_empresa']     ?? ''), 0, 150);
     $email             = trim($_POST['email']             ?? '');   // validado abaixo (não cortado)
     $cnpj              = cnpj_formatado($_POST['cnpj'] ?? '');   // null se não tiver 14 dígitos
@@ -41,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    // Stage 3: e-mail/CNPJ de outra empresa → aviso (antes: erro fatal de chave única)
+    // E-mail/CNPJ de outra empresa → aviso
     $stmt = $conn->prepare("SELECT id FROM empresas WHERE (email = ? OR cnpj = ?) AND id <> ? LIMIT 1");
     $stmt->bind_param("ssi", $email, $cnpj, $empresa_id);
     $stmt->execute();
@@ -52,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    // Stage 3: trocar o e-mail desfaz a verificação (o endereço novo não foi verificado)
+    // Trocar o e-mail desfaz a verificação (o endereço novo não foi verificado)
     $stmt = $conn->prepare("SELECT email, email_verificado FROM empresas WHERE id = ? LIMIT 1");
     $stmt->bind_param("i", $empresa_id);
     $stmt->execute();
@@ -85,7 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $ok = $stmt->execute();
     $stmt->close();
 
-    // Stage 3: endereço completo (só depois que a migração aditiva for aplicada)
+    // Endereço completo (só depois que a migração aditiva for aplicada)
     if ($ok && empresa_tem_endereco($conn)) {
         $stmt = $conn->prepare(
             "UPDATE empresas
@@ -99,7 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($ok) {
-        // Stage 5.1: vagas que usam o endereço principal acompanham a mudança (cidade/UF/CEP)
+        // Vagas que usam o endereço principal acompanham a mudança (cidade/UF/CEP)
         jc_vagas_sincronizar_empresa($conn, $empresa_id);
         $_SESSION['empresa_nome'] = $nome_empresa;
         header("Location: perfil.php?saved=1");
@@ -111,7 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // ── Leitura dos dados da empresa ──────────────────────────────────────────────
-$tem_endereco  = empresa_tem_endereco($conn);   // Stage 3
+$tem_endereco  = empresa_tem_endereco($conn);
 $cols_endereco = $tem_endereco ? ', cep, logradouro, numero, complemento, bairro' : '';
 $stmt = $conn->prepare(
     "SELECT nome_empresa, email, cnpj, cidade, estado, telefone,
@@ -229,7 +229,7 @@ $inicial = strtoupper(mb_substr($emp['nome_empresa'], 0, 1));
                 <p class="profile-info-value"><?= htmlspecialchars($emp['area_atuacao']) ?></p>
             </div>
             <?php endif; ?>
-            <?php $endereco_txt = endereco_empresa_formatado($emp);   // Stage 3: endereço completo ?>
+            <?php $endereco_txt = endereco_empresa_formatado($emp);   // Endereço completo ?>
             <?php if ($endereco_txt !== ''): ?>
             <div class="profile-info-item">
                 <p class="profile-info-label">Endereço</p>
@@ -237,7 +237,7 @@ $inicial = strtoupper(mb_substr($emp['nome_empresa'], 0, 1));
             </div>
             <?php endif; ?>
             <?php if (jc_locais_disponiveis($conn)): $n_locais = count(jc_locais_da_empresa($conn, $empresa_id)); ?>
-            <!-- Stage 5.1: sede + outros locais (escritório, filial...) escolhidos em cada vaga -->
+            <!-- Sede + outros locais (escritório, filial...) escolhidos em cada vaga -->
             <div class="profile-info-item">
                 <p class="profile-info-label">Locais de trabalho</p>
                 <p class="profile-info-value">
@@ -261,7 +261,7 @@ $inicial = strtoupper(mb_substr($emp['nome_empresa'], 0, 1));
                        value="<?= htmlspecialchars($emp['cnpj']) ?>" maxlength="18">
             </div>
             <?php if ($tem_endereco): ?>
-            <!-- Stage 3: endereço completo — CEP primeiro; rua, bairro, cidade e UF
+            <!-- Endereço completo — CEP primeiro; rua, bairro, cidade e UF
                  vêm do ViaCEP; número e complemento são preenchidos à mão -->
             <div class="form-group">
                 <label class="form-label" for="cep">CEP</label>
@@ -441,7 +441,7 @@ $inicial = strtoupper(mb_substr($emp['nome_empresa'], 0, 1));
      ============================================================ -->
 <div id="modalExcluir" class="jc-modal" role="dialog" aria-modal="true" aria-labelledby="modalExcluirTitulo">
     <div class="card" style="max-width:400px;width:100%;text-align:center;padding:36px 28px;">
-        <!-- Stage 5: fechar pelo × (antes só Cancelar, Esc ou clique fora) -->
+        <!-- Fechar pelo × -->
         <button type="button" class="jc-modal-fechar" aria-label="Fechar" onclick="fecharModalExcluir()"><span class="i i-x" aria-hidden="true"></span></button>
         <div class="icone-destaque aviso" aria-hidden="true"><span class="i i-alert-triangle" aria-hidden="true"></span></div>
         <h3 id="modalExcluirTitulo" style="font-weight:700;margin-bottom:10px;">Excluir Conta</h3>
@@ -465,7 +465,7 @@ $inicial = strtoupper(mb_substr($emp['nome_empresa'], 0, 1));
 </div>
 
 
-<!-- FABs + Assistente + Acessibilidade (Stage 3: antes os botões não tinham painel nem script) -->
+<!-- FABs + Assistente + Acessibilidade -->
 <?php include dirname(__DIR__) . '/includes/assistente.php'; ?>
 
 
@@ -480,10 +480,10 @@ if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
 /* ── Toast de feedback ─────────────────────────────────────── */
 const toast = document.getElementById('toast');
 if (toast) {
-    // Stage 4: mensagens de erro ficam mais tempo (antes sumiam em 3,5 s) e são anunciadas:
+    // Mensagens de erro ficam mais tempo e são anunciadas:
     // o texto volta um instante depois do role — região "viva" que já nasce com texto não é lida
     const ehErro = toast.classList.contains('toast-error');
-    const conteudo = [...toast.childNodes];   // Stage 5: ícone + texto (antes só o texto)
+    const conteudo = [...toast.childNodes];   // Ícone + texto
     toast.replaceChildren();
     toast.setAttribute('role', ehErro ? 'alert' : 'status');
     setTimeout(() => { toast.replaceChildren(...conteudo); toast.classList.add('toast-visible'); }, 100);
@@ -497,7 +497,7 @@ let   editando  = false;
 btnEditar?.addEventListener('click', () => {
     editando = !editando;
     if (!editando) {
-        // Revisão Stage 3: "Cancelar" descarta o que foi digitado no modo edição —
+        // "Cancelar" descarta o que foi digitado no modo edição —
         // senão os outros botões "Salvar" do formPerfil enviariam essas alterações
         document.querySelectorAll('#editNome input, #editNome select, #editDados input, #editDados select')
             .forEach(el => {
@@ -520,8 +520,8 @@ btnEditar?.addEventListener('click', () => {
     btnEditar.classList.toggle('btn-ghost',     editando);
 });
 
-/* ── Stage 3: endereço — CEP primeiro (ViaCEP); número e complemento manuais ── */
-// Revisão Stage 3: começa com o CEP já preenchido — só focar/sair do campo não
+/* ── endereço — CEP primeiro (ViaCEP); número e complemento manuais ── */
+// começa com o CEP já preenchido — só focar/sair do campo não
 // rebusca nem sobrescreve rua/bairro digitados à mão (CEPs gerais de cidade)
 let ultimoCepBuscado = (document.getElementById('cep')?.value || '').replace(/\D/g, '');
 async function buscarCep() {
@@ -562,7 +562,7 @@ const modal          = document.getElementById('modalExcluir');
 const btnExcluir     = document.getElementById('btnExcluir');
 const btnCancelar    = document.getElementById('btnCancelarExcluir');
 
-// Stage 4: o foco vai para "Cancelar" ao abrir e volta para "Excluir Conta" ao
+// O foco vai para "Cancelar" ao abrir e volta para "Excluir Conta" ao
 // fechar; Esc também fecha (antes só o clique fora ou em "Cancelar")
 function abrirModalExcluir()  { modal.style.display = 'flex'; btnCancelar?.focus(); }
 function fecharModalExcluir() { modal.style.display = 'none'; btnExcluir?.focus(); }

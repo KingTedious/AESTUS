@@ -1,22 +1,8 @@
 <?php
 /* ============================================================
    Vagas/favoritos.php — Vagas favoritas do jovem
-
-   ❌ PROBLEMAS DO ORIGINAL (todos corrigidos aqui):
-   1. session_start() depois do include config.php.
-   2. SQL Injection: $jovem_id direto na query.
-   3. SELECT v.* sem JOIN com empresas → sem nome_empresa.
-   4. Campos v3.00 ausentes: area, carga_horaria.
-   5. Link de desfavoritar via GET (favoritar.php?vaga_id=X)
-      → quebrado desde que corrigimos favoritar.php para
-      aceitar apenas POST.
-   6. Link ../candidaturas/candidatar.php → caminho errado;
-      o arquivo é Vagas/candidatar.php.
-   7. Sem htmlspecialchars() nas saídas → XSS.
-   8. include header.php após queries e <link> no body.
-   9. var(--principal) não existe no CSS v3.00.
    ============================================================ */
-require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Sessao endurecida + CSRF
 
 if (!isset($_SESSION['jovem_id'])) {
     header("Location: ../jovem/login.php");
@@ -73,7 +59,7 @@ $stmt->close();
     </a>
     <div class="navbar-inner-right">
         <button class="icon-btn btn-theme" id="btnTheme" title="Alternar tema" aria-label="Alternar tema">🌙</button>
-        <!-- Stage 4: mesmos atalhos do painel do jovem -->
+        <!-- Mesmos atalhos do painel do jovem -->
         <a href="../candidaturas/minhas.php" class="icon-btn" title="Minhas candidaturas" aria-label="Minhas candidaturas"><span class="i i-clipboard-list" aria-hidden="true"></span></a>
         <a href="favoritos.php" class="icon-btn" title="Vagas favoritas" aria-label="Vagas favoritas" aria-current="page"><span class="i i-star" aria-hidden="true"></span></a>
         <a href="../jovem/perfil.php" class="icon-btn" title="Meu Perfil" aria-label="Meu Perfil"><span class="i i-user" aria-hidden="true"></span></a>
@@ -89,7 +75,7 @@ $stmt->close();
     <div id="toast" class="toast toast-success"><span class="i i-check-circle" aria-hidden="true"></span>Vaga removida dos favoritos.</div>
     <?php endif; ?>
 
-    <!-- Stage 4: caminho de volta explícito -->
+    <!-- Caminho de volta explícito -->
     <p style="margin:0 0 12px;"><a href="../dashboard/jovem.php" class="back-link"><span class="i i-arrow-left" aria-hidden="true"></span> Voltar ao painel</a></p>
 
     <!-- Cabeçalho da página -->
@@ -121,7 +107,6 @@ $stmt->close();
             <!-- Título + área -->
             <div class="job-card-top">
                 <h3 class="job-card-title">
-                    <!-- Stage 4: antes não havia como abrir os detalhes da vaga a partir dos favoritos -->
                     <a href="listar.php?id=<?= $vaga_id ?>&amp;voltar=favoritos"
                        style="color:inherit;text-decoration:none;">
                         <?= htmlspecialchars($row['titulo']) ?>
@@ -244,7 +229,7 @@ $stmt->close();
 </main>
 </div><!-- /.dashboard-wrap -->
 
-<!-- FABs + Assistente + Acessibilidade (Stage 3: antes os botões não tinham painel nem script) -->
+<!-- FABs + Assistente + Acessibilidade -->
 <?php include dirname(__DIR__) . '/includes/assistente.php'; ?>
 
 <script>
@@ -265,10 +250,10 @@ btnTheme?.addEventListener('click', () => {
 /* ── Toast ─────────────────────────────────────────────────── */
 const toast = document.getElementById('toast');
 if (toast) {
-    // Stage 4: mensagens de erro ficam mais tempo (antes sumiam em 3,5 s) e são anunciadas:
+    // Mensagens de erro ficam mais tempo e são anunciadas:
     // o texto volta um instante depois do role — região "viva" que já nasce com texto não é lida
     const ehErro = toast.classList.contains('toast-error');
-    const conteudo = [...toast.childNodes];   // Stage 5: ícone + texto (antes só o texto)
+    const conteudo = [...toast.childNodes];   // Ícone + texto
     toast.replaceChildren();
     toast.setAttribute('role', ehErro ? 'alert' : 'status');
     setTimeout(() => { toast.replaceChildren(...conteudo); toast.classList.add('toast-visible'); }, 100);
@@ -335,7 +320,6 @@ async function desfavoritar(vagaId, btn) {
         btn.disabled  = false;
         btn.innerHTML = '<span class="i i-star-cheia" aria-hidden="true"></span> Remover dos Favoritos';
         console.error('Erro ao desfavoritar:', err);
-        // Stage 4: antes o erro só ia para o console — o botão voltava ao normal sem explicar
         window.jcAviso?.('Não foi possível remover dos favoritos. Tente de novo.');
     }
 }

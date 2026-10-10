@@ -2,7 +2,7 @@
 /* ============================================================
    dashboard/empresa.php
    ============================================================ */
-require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Sessao endurecida + CSRF
 require_once dirname(__DIR__) . "/includes/config.php";
 
 // Proteção de rota
@@ -40,7 +40,7 @@ $total_vagas   = $result_vagas->num_rows;
 // ── 2. Candidatos das vagas desta empresa ─────────────────────────────────────
 //    Prioridade: jovens que se candidataram a alguma vaga da empresa.
 //    Fallback (0 candidatos): jovens com área_interesse compatível.
-// Nota (Etapa 3): sem DISTINCT/sem colapsar por jovem — cada candidatura já é
+// Nota: sem DISTINCT/sem colapsar por jovem — cada candidatura já é
 // um par (jovem, vaga) inequívoco, então cada linha vira um card com o
 // vaga_id certo para o botão "Avaliar Match com IA" (candidaturas.vaga_id +
 // vagas.titulo). Um mesmo jovem que se candidatou a 2 vagas desta empresa
@@ -161,7 +161,7 @@ if ($modo_fallback && $total_vagas > 1) {
 
     <div class="navbar-inner-right">
         <button class="icon-btn btn-theme" id="btnTheme" title="Alternar tema" aria-label="Alternar tema">🌙</button>
-        <!-- Stage 3: Vagas/minhas.php (editar/excluir vagas) não tinha nenhum link de acesso -->
+        <!-- Vagas/minhas.php (editar/excluir vagas) não tinha nenhum link de acesso -->
         <a href="../Vagas/minhas.php" class="icon-btn" title="Minhas vagas" aria-label="Minhas vagas"><span class="i i-briefcase" aria-hidden="true"></span></a>
         <a href="../empresa/perfil.php"  class="icon-btn" title="Meu Perfil" aria-label="Meu Perfil"><span class="i i-user" aria-hidden="true"></span></a>
         <a href="../logout.php"          class="icon-btn text-danger" title="Sair" aria-label="Sair"><span class="i i-log-out" aria-hidden="true"></span></a>
@@ -272,6 +272,11 @@ if ($modo_fallback && $total_vagas > 1) {
                 </select>
             </div>
             <?php endif; ?>
+
+            <a class="btn btn-ghost btn-sm candidate-card-link"
+               href="../jovem/perfil.php?id=<?= intval($jovem['id']) ?><?= $vaga_id_card && !$modo_fallback ? '&amp;vaga=' . intval($vaga_id_card) : '' ?>">
+                Ver perfil<span class="sr-only"> de <?= htmlspecialchars($jovem['nome']) ?></span>
+            </a>
 
             <!-- Botão de match IA -->
             <?php if ($vaga_id_card): ?>
@@ -400,7 +405,7 @@ if ($modo_fallback && $total_vagas > 1) {
 
 <!-- ============================================================
      ASSISTENTE + ACESSIBILIDADE + FABs
-     Stage 4: este painel tinha uma cópia própria do chat e do painel de
+     Este painel tinha uma cópia própria do chat e do painel de
      acessibilidade, com outras chaves no localStorage (a preferência ligada
      aqui se perdia nas outras páginas). Agora usa o mesmo componente de
      todas as páginas.
@@ -460,7 +465,7 @@ async function avaliarMatch(jovemId, vagaId, btn) {
         const data = await res.json();
 
         if (!res.ok || typeof data.score === 'undefined') {
-            // Stage 3: mostra o motivo no próprio botão (antes só no tooltip)
+            // Mostra o motivo no próprio botão
             btn.disabled    = false;
             btn.replaceChildren(jcIcone('sparkles'), data.error || 'Não foi possível avaliar agora.');
             btn.title       = 'Clique para tentar novamente';
@@ -468,12 +473,12 @@ async function avaliarMatch(jovemId, vagaId, btn) {
             return;
         }
 
-        btn.replaceChildren(jcIcone('sparkles'), `Match: ${data.score}%`);   // Stage 5: ícone + texto
+        btn.replaceChildren(jcIcone('sparkles'), `Match: ${data.score}%`);   // Ícone + texto
         btn.style.color = 'var(--accent)';
-        btn.classList.add('match-resultado');   // Stage 5.1: resultado legível (sem o esmaecido de desabilitado)
+        btn.classList.add('match-resultado');   // Resultado legível (sem o esmaecido de desabilitado)
         btn.title       = data.analise ?? '';
 
-        // Link para a análise completa (reaproveita Vagas/avaliar.php da Etapa 3) —
+        // Link para a análise completa (reaproveita Vagas/avaliar.php) —
         // o botão só mostra o score; a análise por extenso e os motivos individuais
         // só cabem numa tooltip de hover, pouco visível (principalmente em touch).
         if (!btn.nextElementSibling?.classList.contains('link-analise-completa')) {
@@ -486,7 +491,7 @@ async function avaliarMatch(jovemId, vagaId, btn) {
         }
 
     } catch (err) {
-        // Stage 4: erro de rede/resposta inválida também avisa (antes o botão só voltava ao normal)
+        // Erro de rede/resposta inválida também avisa
         btn.disabled    = false;
         btn.replaceChildren(jcIcone('sparkles'), 'Não foi possível avaliar agora. Tente de novo.');
         btn.title       = 'Clique para tentar novamente';
@@ -505,7 +510,6 @@ function avaliarMatchComSeletor(jovemId, btn) {
     if (!vagaId) {
         select?.focus();
         select?.classList.add('input-error');
-        // Stage 4: antes só a borda ficava vermelha, sem dizer o que fazer
         window.jcAviso?.('Escolha a vaga para comparar antes de avaliar o candidato.');
         return;
     }
@@ -513,9 +517,9 @@ function avaliarMatchComSeletor(jovemId, btn) {
     avaliarMatch(jovemId, vagaId, btn);
 }
 
-/* Stage 4: chat e acessibilidade agora vêm de includes/assistente.php */
+/* Chat e acessibilidade agora vêm de includes/assistente.php */
 
-/* Stage 4: confirmação depois da verificação da conta (o aviso se perdia no caminho) */
+/* Confirmação depois da verificação da conta (o aviso se perdia no caminho) */
 (function () {
     const v = new URLSearchParams(location.search).get('verificado');
     if (v !== 'email' && v !== 'telefone') return;

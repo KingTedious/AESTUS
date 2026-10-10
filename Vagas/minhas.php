@@ -1,22 +1,8 @@
 <?php
 /* ============================================================
    Vagas/minhas.php — Vagas publicadas pela empresa
-
-   ❌ PROBLEMAS DO ORIGINAL (todos corrigidos aqui):
-   1. session_start() depois do include config.php.
-   2. SQL Injection: $empresa_id direto na query.
-   3. SELECT * sem colunas v3.00 (area, carga_horaria, salario).
-   4. $row['criado_at'] → coluna não existe no schema (é criado_em).
-   5. Sem htmlspecialchars() nos outputs → XSS.
-   6. Delete via GET (excluir.php?id=X que nem existe no projeto).
-      GET não deve modificar dados. Qualquer link/bot dispara.
-   7. Sem ownership check no delete → empresa A deletaria
-      vagas da empresa B passando ?id=X.
-   8. Sem contagem de candidatos por vaga.
-   9. var(--principal) e var(--borda) não existem no CSS v3.00.
-   10. include header.php após queries e <link> no body.
    ============================================================ */
-require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Sessao endurecida + CSRF
 
 if (!isset($_SESSION['empresa_id'])) {
     header("Location: ../empresa/login.php");
@@ -45,7 +31,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'
         );
         $stmt_del->bind_param("ii", $vaga_id, $empresa_id);
         $stmt_del->execute();
+        $removidas = $stmt_del->affected_rows;
         $stmt_del->close();
+        jc_log($removidas > 0 ? 'vaga.removida' : 'vaga.remocao_recusada', $removidas > 0 ? 'info' : 'aviso',
+               ['vaga' => $vaga_id]);
     }
 
     header("Location: minhas.php?deleted=1");
@@ -53,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'
 }
 
 $deleted   = isset($_GET['deleted']);
-$publicada = isset($_GET['publicada']);   // Stage 4: retorno de Vagas/criar.php
+$publicada = isset($_GET['publicada']);   // Retorno de Vagas/criar.php
 
 /* ============================================================
    GET: busca vagas da empresa com contagem de candidatos
@@ -98,7 +87,7 @@ $stmt->close();
     </a>
     <div class="navbar-inner-right">
         <button class="icon-btn btn-theme" id="btnTheme" title="Alternar tema" aria-label="Alternar tema">🌙</button>
-        <!-- Stage 4: mesmo atalho do painel da empresa -->
+        <!-- Mesmo atalho do painel da empresa -->
         <a href="minhas.php" class="icon-btn" title="Minhas vagas" aria-label="Minhas vagas" aria-current="page"><span class="i i-briefcase" aria-hidden="true"></span></a>
         <a href="../empresa/perfil.php" class="icon-btn" title="Meu Perfil" aria-label="Meu Perfil"><span class="i i-user" aria-hidden="true"></span></a>
         <a href="../logout.php" class="icon-btn text-danger" title="Sair" aria-label="Sair"><span class="i i-log-out" aria-hidden="true"></span></a>
@@ -115,7 +104,7 @@ $stmt->close();
     <div id="toast" class="toast toast-success"><span class="i i-check-circle" aria-hidden="true"></span>Vaga publicada! Ela já aparece para os jovens.</div>
     <?php endif; ?>
 
-    <!-- Stage 4: caminho de volta também no topo (antes só no fim da lista) -->
+    <!-- Caminho de volta também no topo -->
     <p style="margin:0 0 12px;"><a href="../dashboard/empresa.php" class="back-link"><span class="i i-arrow-left" aria-hidden="true"></span> Voltar ao painel</a></p>
 
     <!-- Cabeçalho -->
@@ -213,7 +202,7 @@ $stmt->close();
                     <span class="i i-users" aria-hidden="true"></span> Ver Candidatos<?= $n_cands > 0 ? " ({$n_cands})" : '' ?>
                 </a>
 
-                <!-- Stage 3: o botão "✏ Editar" foi removido — criar.php ignora ?editar=
+                <!-- O botão "✏ Editar" foi removido — criar.php ignora ?editar=
                      e abria o formulário de CRIAÇÃO vazio (salvar gerava uma vaga nova,
                      duplicada). A edição de vaga não existe no backend: pendência. -->
 
@@ -265,7 +254,7 @@ $stmt->close();
 <div id="modalDelete" class="jc-modal" role="dialog" aria-modal="true" aria-labelledby="modalDeleteTitulo">
     <div class="card"
          style="max-width:400px;width:100%;text-align:center;padding:36px 28px;">
-        <!-- Stage 5: fechar pelo × (antes só Cancelar, Esc ou clique fora) -->
+        <!-- Fechar pelo × -->
         <button type="button" class="jc-modal-fechar" aria-label="Fechar" onclick="fecharModal()"><span class="i i-x" aria-hidden="true"></span></button>
         <div class="icone-destaque aviso" aria-hidden="true"><span class="i i-alert-triangle" aria-hidden="true"></span></div>
         <h3 id="modalDeleteTitulo" style="font-weight:700;margin-bottom:10px;">Remover Vaga</h3>
@@ -291,7 +280,7 @@ $stmt->close();
     </div>
 </div>
 
-<!-- FABs + Assistente + Acessibilidade (Stage 3: antes os botões não tinham painel nem script) -->
+<!-- FABs + Assistente + Acessibilidade -->
 <?php include dirname(__DIR__) . '/includes/assistente.php'; ?>
 
 <script>
@@ -311,10 +300,10 @@ btnTheme?.addEventListener('click', () => {
 /* ── Toast ─────────────────────────────────────────────────── */
 const toast = document.getElementById('toast');
 if (toast) {
-    // Stage 4: mensagens de erro ficam mais tempo (antes sumiam em 3,5 s) e são anunciadas:
+    // Mensagens de erro ficam mais tempo e são anunciadas:
     // o texto volta um instante depois do role — região "viva" que já nasce com texto não é lida
     const ehErro = toast.classList.contains('toast-error');
-    const conteudo = [...toast.childNodes];   // Stage 5: ícone + texto (antes só o texto)
+    const conteudo = [...toast.childNodes];   // Ícone + texto
     toast.replaceChildren();
     toast.setAttribute('role', ehErro ? 'alert' : 'status');
     setTimeout(() => { toast.replaceChildren(...conteudo); toast.classList.add('toast-visible'); }, 100);
@@ -324,7 +313,7 @@ if (toast) {
 /* ── Modal de exclusão ─────────────────────────────────────── */
 const modal = document.getElementById('modalDelete');
 
-// Stage 4: ao abrir, o foco vai para "Cancelar"; ao fechar, volta para o botão
+// Ao abrir, o foco vai para "Cancelar"; ao fechar, volta para o botão
 // "Remover" que abriu o modal. Esc também fecha (antes só clique fora/Cancelar).
 let modalOrigem = null;
 

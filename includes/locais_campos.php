@@ -1,6 +1,6 @@
 <?php
 /* ============================================================
-   includes/locais_campos.php  (Stage 5.1)
+   includes/locais_campos.php
 
    Campos de endereço de um local de trabalho (mesmo formato do
    endereço da empresa): CEP (busca no ViaCEP) → rua, bairro, cidade,
@@ -62,7 +62,7 @@ $_cepFmt = preg_replace('/^(\d{5})(\d{3})$/', '$1-$2', preg_replace('/\D/', '', 
 </div>
 <?php if (empty($GLOBALS['_jc_locais_campos_js'])): $GLOBALS['_jc_locais_campos_js'] = true; ?>
 <script>
-/* Stage 5.1: CEP do local de trabalho → rua, bairro, cidade e UF (ViaCEP).
+/* CEP do local de trabalho → rua, bairro, cidade e UF (ViaCEP).
    Número e complemento são digitados; nada é preenchido sem resposta do ViaCEP. */
 (function () {
     const ultimo = new WeakMap();

@@ -7,7 +7,7 @@
    Sem include de auth.php:   sessão verificada diretamente aqui.
    Sem include de footer.php: página tem sua própria estrutura HTML.
    ============================================================ */
-require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Sessao endurecida + CSRF
 
 // Sessão ativa → redireciona sem mostrar o formulário
 if (isset($_SESSION['empresa_id'])) {
@@ -34,10 +34,10 @@ if (isset($_SESSION['jovem_id'])) {
 <div class="auth-page">
 <div class="auth-card">
 
-    <!-- Stage 4: caminho de volta (antes a tela de login não tinha saída além do cadastro) -->
+    <!-- Caminho de volta -->
     <p style="margin:0 0 12px;"><a href="../index.php" class="back-link"><span class="i i-arrow-left" aria-hidden="true"></span> Voltar para a página inicial</a></p>
 
-    <!-- Stage 5: marca oficial — versão vertical (símbolo + nome embaixo) na composição empilhada do cartão -->
+    <!-- Marca oficial — versão vertical (símbolo + nome embaixo) na composição empilhada do cartão -->
     <div class="auth-logo">
         <h1 class="marca marca-vertical"><img src="../assets/img/marca/jovemconnect-vertical.png" alt="JovemConnect" width="546" height="420"></h1>
     </div>
@@ -50,7 +50,7 @@ if (isset($_SESSION['jovem_id'])) {
     </p>
 
     <!-- ── Erro de login (gravado por processar_login.php) ───────────────────── -->
-    <!-- Stage 3: empresa/processar_login.php grava este erro, mas esta página
+    <!-- Empresa/processar_login.php grava este erro, mas esta página
          nunca o exibia — senha errada recarregava a tela sem nenhum aviso. -->
     <?php if (!empty($_SESSION['erro_login'])): ?>
     <div id="erroLogin" role="alert" class="alerta alerta-erro">
@@ -151,7 +151,7 @@ if (isset($_SESSION['jovem_id'])) {
 </div><!-- /.auth-card -->
 </div><!-- /.auth-page -->
 
-<!-- FABs + Assistente + Acessibilidade (Stage 4: antes o botão ♿ não tinha painel nem script) -->
+<!-- FABs + Assistente + Acessibilidade -->
 <?php include dirname(__DIR__) . '/includes/assistente.php'; ?>
 
 <!-- ============================================================
@@ -162,7 +162,7 @@ if (isset($_SESSION['jovem_id'])) {
 const savedTheme = localStorage.getItem('jc-theme');
 if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
 
-/* Stage 4: depois de um erro de login o cursor já fica no e-mail para tentar de novo */
+/* Depois de um erro de login o cursor já fica no e-mail para tentar de novo */
 if (document.getElementById('erroLogin')) document.getElementById('email')?.focus();
 
 /* ── Troca de perfil (jovem ↔ empresa) ────────────────────── */
@@ -204,7 +204,7 @@ function switchProfile(type) {
         form.action            = 'processar_login.php';
         linkRec.href           = '../recuperar_senha.php';
 
-        footerText.textContent = 'Sua empresa ainda não é parceira?';   // Stage 4: concordância
+        footerText.textContent = 'Sua empresa ainda não é parceira?';   // Concordância
         footerLink.textContent = 'Registre sua Empresa';
         footerLink.href        = 'cadastro.php';
     }

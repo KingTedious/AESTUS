@@ -1,25 +1,8 @@
 <?php
 /* ============================================================
    Vagas/candidatos.php — Gestão de candidatos de uma vaga
-
-   ❌ PROBLEMAS DO ORIGINAL (todos corrigidos aqui):
-   1. session_start() depois do include config.php.
-   2. SQL Injection em TODAS as queries:
-      $vaga_id, $candidatura_id, $novo_status direto no SQL.
-   3. FALHA CRÍTICA DE AUTORIZAÇÃO: o UPDATE de status não
-      verificava se a candidatura pertencia a uma vaga DESTA
-      empresa. Qualquer empresa logada podia alterar o status
-      de candidatos de outra empresa.
-   4. Sem validação de ownership da vaga no GET (qualquer
-      empresa podia ver candidatos de vagas alheias).
-   5. Status 'Rejeitado' diverge do schema (é 'Reprovado').
-   6. Sem PRG no POST → F5 reenviava o form de status.
-   7. Sem htmlspecialchars() nos outputs.
-   8. include header.php após queries e <link> no body.
-   9. Campos v3.00 ausentes: area_interesse, escolaridade_tipo,
-      resumo_profissional, idade.
    ============================================================ */
-require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Sessao endurecida + CSRF
 
 if (!isset($_SESSION['empresa_id'])) {
     header("Location: ../empresa/login.php");
@@ -33,7 +16,7 @@ $empresa_id = intval($_SESSION['empresa_id']);
 // Aceita ?vaga= ou ?id= (compatibilidade com links do perfil da empresa)
 $vaga_id = intval($_GET['vaga'] ?? $_GET['id'] ?? 0);
 
-// Stage 4: "← Voltar" leva de volta à origem (painel, minhas vagas ou perfil) —
+// "← Voltar" leva de volta à origem (painel, minhas vagas ou perfil) —
 // antes ia sempre para o perfil da empresa. Lista fixa de destinos.
 $destinos_voltar = [
     'painel' => ['../dashboard/empresa.php', 'Voltar ao painel'],
@@ -102,7 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'
     $affected = $stmt_upd->affected_rows;
     $stmt_upd->close();
 
-    // Stage 3: salvar o MESMO status atualiza 0 linhas — não é falta de permissão.
+    // Salvar o MESMO status atualiza 0 linhas — não é falta de permissão.
     // Confirma que a candidatura é de uma vaga desta empresa antes de recusar.
     if ($ok && $affected === 0) {
         $stmt_own = $conn->prepare(
@@ -117,8 +100,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'
     }
 
     if ($ok && $affected > 0) {
+        jc_log('candidatura.status', 'info', ['candidatura' => $candidatura_id, 'status' => $novo_status]);
         echo json_encode(['ok' => true, 'status' => $novo_status]);
     } else {
+        jc_log_seguranca('acesso.negado', 'aviso', ['recurso' => 'candidatura', 'candidatura' => $candidatura_id]);
         http_response_code(403);
         echo json_encode(['error' => 'Sem permissão ou candidatura não encontrada.']);
     }
@@ -142,6 +127,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         );
         $stmt_upd->bind_param("sii", $novo_status, $candidatura_id, $empresa_id);
         $stmt_upd->execute();
+        jc_log($stmt_upd->affected_rows > 0 ? 'candidatura.status' : 'candidatura.status_sem_mudanca', 'info',
+               ['candidatura' => $candidatura_id, 'status' => $novo_status]);
         $stmt_upd->close();
     }
 
@@ -203,7 +190,7 @@ $stmt_c->close();
     </a>
     <div class="navbar-inner-right">
         <button class="icon-btn btn-theme" id="btnTheme" title="Alternar tema" aria-label="Alternar tema">🌙</button>
-        <!-- Stage 4: mesmo atalho do painel da empresa -->
+        <!-- Mesmo atalho do painel da empresa -->
         <a href="minhas.php" class="icon-btn" title="Minhas vagas" aria-label="Minhas vagas"><span class="i i-briefcase" aria-hidden="true"></span></a>
         <a href="../empresa/perfil.php" class="icon-btn" title="Meu Perfil" aria-label="Meu Perfil"><span class="i i-user" aria-hidden="true"></span></a>
         <a href="../logout.php" class="icon-btn text-danger" title="Sair" aria-label="Sair"><span class="i i-log-out" aria-hidden="true"></span></a>
@@ -390,7 +377,7 @@ $stmt_c->close();
 </main>
 </div><!-- /.dashboard-wrap -->
 
-<!-- FABs + Assistente + Acessibilidade (Stage 3: antes os botões não tinham painel nem script) -->
+<!-- FABs + Assistente + Acessibilidade -->
 <?php include dirname(__DIR__) . '/includes/assistente.php'; ?>
 
 <!-- ============================================================
@@ -414,10 +401,10 @@ btnTheme?.addEventListener('click', () => {
 /* ── Toast de feedback ─────────────────────────────────────── */
 const toast = document.getElementById('toast');
 if (toast) {
-    // Stage 4: mensagens de erro ficam mais tempo (antes sumiam em 3,5 s) e são anunciadas:
+    // Mensagens de erro ficam mais tempo e são anunciadas:
     // o texto volta um instante depois do role — região "viva" que já nasce com texto não é lida
     const ehErro = toast.classList.contains('toast-error');
-    const conteudo = [...toast.childNodes];   // Stage 5: ícone + texto (antes só o texto)
+    const conteudo = [...toast.childNodes];   // Ícone + texto
     toast.replaceChildren();
     toast.setAttribute('role', ehErro ? 'alert' : 'status');
     setTimeout(() => { toast.replaceChildren(...conteudo); toast.classList.add('toast-visible'); }, 100);
@@ -441,7 +428,7 @@ async function atualizarStatus(candId, btn) {
     const status = sel.value;
 
     btn.disabled  = true;
-    btn.innerHTML = '<span class="loading-spinner"></span> Salvando...';   // Stage 4: antes só o ícone
+    btn.innerHTML = '<span class="loading-spinner"></span> Salvando...';
 
     try {
         const fd = new FormData();
@@ -455,7 +442,7 @@ async function atualizarStatus(candId, btn) {
         });
 
         const data = await res.json().catch(() => ({}));
-        // Stage 4: guarda o motivo devolvido pelo servidor para mostrar ao usuário
+        // Guarda o motivo devolvido pelo servidor para mostrar ao usuário
         if (!res.ok) throw Object.assign(new Error(data.error || ''), { amigavel: !!data.error });
 
         if (data.ok) {
@@ -481,7 +468,7 @@ async function atualizarStatus(candId, btn) {
     } catch (err) {
         btn.innerHTML = '<span class="i i-x" aria-hidden="true"></span> Não salvo';
         btn.style.color = 'var(--jc-erro-texto, #f87171)';
-        // Stage 4: diz o que aconteceu (antes só "✕ Erro" por 2,5 s)
+        // Diz o que aconteceu
         window.jcAviso?.(err?.amigavel ? err.message : 'Não foi possível salvar o status. Tente de novo.');
         setTimeout(() => {
             btn.innerHTML = 'Salvar';
@@ -510,20 +497,20 @@ async function avaliarMatch(jovemId, vagaId, btn) {
         });
 
         if (!res.ok) {
-            // Stage 3: guarda o motivo devolvido pelo servidor (ex.: "Servidor de IA indisponível.")
+            // Guarda o motivo devolvido pelo servidor (ex.: "Servidor de IA indisponível.")
             const corpo = await res.json().catch(() => ({}));
-            // Stage 4: sem motivo do servidor, mensagem amigável (antes aparecia "HTTP 500")
+            // Sem motivo do servidor, mensagem amigável
             throw Object.assign(new Error(corpo.error || 'Não foi possível avaliar agora.'), { amigavel: true });
         }
 
         const { score, analise } = await res.json();
 
-        btn.replaceChildren(jcIcone('sparkles'), `Match: ${score ?? '--'}%`);   // Stage 5: ícone + texto
+        btn.replaceChildren(jcIcone('sparkles'), `Match: ${score ?? '--'}%`);   // Ícone + texto
         btn.title       = analise ?? '';
         btn.style.color = 'var(--accent)';
-        btn.classList.add('match-resultado');   // Stage 5.1: resultado legível (sem o esmaecido de desabilitado)
+        btn.classList.add('match-resultado');   // Resultado legível (sem o esmaecido de desabilitado)
 
-        // Link para a análise completa (Vagas/avaliar.php, Etapa 3) — o botão só
+        // Link para a análise completa (Vagas/avaliar.php) — o botão só
         // mostra o score; motivos individuais só existem na tooltip do title.
         if (!btn.nextElementSibling?.classList.contains('link-analise-completa')) {
             const linkAnalise = document.createElement('a');
@@ -535,8 +522,8 @@ async function avaliarMatch(jovemId, vagaId, btn) {
         }
     } catch (err) {
         btn.disabled  = false;
-        // Stage 3: antes o botão só voltava ao normal, sem explicar o que houve
-        // Stage 4: erro de rede/resposta inválida não aparece em inglês ("Failed to fetch")
+        // Antes o botão só voltava ao normal, sem explicar o que houve
+        // Erro de rede/resposta inválida não aparece em inglês ("Failed to fetch")
         btn.replaceChildren(jcIcone('sparkles'), err?.amigavel ? err.message : 'Não foi possível avaliar agora. Tente de novo.');
         btn.title       = 'Clique para tentar novamente';
         setTimeout(() => { btn.innerHTML = '<span class="i i-sparkles" aria-hidden="true"></span> Match com IA'; btn.title = ''; }, 3500);

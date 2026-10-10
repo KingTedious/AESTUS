@@ -14,11 +14,6 @@
    CHAVES DE SESSÃO usadas pelo projeto:
      Empresa → $_SESSION['empresa_id'], $_SESSION['empresa_nome']
      Jovem   → $_SESSION['jovem_id'],   $_SESSION['jovem_nome']
-
-   ❌ PROBLEMA DO ORIGINAL:
-     Checava $_SESSION['usuario_id'] e $_SESSION['usuario_tipo'] —
-     chaves que NENHUMA página do projeto escreve.
-     Isso fazia a função expulsar todo usuário, mesmo logado.
    ============================================================ */
 
 if (session_status() === PHP_SESSION_NONE) {

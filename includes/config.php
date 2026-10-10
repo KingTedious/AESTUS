@@ -3,27 +3,6 @@
    includes/config.php
 
    Único propósito: estabelecer a conexão mysqli com o banco.
-
-   ❌ PROBLEMAS DO ORIGINAL (todos corrigidos aqui):
-
-   1. DUPLA CONEXÃO — definia $conn como PDO e logo depois
-      sobrescrevia com mysqli. O PDO ficava pendurado na memória
-      e qualquer include feito entre os dois blocos recebia
-      o tipo errado. Esse foi o motivo de processar_login.php
-      usar PDO: o dev copiou do bloco PDO sem perceber que
-      havia um mysqli logo abaixo.
-
-   2. VARIÁVEIS DUPLICADAS — $host, $dbname/$db, $username/$user,
-      $password/$pass definidos duas vezes com nomes diferentes.
-
-   3. garantir_flask_ativo() em config.php — rodava a cada
-      carregamento de página (login, cadastro, perfil, vagas…)
-      fazendo fsockopen() com timeout de 1s mesmo em páginas
-      que não usam IA. Removida daqui; a verificação de
-      disponibilidade do Flask cabe em avaliar_ajax.php.
-
-   4. die() com $conn->connect_error expunha detalhes técnicos
-      do servidor para o usuário final.
    ============================================================ */
 
 // ── Logger (com fallback se logger.php não existir) ────────────────────────
@@ -38,7 +17,7 @@ if (!function_exists('registrar_log')) {
     }
 }
 
-// ── Stage 3: rede de segurança para exceções não tratadas ────────────────────
+// ── rede de segurança para exceções não tratadas ────────────────────
 // Desde o PHP 8.1 o mysqli lança mysqli_sql_exception por padrão. Sem este
 // handler, um erro inesperado (chave estrangeira, dado longo demais, coluna
 // inexistente...) virava "Fatal error" com caminho do arquivo, SQL e stack
@@ -47,13 +26,12 @@ if (!function_exists('registrar_log')) {
 // (JSON nos endpoints AJAX). Não engole o erro: ele continua registrado.
 if (!function_exists('jc_excecao_nao_tratada')) {
     function jc_excecao_nao_tratada(Throwable $e): void {
-        registrar_log(
-            'Exceção não tratada: ' . get_class($e) . ': ' . $e->getMessage()
-            . ' em ' . $e->getFile() . ':' . $e->getLine()
-            . ' | URL: ' . ($_SERVER['REQUEST_URI'] ?? '-')
-            . ' | Trace: ' . str_replace(["\r", "\n"], ' | ', $e->getTraceAsString()),
-            'ERROR'
-        );
+        // tipo, arquivo:linha e código — sem SQL, parâmetros nem dados digitados
+        if (function_exists('jc_log_excecao')) {
+            jc_log_excecao($e);
+        } else {
+            error_log('[JovemConnect] ' . get_class($e) . ' em ' . basename($e->getFile()) . ':' . $e->getLine());
+        }
 
         $json = (($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'XMLHttpRequest');
         foreach (headers_list() as $h) {
@@ -68,7 +46,7 @@ if (!function_exists('jc_excecao_nao_tratada')) {
             header('Content-Type: ' . ($json ? 'application/json' : 'text/html') . '; charset=utf-8');
         }
 
-        // Stage 4: além do "Voltar" (não faz nada se a página foi aberta direto), um destino
+        // Além do "Voltar" (não faz nada se a página foi aberta direto), um destino
         // explícito: a página inicial do projeto, com o caminho relativo ao script atual
         $inicio = 'index.php';
         $raiz   = realpath(dirname(__DIR__));
@@ -105,7 +83,10 @@ try {
     $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
 } catch (\mysqli_sql_exception $e) {
     // PHP 8.1+ lanca excecao em falha de conexao antes de checar connect_error.
-    registrar_log('Falha na conexao com o banco de dados: ' . $e->getMessage(), 'ERROR');
+    registrar_log('Falha na conexao com o banco de dados (codigo ' . $e->getCode() . ')', 'ERROR');
+    if (function_exists('jc_log')) {
+        jc_log('banco.indisponivel', 'erro', ['errno' => $e->getCode()]);
+    }
     http_response_code(503);
     die('O sistema esta temporariamente indisponivel. Tente novamente em alguns instantes.');
 }

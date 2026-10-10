@@ -2,25 +2,6 @@
 /* ============================================================
    Vagas/favoritar.php — Toggle de favoritos (jovem ↔ vaga)
 
-   ❌ PROBLEMAS DO ORIGINAL (todos corrigidos aqui):
-
-   1. session_start() depois do include config.php.
-
-   2. SQL Injection em TODAS as queries: real_escape_string()
-      num inteiro não é proteção — intval() + prepared statement.
-
-   3. OPEN REDIRECT:
-      header("Location: " . $_SERVER['HTTP_REFERER'])
-      O header HTTP_REFERER é controlado pelo cliente/browser.
-      Um atacante define Referer: http://malicious.com e
-      o site redireciona para lá — phishing clássico.
-      NUNCA usar HTTP_REFERER diretamente num redirect.
-
-   4. Ação de escrita (INSERT/DELETE) via GET:
-      Crawlers, prefetch de browsers e bots indexam links GET,
-      podendo favoritar/desfavoritar involuntariamente.
-      Dados modificados → POST obrigatório.
-
    ─── SOLUÇÃO ──────────────────────────────────────────────
    Aceita POST (form ou fetch).
    Se for chamada AJAX (X-Requested-With: XMLHttpRequest)
@@ -28,7 +9,7 @@
    Caso contrário (form convencional, sem JS)
    → redirect seguro para página da vaga ou dashboard.
    ============================================================ */
-require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Sessao endurecida + CSRF
 
 // ── Detecta se é chamada AJAX ────────────────────────────────────────────────
 $is_ajax = ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'XMLHttpRequest';

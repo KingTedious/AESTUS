@@ -1,6 +1,6 @@
 <?php
 /* ============================================================
-   empresa/excluir_conta.php  (Etapa 2)
+   empresa/excluir_conta.php
 
    Exclusao da PROPRIA conta da empresa autenticada.
    Protegida por: sessao + ownership + CSRF + POST.
@@ -24,7 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 csrf_require();
 
-// Stage 3: exige a confirmação enviada pelo modal ("Excluir Permanentemente")
+// Exige a confirmação enviada pelo modal ("Excluir Permanentemente")
 if (($_POST['confirmar'] ?? '') !== '1') {
     header('Location: perfil.php');
     exit;
@@ -37,6 +37,7 @@ $stmt = $conn->prepare("DELETE FROM empresas WHERE id = ?");
 $stmt->bind_param("i", $empresa_id);
 $stmt->execute();
 $stmt->close();
+jc_log_seguranca('conta.excluida', 'info', ['tipo' => 'empresa']);
 
 // Encerra a sessao por completo
 $_SESSION = [];

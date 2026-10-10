@@ -15,7 +15,7 @@
   --accent-light:   #6AA8F5;
   --accent-subtle:  rgba(75, 142, 241, 0.12);
 
-  /* Stage 5: azul do logotipo oficial para FUNDOS (botão primário, aba ativa,
+  /* Azul do logotipo oficial para FUNDOS (botão primário, aba ativa,
      botão do assistente) com texto escuro por cima — 5,5:1. Branco sobre esse
      azul dava 3,3:1. O hover clareia (escurecer derrubava o contraste). */
   --brand:             #4B8EF1;
@@ -33,7 +33,7 @@
   /* Texto – Dark */
   --text-primary:   #f0f0f5;
   --text-secondary: #8b8b9e;
-  --text-muted:     #8c8c9c;   /* Stage 4: era #55555f (2,3:1 no card; agora 5,0:1) */
+  --text-muted:     #8c8c9c;   /* Era #55555f (2,3:1 no card; agora 5,0:1) */
 
   /* Bordas – Dark */
   --border:         #2a2a35;
@@ -71,11 +71,11 @@
 
   --text-primary:   #1a1a2e;
   --text-secondary: #5a5a78;
-  --text-muted:     #65657e;   /* Stage 4: era #9898b0 (2,8:1 no branco; agora 5,6:1) */
+  --text-muted:     #65657e;   /* Era #9898b0 (2,8:1 no branco; agora 5,6:1) */
 
   --border: #e2e2ef;
 
-  /* Stage 5: no fundo claro, textos/links/badges usam um tom mais escuro do
+  /* No fundo claro, textos/links/badges usam um tom mais escuro do
      MESMO azul da marca (6,2:1 no branco; o azul do logo dava 3,3:1 e o
      badge 2,2:1). Os fundos (botões) continuam no azul do logotipo. */
   --accent:         #105CCB;
@@ -942,7 +942,7 @@ textarea.form-control {
   display: inline-flex; align-items: center; gap: 5px;
 }
 .footer-links a:hover { color: var(--text-secondary); opacity: 1; }
-/* Stage 4: item do rodapé sem página ainda (mesmo visual, sem link) */
+/* Item do rodapé sem página ainda (mesmo visual, sem link) */
 .footer-link-breve {
   font-size: 13px;
   color: var(--text-muted);
@@ -1701,7 +1701,7 @@ textarea.form-control {
    ============================================================ */
 .chat-widget {
   position: fixed;
-  bottom: 146px;              /* Stage 3: acima da pilha de FABs (24px + 106px + folga) — antes 90px cobria o botao Enviar */
+  bottom: 146px;              /* Acima da pilha de FABs (24px + 106px + folga) — antes 90px cobria o botao Enviar */
   right: 24px;
   width: 360px;
   background: var(--bg-card);
@@ -1805,7 +1805,7 @@ textarea.form-control {
    ============================================================ */
 .a11y-panel {
   position: fixed;
-  bottom: 146px;              /* Stage 3: mesmo ajuste do chat (o FAB cobria os controles inferiores) */
+  bottom: 146px;              /* Mesmo ajuste do chat (o FAB cobria os controles inferiores) */
   right: 24px;
   width: 330px;
   background: var(--bg-card);
@@ -1908,7 +1908,7 @@ textarea.form-control {
 .mb-24 { margin-bottom: 24px; }
 
 .w-full { width: 100%; }
-/* Stage 3: classe usada pelos perfis (modo edicao, formularios "+") e pelo JS, mas nunca definida */
+/* Classe usada pelos perfis (modo edicao, formularios "+") e pelo JS, mas nunca definida */
 .hidden { display: none !important; }
 .text-center { text-align: center; }
 
@@ -2067,7 +2067,7 @@ textarea.form-control {
 }
 
 /* ============================================================
-   26. STAGE 4 — ACESSIBILIDADE, NAVEGAÇÃO E CELULAR
+   26. ACESSIBILIDADE, NAVEGAÇÃO E CELULAR
    Ajustes pequenos; nenhuma mudança de identidade visual.
    ============================================================ */
 
@@ -2106,7 +2106,7 @@ html[data-high-contrast] {
   --accent:         #6aa8ff;
   --accent-hover:   #9cc5ff;
   --accent-subtle:  rgba(106, 168, 255, .25);
-  --accent-fill:       #6aa8ff;   /* Stage 5: texto preto por cima (9,0:1) */
+  --accent-fill:       #6aa8ff;   /* Texto preto por cima (9,0:1) */
   --accent-fill-hover: #9cc5ff;
   --on-accent:         #000000;
 }
@@ -2124,7 +2124,7 @@ html[data-theme="light"][data-high-contrast] {
   --accent-hover:   #07348a;
   --accent-light:   #0a47b8;   /* badges (antes continuavam azul-claro no branco) */
   --accent-subtle:  rgba(10, 71, 184, .15);
-  --accent-fill:       #0a47b8;   /* Stage 5: texto branco por cima (8,1:1) */
+  --accent-fill:       #0a47b8;   /* Texto branco por cima (8,1:1) */
   --accent-fill-hover: #07348a;
   --on-accent:         #ffffff;
 }
@@ -2134,7 +2134,7 @@ html[data-high-contrast] :focus-visible { outline: 3px solid #ffbf47 !important;
 /* Painel ♿ em páginas com estilo próprio (ex.: recuperar_senha.php) */
 .a11y-panel select.form-control { padding-left: 12px; }
 /* alto contraste escuro: o azul fica claro → texto preto por cima dele (branco ficava 2,4:1).
-   Stage 5: vem do token --on-accent (preto no alto contraste escuro, branco no claro). */
+   Vem do token --on-accent (preto no alto contraste escuro, branco no claro). */
 html[data-high-contrast] :is(.btn-primary, .btn-primary:hover, .auth-tab.active,
     .fab-ai, .chat-header, .chat-close, .chat-send) { color: var(--on-accent); }
 .a11y-panel select:disabled { opacity: .6; cursor: not-allowed; }
@@ -2204,7 +2204,7 @@ html[data-high-contrast] :is(.btn-primary, .btn-primary:hover, .auth-tab.active,
 }
 
 /* ============================================================
-   27. STAGE 5 — IDENTIDADE VISUAL, ÍCONES E ACABAMENTO
+   27. IDENTIDADE VISUAL, ÍCONES E ACABAMENTO
    Marca oficial, ícones de traço no lugar dos emojis funcionais,
    cores com contraste, componentes padronizados (botões, alertas,
    modais) e composição da página inicial com as imagens oficiais.
@@ -2468,7 +2468,7 @@ html[data-theme="light"][data-high-contrast] .btn-danger { color: #a10e0e; borde
 /* ── Modais (padrão único: excluir conta, remover vaga, Termos,
    Privacidade e Contato). Overlay rola quando o conteúdo é maior que
    a tela (texto em 140%, celular deitado); o cabeçalho com o × fica
-   sempre visível. role="dialog" + aria-modal no overlay, como na Stage 4. */
+   sempre visível. role="dialog" + aria-modal no overlay */
 .jc-modal {
   position: fixed;
   inset: 0;
@@ -2721,7 +2721,7 @@ html[data-high-contrast] .home-fundo img { opacity: .28; }
 .formacao-situacao-grupo { border: 0; padding: 0; margin-inline: 0; min-width: 0; }
 .formacao-situacao-grupo legend { padding: 0; }
 
-/* ── Cores com contraste (Stage 5) ──────────────────────────── */
+/* ── Cores com contraste ──────────────────────────── */
 .filter-chip:hover,
 .filter-chip.active { color: var(--accent-light); }   /* escuro: 4,3:1 → 5,7:1; claro: tom escuro da marca */
 :root { --jc-favorito: #facc15; }                       /* estrela de vaga salva */
@@ -2740,7 +2740,7 @@ html:not([data-theme="light"]):not([data-high-contrast]) :is(.filter-chip, .ia-a
 html:not([data-theme="light"]) :is(.form-error, .text-danger) { color: #f87171; }
 
 /* ============================================================
-   28. STAGE 5.1 — AJUSTES FINAIS, LOCAL DE TRABALHO E MATCH
+   28. AJUSTES FINAIS, LOCAL DE TRABALHO E MATCH
    ============================================================ */
 
 /* ── Locais de trabalho (empresa/locais.php e "Criar vaga") ─────── */
@@ -2929,3 +2929,225 @@ html[data-high-contrast] .match-barra { border-color: var(--text-primary); }
   .match-score { font-size: 48px; }
   .match-resumo .match-score { font-size: 34px; }
 }
+
+/* ============================================================
+   29. CADASTRO EM ETAPAS, PERFIL DO CANDIDATO, ANIMAÇÕES,
+       TERMOS E PRIVACIDADE, ASSISTENTE
+   ============================================================ */
+
+/* ── Formulário em etapas (cadastros — includes/etapas.php) ──────────
+   Sem JavaScript as etapas aparecem empilhadas; com JS, uma por vez. */
+.etapa-titulo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+.etapa-titulo .i { color: var(--accent-light); }
+.etapa-titulo:focus { outline: none; }
+.etapa-titulo:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 4px; border-radius: 4px; }
+.etapa-descricao { font-size: 13px; color: var(--text-secondary); margin-bottom: 18px; line-height: 1.6; }
+.etapa-subtitulo { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; margin: 20px 0 10px; }
+.etapa-subtitulo .i { color: var(--accent-light); }
+
+.etapas-topo { margin: 4px 0 16px; }
+.etapas-contador { font-size: 13px; font-weight: 700; color: var(--text-secondary); margin-bottom: 8px; }
+.etapas-barra {
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.etapas-barra > span {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: var(--accent-fill);
+  transition: width .35s ease;
+}
+.etapas-lista {
+  display: flex;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: etapa;
+  flex-wrap: wrap;
+}
+.etapas-lista li {
+  counter-increment: etapa;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+  transition: color var(--dur);
+}
+.etapas-lista li::before {
+  content: counter(etapa);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  font-weight: 700;
+  font-size: 11px;
+  transition: background var(--dur), border-color var(--dur), color var(--dur);
+}
+.etapas-lista li.atual { color: var(--text-primary); font-weight: 700; }
+.etapas-lista li.atual::before { border-color: var(--accent); color: var(--accent-light); }
+.etapas-lista li.feita::before { content: '✓'; background: var(--accent-fill); border-color: var(--accent-fill); color: #0b1220; }
+.etapas-ativo .etapa.etapa-atual { animation: jc-entrar .28s ease both; }
+
+.etapas-nav { display: flex; justify-content: space-between; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+.etapas-nav .btn-primary:only-child { margin-left: auto; }
+.etapas-nav .btn { min-width: 132px; justify-content: center; }
+
+.campo-erro {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--jc-erro-texto, #f87171);
+}
+[data-theme="light"] .campo-erro { --jc-erro-texto: #b91c1c; }
+.form-control[aria-invalid="true"] { border-color: var(--jc-erro-texto, #f87171); }
+[data-theme="light"] .form-control[aria-invalid="true"] { border-color: #b91c1c; }
+.erros-lista { margin: 6px 0 0 22px; font-size: 13px; line-height: 1.6; list-style: disc; color: var(--text-primary); }
+
+.etapas-revisao {
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+}
+.etapas-resumo { display: grid; grid-template-columns: minmax(110px, 34%) 1fr; gap: 6px 14px; font-size: 13px; margin: 0; }
+.etapas-resumo dt { color: var(--text-secondary); font-weight: 600; }
+.etapas-resumo dd { margin: 0; color: var(--text-primary); overflow-wrap: anywhere; }
+.etapas-resumo dd.text-muted { color: var(--text-muted); font-style: italic; }
+.etapa-aceite { margin-top: 18px; }
+.etapa-aceite .form-check { align-items: flex-start; }
+.etapa-aceite .form-check input { margin-top: 4px; }
+.etapa-aceite .form-check-label { display: block; line-height: 1.6; }
+
+/* botão com cara de link (abre os modais de Termos/Privacidade no meio do texto) */
+.link-botao {
+  display: inline;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--accent-light);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.link-botao:hover { color: var(--accent); }
+[data-theme="light"] .link-botao { color: var(--accent); }
+
+@media (max-width: 480px) {
+  .etapas-lista li { font-size: 0; gap: 0; }          /* só os números no celular */
+  .etapas-lista li.atual { font-size: 12px; gap: 6px; }
+  .etapas-resumo { grid-template-columns: 1fr; gap: 2px; }
+  .etapas-resumo dd { margin-bottom: 8px; }
+  .etapas-nav .btn { flex: 1 1 0; min-width: 0; }
+}
+/* ── Animações leves ──────────────────────────────────────────────────────────
+   Só opacity/transform (não mexem no layout, não causam deslocamento).
+   Com "reduzir movimento" no sistema, tudo aparece direto (regra global da
+   seção 23 + os ajustes abaixo). */
+@keyframes jc-entrar {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes jc-fundo-entrar { from { opacity: 0; } to { opacity: 1; } }
+@keyframes jc-caixa-entrar {
+  from { opacity: 0; transform: translateY(12px) scale(.98); }
+  to   { opacity: 1; transform: none; }
+}
+/* Modais padronizados: fundo escurece e a caixa sobe um pouco ao abrir */
+.jc-modal { animation: jc-fundo-entrar .18s ease-out; }
+.jc-modal > .card, .jc-modal > .jc-modal-caixa { animation: jc-caixa-entrar .22s var(--ease); }
+/* Botões: leve "afundar" ao clicar */
+.btn:active:not(:disabled) { transform: translateY(1px) scale(.99); }
+/* Links do rodapé e da seção Sobre: cor muda suavemente */
+.about-links a, .footer-link { transition: color var(--dur), opacity var(--dur), background var(--dur); }
+
+/* Revelar ao rolar (página inicial e seção "Sobre").
+   Os elementos só ficam escondidos quando o script ligou .revelar-ativo —
+   sem JavaScript (ou com movimento reduzido) o conteúdo aparece normalmente. */
+.revelar-ativo [data-revelar] {
+  opacity: 0;
+  transform: translateY(18px);
+}
+.revelar-ativo [data-revelar].revelado {
+  opacity: 1;
+  transform: none;
+  transition: opacity .55s var(--ease), transform .55s var(--ease);
+  transition-delay: calc(var(--ordem, 0) * 80ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .revelar-ativo [data-revelar] { opacity: 1 !important; transform: none !important; transition: none !important; }
+  .btn:active:not(:disabled), .card:hover { transform: none; }
+  html { scroll-behavior: auto !important; }
+}
+/* ── Perfil do candidato visto pela empresa ───────────────────────────────── */
+.perfil-candidato h1.profile-side-name { margin: 0; line-height: 1.3; }
+.perfil-candidato-texto { font-size: 13px; color: var(--text-secondary); line-height: 1.65; margin: 0 0 10px; }
+.perfil-candidato-vazio { font-size: 13px; margin: 0; }
+.perfil-candidato-chips { list-style: none; padding: 0; margin: 8px 0 0; }
+.candidatura-contexto { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+.candidatura-contexto-vaga { margin: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.candidatura-contexto-meta { margin: 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; }
+.candidatura-contexto-acoes { display: flex; gap: 8px; flex-wrap: wrap; }
+.candidatura-lista { margin: 0 0 12px; padding-left: 18px; font-size: 13px; line-height: 1.8; }
+.candidatura-lista a { color: var(--accent); }
+.candidate-card-link { margin-bottom: 10px; justify-content: center; }
+.perfil-indisponivel { max-width: 460px; margin: 12vh auto 0; padding: 40px 28px; text-align: center; }
+.perfil-indisponivel h1 { font-size: 22px; margin: 0 0 10px; }
+.perfil-indisponivel p { color: var(--text-secondary); margin: 0 0 22px; line-height: 1.6; }
+/* ── Termos de Uso / Política de Privacidade (modal em duas camadas e página) ── */
+.doc-versao { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; font-size: 12px; color: var(--text-secondary); margin: 0 0 14px; }
+.doc-resumo-titulo { margin-top: 0 !important; }
+.doc-resumo { list-style: disc; margin: 0 0 16px; padding-left: 20px; line-height: 1.6; }
+.doc-resumo li + li { margin-top: 6px; }
+.doc-saiba-mais .i { transition: transform var(--dur); }
+.doc-saiba-mais.aberto .i { transform: rotate(180deg); }
+.doc-completo { margin-top: 8px; }
+.doc-completo h2, .doc-completo h3 { scroll-margin-top: 72px; }   /* não fica sob o cabeçalho fixo do modal */
+.doc-completo ul { list-style: disc; padding-left: 20px; line-height: 1.6; margin: 6px 0 0; }
+.doc-completo li + li { margin-top: 6px; }
+.doc-modal .jc-modal-rodape { flex-wrap: wrap; }
+.doc-contato-email { font-size: 16px; font-weight: 600; margin-top: 6px; word-break: break-all; }
+.doc-pagina { max-width: 760px; margin: 0 auto; padding: 32px 16px 64px; line-height: 1.65; }
+.doc-pagina h1 { font-size: 28px; display: flex; align-items: center; gap: 10px; margin: 12px 0; }
+.doc-pagina h2 { font-size: 18px; margin: 26px 0 8px; }
+.doc-pagina .doc-resumo-caixa h2 { margin-top: 0; }
+.doc-pagina p { color: var(--text-secondary); }
+.doc-pagina a { color: var(--accent); }
+.doc-voltar { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
+.doc-rodape { margin-top: 32px; font-size: 14px; }
+@media print {
+  .doc-voltar { display: none; }
+  .doc-pagina { max-width: none; padding: 0; }
+}
+/* ── Assistente com IA ─────────────────────────────────────────────────────── */
+.chat-aviso { margin: 0; padding: 8px 16px; font-size: 11.5px; line-height: 1.45; color: var(--text-secondary);
+  background: var(--bg-surface); border-bottom: 1px solid var(--border); display: flex; gap: 6px; align-items: flex-start; }
+.chat-aviso .i { color: var(--accent); flex-shrink: 0; margin-top: 2px; }
+.chat-msg { white-space: pre-line; overflow-wrap: anywhere; }
+.chat-msg-nota { display: block; margin-top: 6px; font-size: 11px; color: var(--text-muted); white-space: normal; }
+.chat-msg-digitando { color: var(--text-secondary); animation: jc-pulsar 1.2s ease-in-out infinite; }
+@keyframes jc-pulsar { 50% { opacity: .45; } }
+.chat-send[disabled] { opacity: .55; cursor: wait; }
+

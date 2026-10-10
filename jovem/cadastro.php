@@ -1,27 +1,15 @@
 <?php
 /* ============================================================
    jovem/cadastro.php
-
-   ❌ PROBLEMAS DO ORIGINAL (todos corrigidos aqui):
-   1. session_start() ausente.
-   2. include header.php ANTES de config.php — $conn não existe
-      quando o POST é processado se algo der errado no header.
-   3. SQL Injection na verificação: WHERE email='$email' OR cpf='$cpf'
-   4. INSERT definido DUAS VEZES: $sql (nunca executado, só comentado)
-      e $stmt (sem escolaridade_status, escolaridade_tipo, escolaridade_curso,
-      cep, clt — todos os campos novos do schema v3.00 ignorados).
-   5. Nenhuma validação de email, CPF ou confirmação de senha.
-   6. <link> CSS no body após output do header.php.
-   7. Layout sem seções — não corresponde ao print Cadastro_Jovem.png.
    ============================================================ */
-require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Sessao endurecida + CSRF
 
 // Já logado → redireciona direto
 if (isset($_SESSION['jovem_id'])) {
     header("Location: ../dashboard/jovem.php");
     exit;
 }
-// Stage 4: empresa logada também vai para o painel dela (antes via o formulário
+// Empresa logada também vai para o painel dela (antes via o formulário
 // e, ao enviar, a sessão ficava com jovem E empresa ao mesmo tempo)
 if (isset($_SESSION['empresa_id'])) {
     header("Location: ../dashboard/empresa.php");
@@ -29,11 +17,22 @@ if (isset($_SESSION['empresa_id'])) {
 }
 
 require_once dirname(__DIR__) . "/includes/config.php";
-require_once dirname(__DIR__) . "/includes/formacao.php";   // Stage 5: nível → curso/ano → situação
+require_once dirname(__DIR__) . "/includes/formacao.php";   // nível → curso/ano → situação
+require_once dirname(__DIR__) . "/includes/termos.php";     // versão e registro do aceite
+require_once dirname(__DIR__) . "/includes/etapas.php";     // formulário em etapas
 
-$erros  = [];
+$erros  = [];   // chave = nome do campo (mensagem aparece perto dele); sem chave = erro geral
 $campos = [];
 $form_formacao = null;
+$habilidades_txt = '';
+
+/* Em que etapa fica cada campo (a página reabre na etapa do primeiro erro). */
+$etapa_dos_campos = [
+    'nome' => 1, 'cpf' => 1, 'data_nascimento' => 1, 'email' => 1, 'senha' => 1, 'confirmar_senha' => 1,
+    '*' => 2,   // erros da formação (vêm de includes/formacao.php sem nome de campo)
+    'area_interesse' => 3, 'resumo_profissional' => 3, 'habilidades' => 3,
+    'cep' => 4, 'aceite_termos' => 4, 'geral' => 4,
+];
 
 /* ============================================================
    PROCESSAMENTO POST (todo PHP antes de qualquer output HTML)
@@ -41,28 +40,38 @@ $form_formacao = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_require();
 
-    // ── Leitura e sanitização básica ──────────────────────────────────────────
+    // ── Leitura e limpeza (limites = tamanho das colunas) ─────────────────────
     $campos = [
-        'nome'     => trim($_POST['nome']            ?? ''),
+        'nome'     => mb_substr(trim($_POST['nome']            ?? ''), 0, 100),
         'email'    => trim($_POST['email']           ?? ''),
         'cpf'      => trim($_POST['cpf']             ?? ''),
         'data_nasc'=> trim($_POST['data_nascimento'] ?? ''),
         'cep'      => preg_replace('/\D/', '', $_POST['cep'] ?? ''),
-        'cidade'   => trim($_POST['cidade']          ?? ''),
-        'estado'   => strtoupper(trim($_POST['estado'] ?? '')),
+        'cidade'   => mb_substr(trim($_POST['cidade'] ?? ''), 0, 100),
+        'estado'   => mb_substr(strtoupper(trim($_POST['estado'] ?? '')), 0, 2),
         'formacao' => trim($_POST['formacao']        ?? ''),
+        // etapa 3 (opcional): perfil profissional
+        'area_interesse'      => mb_substr(trim((string) ($_POST['area_interesse'] ?? '')), 0, 100),
+        'resumo_profissional' => mb_substr(trim((string) ($_POST['resumo_profissional'] ?? '')), 0, 1000),
     ];
+    // Sem JavaScript, cidade/UF chegam juntas em "Cidade - UF" (cidade_estado)
+    if ($campos['cidade'] === '' && is_string($_POST['cidade_estado'] ?? null)) {
+        $partes = array_map('trim', explode('-', $_POST['cidade_estado']));
+        if (count($partes) >= 2 && preg_match('/^[A-Za-z]{2}$/', end($partes))) {
+            $campos['estado'] = strtoupper(array_pop($partes));
+        }
+        $campos['cidade'] = mb_substr(trim(implode('-', $partes)), 0, 100);
+    }
+    $habilidades_txt = mb_substr(trim((string) ($_POST['habilidades'] ?? '')), 0, 1500);
+    $aceite = ($_POST['aceite_termos'] ?? '') === '1';
+    $campos['aceite_termos'] = $aceite;
 
-    // Enum controlado — evita valores arbitrários no banco
+    // Situação da escolaridade: só os valores do banco (ENUM)
     $esc_status = in_array($_POST['escolaridade_status'] ?? '', ['cursando', 'completo'], true)
                   ? $_POST['escolaridade_status']
                   : 'cursando';
-
     $esc_tipo   = (($_POST['escolaridade_tipo'] ?? '') === 'tecnico') ? 'tecnico' : 'regular';
     $clt        = isset($_POST['clt']) ? 1 : 0;
-
-    // Stage 3: guarda as escolhas para repopular o formulário quando houver erro
-    // (antes os rádios/checkbox de escolaridade voltavam ao padrão)
     $campos['escolaridade_status'] = $esc_status;
     $campos['escolaridade_tipo']   = $esc_tipo;
     $campos['clt']                 = $clt;
@@ -70,18 +79,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $senha      = $_POST['senha']           ?? '';
     $conf_senha = $_POST['confirmar_senha'] ?? '';
 
-    // Curso técnico (só lido se tipo = técnico)
+    // Curso técnico no formato antigo do formulário (sem "formacao_nivel")
     $esc_curso = null;
     if ($esc_tipo === 'tecnico') {
         $pred      = trim($_POST['curso_predefinido'] ?? '');
-        $esc_curso = ($pred === 'Outro')
-                     ? trim($_POST['curso_outro'] ?? '')
-                     : $pred;
+        $esc_curso = mb_substr(($pred === 'Outro') ? trim($_POST['curso_outro'] ?? '') : $pred, 0, 100);
         if (empty($esc_curso)) $erros[] = 'Informe o nome do curso técnico.';
     }
 
-    // Stage 5: formulário novo (nível → curso/ano → situação). Um POST no formato
-    // antigo (sem "formacao_nivel") continua com as regras acima, como antes.
+    // Formação no formato atual: nível → curso/ano → situação (includes/formacao.php)
     $form_formacao = jc_formacao_ler_post($_POST, $erros, '', 'escolaridade_status', true, true);
     if ($form_formacao !== null) {
         $campos['formacao'] = $form_formacao['rotulo'];
@@ -92,80 +98,133 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $campos['escolaridade_tipo']   = $esc_tipo;
     }
 
-    // ── Validações ────────────────────────────────────────────────────────────
-    if (empty($campos['nome']))
-        $erros[] = 'Nome completo é obrigatório.';
+    // Habilidades: separadas por vírgula, sem repetir, até 15 (80 caracteres cada)
+    $habilidades = [];
+    foreach (preg_split('/[,;\n]+/', $habilidades_txt) ?: [] as $h) {
+        $h = mb_substr(trim($h), 0, 80);
+        if ($h !== '' && !in_array(mb_strtolower($h), array_map('mb_strtolower', $habilidades), true)) {
+            $habilidades[] = $h;
+        }
+    }
+    if (count($habilidades) > 15) {
+        $erros['habilidades'] = 'Informe no máximo 15 habilidades (você pode adicionar outras depois, no perfil).';
+    }
 
-    if (empty($campos['email']))
-        $erros[] = 'E-mail é obrigatório.';
+    // ── Validações ────────────────────────────────────────────────────────────
+    if ($campos['nome'] === '')
+        $erros['nome'] = 'Informe seu nome completo.';
+
+    if ($campos['email'] === '')
+        $erros['email'] = 'Informe seu e-mail.';
     elseif (!filter_var($campos['email'], FILTER_VALIDATE_EMAIL))
-        $erros[] = 'Formato de e-mail inválido.';
-    elseif (mb_strlen($campos['email']) > 100)   // Stage 3: coluna tem 100 caracteres
-        $erros[] = 'E-mail muito longo (máximo 100 caracteres).';
+        $erros['email'] = 'Formato de e-mail inválido.';
+    elseif (mb_strlen($campos['email']) > 100)
+        $erros['email'] = 'E-mail muito longo (máximo 100 caracteres).';
 
     $cpf_num = preg_replace('/\D/', '', $campos['cpf']);
     if (strlen($cpf_num) !== 11)
-        $erros[] = 'CPF inválido (deve ter 11 dígitos).';
+        $erros['cpf'] = 'CPF inválido (deve ter 11 dígitos).';
+    else   // mesmo formato da máscara do campo: 000.000.000-00 (cabe na coluna de 14 caracteres)
+        $campos['cpf'] = substr($cpf_num, 0, 3) . '.' . substr($cpf_num, 3, 3) . '.' . substr($cpf_num, 6, 3) . '-' . substr($cpf_num, 9, 2);
 
-    if (empty($campos['data_nasc']))
-        $erros[] = 'Data de nascimento é obrigatória.';
+    if ($campos['data_nasc'] === '')
+        $erros['data_nascimento'] = 'Informe sua data de nascimento.';
+    elseif (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $campos['data_nasc']) || strtotime($campos['data_nasc']) === false
+            || $campos['data_nasc'] > date('Y-m-d'))
+        $erros['data_nascimento'] = 'Data de nascimento inválida.';
 
-    if (empty($senha))
-        $erros[] = 'Senha é obrigatória.';
+    if ($senha === '')
+        $erros['senha'] = 'Crie uma senha.';
     elseif (strlen($senha) < 8)
-        $erros[] = 'Senha deve ter pelo menos 8 caracteres.';
+        $erros['senha'] = 'A senha deve ter pelo menos 8 caracteres.';
     elseif ($senha !== $conf_senha)
-        $erros[] = 'As senhas não coincidem.';
+        $erros['confirmar_senha'] = 'As senhas não coincidem.';
 
-    // ── Verificação de duplicidade (prepared statement) ───────────────────────
+    if ($campos['cep'] !== '' && strlen($campos['cep']) !== 8)
+        $erros['cep'] = 'CEP inválido (deve ter 8 dígitos).';
+
+    if (!$aceite)
+        $erros['aceite_termos'] = 'Para criar a conta, leia e aceite os Termos de Uso e a Política de Privacidade.';
+
+    // ── Duplicidade de conta (e-mail ou CPF já usados) ────────────────────────
     if (empty($erros)) {
-        $stmt_ck = $conn->prepare(
-            "SELECT id FROM jovens WHERE email = ? OR cpf = ? LIMIT 1"
-        );
-        $stmt_ck->bind_param("ss", $campos['email'], $campos['cpf']);
+        // CPF com máscara ou só números (contas antigas podem ter qualquer um dos dois)
+        $stmt_ck = $conn->prepare("SELECT id FROM jovens WHERE email = ? OR cpf = ? OR cpf = ? LIMIT 1");
+        $stmt_ck->bind_param("sss", $campos['email'], $campos['cpf'], $cpf_num);
         $stmt_ck->execute();
         $stmt_ck->store_result();
         if ($stmt_ck->num_rows > 0)
-            $erros[] = 'E-mail ou CPF já cadastrado na plataforma.';
+            $erros['email'] = 'E-mail ou CPF já cadastrado na plataforma. Se a conta é sua, faça login ou recupere a senha.';
         $stmt_ck->close();
     }
 
-    // ── Inserção — um único INSERT com TODOS os campos do schema v3.00 ────────
+    // ── Inserção (uma transação: conta + habilidades) ─────────────────────────
     if (empty($erros)) {
         $senha_hash = password_hash($senha, PASSWORD_DEFAULT);
-
-        $stmt_ins = $conn->prepare(
-            "INSERT INTO jovens
-                (nome, email, senha, cpf, data_nascimento,
-                 cidade, estado, cep, formacao,
-                 escolaridade_status, escolaridade_tipo, escolaridade_curso, clt)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-        );
-        // 12 strings + 1 inteiro = "ssssssssssssi"
-        $stmt_ins->bind_param(
-            "ssssssssssssi",
-            $campos['nome'],   $campos['email'],  $senha_hash,
-            $campos['cpf'],    $campos['data_nasc'],
-            $campos['cidade'], $campos['estado'],  $campos['cep'],
-            $campos['formacao'],
-            $esc_status, $esc_tipo, $esc_curso, $clt
-        );
-
-        if ($stmt_ins->execute()) {
-            // Login automático após cadastro
-            $_SESSION['jovem_id']   = $conn->insert_id;
-            $_SESSION['jovem_nome'] = $campos['nome'];
-            jc_session_regenerate(); // MED-001
+        $area   = $campos['area_interesse'] !== '' ? $campos['area_interesse'] : null;
+        $resumo = $campos['resumo_profissional'] !== '' ? $campos['resumo_profissional'] : null;
+        try {
+            $conn->begin_transaction();
+            $stmt_ins = $conn->prepare(
+                "INSERT INTO jovens
+                    (nome, email, senha, cpf, data_nascimento,
+                     cidade, estado, cep, formacao,
+                     escolaridade_status, escolaridade_tipo, escolaridade_curso, clt,
+                     area_interesse, resumo_profissional)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            );
+            $stmt_ins->bind_param(
+                "ssssssssssssiss",
+                $campos['nome'],   $campos['email'],  $senha_hash,
+                $campos['cpf'],    $campos['data_nasc'],
+                $campos['cidade'], $campos['estado'],  $campos['cep'],
+                $campos['formacao'],
+                $esc_status, $esc_tipo, $esc_curso, $clt,
+                $area, $resumo
+            );
+            $stmt_ins->execute();
+            $novo_id = intval($conn->insert_id);
             $stmt_ins->close();
-            // Etapa 2: antes de ir ao dashboard, passa pela verificação de conta.
+
+            if ($habilidades) {
+                $stmt_h = $conn->prepare("INSERT INTO habilidades_jovem (jovem_id, habilidade) VALUES (?, ?)");
+                foreach ($habilidades as $h) {
+                    $stmt_h->bind_param("is", $novo_id, $h);
+                    $stmt_h->execute();
+                }
+                $stmt_h->close();
+            }
+            jc_termos_registrar($conn, 'jovens', $novo_id);
+            $conn->commit();
+
+            // Login automático após o cadastro
+            $_SESSION['jovem_id']   = $novo_id;
+            $_SESSION['jovem_nome'] = $campos['nome'];
+            jc_session_regenerate();
+            jc_log_seguranca('cadastro.concluido', 'info', ['tipo' => 'jovem', 'habilidades' => count($habilidades)]);
+            // Antes do painel, a pessoa passa pela verificação da conta
             header("Location: ../verificacoes/escolher_verificacao.php");
             exit;
+        } catch (mysqli_sql_exception $e) {
+            try { $conn->rollback(); } catch (Throwable $e2) { /* nada a desfazer */ }
+            if ($e->getCode() === 1062) {   // e-mail/CPF gravado por outro envio ao mesmo tempo
+                $erros['email'] = 'E-mail ou CPF já cadastrado na plataforma. Se a conta é sua, faça login ou recupere a senha.';
+            } else {
+                jc_log_excecao($e, 'cadastro.erro_banco');
+                $erros['geral'] = 'Erro interno ao cadastrar. Tente novamente.';
+            }
         }
+    }
 
-        $erros[] = 'Erro interno ao cadastrar. Tente novamente.';
-        $stmt_ins->close();
+    if ($erros) {
+        // só os NOMES dos campos com problema — nunca os valores digitados
+        jc_log_seguranca('cadastro.falha', 'aviso', ['tipo' => 'jovem', 'campos' => array_map('strval', array_keys($erros))]);
     }
 }
+$etapa_erro = $erros ? jc_etapa_do_erro($erros, $etapa_dos_campos) : 1;
+$err = fn(string $campo) => jc_campo_erro($erros, $campo);
+$aria = fn(string $campo) => jc_campo_aria($erros, $campo);
+$val = fn(string $campo) => htmlspecialchars((string) ($campos[$campo] ?? ''), ENT_QUOTES);
 ?>
 <!DOCTYPE html>
 <html lang="pt-br" data-theme="dark">
@@ -179,153 +238,129 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </head>
 <body>
 
-<!-- Barra de progresso -->
-<div class="page-progress"><div class="page-progress-fill"></div></div>
 
 <div class="form-page">
 <div class="form-container">
 
-    <!-- Stage 5: marca oficial vertical (antes: texto improvisado "JovemAprendiz Conecta") -->
+    <!-- Marca oficial vertical -->
     <div class="form-page-logo">
         <a href="../index.php" class="marca marca-vertical nav-logo" aria-label="JovemConnect — página inicial">
             <img src="../assets/img/marca/jovemconnect-vertical.png" alt="JovemConnect" width="546" height="420">
         </a>
     </div>
 
-    <!-- Stage 3: volta para a escolha Jovem/Empresa -->
+    <!-- Volta para a escolha Jovem/Empresa -->
     <p style="margin:0 0 12px;"><a href="../comecar.php" class="back-link"><span class="i i-arrow-left" aria-hidden="true"></span> Voltar</a></p>
 
-    <!-- ── Alertas de erro ─────────────────────────────────────────────────── -->
+    <!-- ── Resumo dos erros do servidor (anunciado e focado ao abrir) ─────── -->
     <?php if (!empty($erros)): ?>
-    <!-- Stage 4: anunciado e focado ao abrir (antes o leitor de tela não sabia do erro) -->
     <div class="form-card" id="errosCadastro" role="alert" tabindex="-1"
          style="border-color:rgba(239,68,68,.4);margin-bottom:0;">
-        <?php foreach ($erros as $erro): ?>
-        <p class="form-error"><span class="i i-alert-triangle" aria-hidden="true"></span> <?= htmlspecialchars($erro) ?></p>
-        <?php endforeach; ?>
+        <p class="form-error" style="font-weight:700;"><span class="i i-alert-triangle" aria-hidden="true"></span> Confira <?= count($erros) === 1 ? 'o campo indicado' : 'os campos indicados' ?>:</p>
+        <ul class="erros-lista">
+            <?php foreach ($erros as $erro): ?>
+            <li><?= htmlspecialchars($erro) ?></li>
+            <?php endforeach; ?>
+        </ul>
     </div>
     <?php endif; ?>
 
-    <!-- Stage 4: data-envio-unico evita cadastro em dobro com duplo clique -->
-    <form method="POST" id="formCadastroJovem" novalidate data-envio-unico="Cadastrando...">
+    <!-- Formulário em etapas (includes/etapas.php). Sem JavaScript, todas as
+         etapas aparecem juntas e o envio funciona igual. data-envio-unico
+         evita cadastro em dobro com clique repetido. -->
+    <form method="POST" id="formCadastroJovem" novalidate data-envio-unico="Cadastrando..."
+          data-etapas data-etapa-inicial="<?= intval($etapa_erro) ?>">
         <?= csrf_field() ?>
 
-        <!-- ================================================================
-             CARD 1 — Cabeçalho
-             ================================================================ -->
         <div class="form-card">
             <div class="form-page-title">
                 <span class="i i-graduation-cap" aria-hidden="true"></span>
-                <h2>Cadastro de Jovem</h2>
+                <h1 style="font-size:22px;">Cadastro de Jovem</h1>
             </div>
             <p class="form-page-subtitle">
-                Crie sua conta para encontrar as melhores vagas de Jovem Aprendiz.
+                Crie sua conta em 4 etapas rápidas para encontrar vagas de Jovem Aprendiz e estágio.
             </p>
-            <!-- Stage 4: antes nada indicava quais campos eram obrigatórios -->
             <p class="text-secondary" style="font-size:12px;margin-top:6px;">Campos com * são obrigatórios.</p>
         </div>
 
         <!-- ================================================================
-             CARD 2 — Informações Pessoais
+             ETAPA 1 — Informações básicas
              ================================================================ -->
-        <div class="form-card">
-            <div class="form-section-header">
-                <span class="i i-user" aria-hidden="true"></span> Informações Pessoais
+        <section class="etapa form-card" data-etapa="1" data-titulo="Informações básicas" aria-labelledby="etapa1Titulo">
+            <h2 class="etapa-titulo" id="etapa1Titulo"><span class="i i-user" aria-hidden="true"></span> Informações básicas</h2>
+            <p class="etapa-descricao">Seus dados de identificação e de acesso à conta.</p>
+
+            <div class="form-group">
+                <label class="form-label" for="nome">Nome completo *</label>
+                <input type="text" id="nome" name="nome" class="form-control" placeholder="Seu nome aqui"
+                       value="<?= $val('nome') ?>" required maxlength="100" autocomplete="name"
+                       data-revisao="Nome" data-erro-vazio="Informe seu nome completo."<?= $aria('nome') ?>>
+                <?= $err('nome') ?>
             </div>
 
-            <!-- Nome + CPF -->
             <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label" for="nome">Nome Completo *</label>
-                    <input type="text" id="nome" name="nome" class="form-control"
-                           placeholder="Seu nome aqui"
-                           value="<?= htmlspecialchars($campos['nome'] ?? '') ?>"
-                           required autocomplete="name">
-                </div>
                 <div class="form-group">
                     <label class="form-label" for="cpf">CPF *</label>
-                    <input type="text" id="cpf" name="cpf" class="form-control"
-                           placeholder="000.000.000-00" maxlength="14"
-                           value="<?= htmlspecialchars($campos['cpf'] ?? '') ?>"
-                           required autocomplete="off">
+                    <input type="text" id="cpf" name="cpf" class="form-control" placeholder="000.000.000-00" maxlength="14"
+                           inputmode="numeric" value="<?= $val('cpf') ?>" required autocomplete="off"
+                           data-digitos="11" data-erro-digitos="O CPF tem 11 números." aria-describedby="cpfAjuda"<?= $aria('cpf') ?>>
+                    <small id="cpfAjuda" class="text-secondary" style="font-size:12px;">Usado só para evitar contas duplicadas. Não aparece para empresas.</small>
+                    <?= $err('cpf') ?>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="dataNasc">Data de nascimento *</label>
+                    <input type="date" id="dataNasc" name="data_nascimento" class="form-control"
+                           value="<?= $val('data_nasc') ?>" required max="<?= date('Y-m-d') ?>"
+                           data-erro-vazio="Informe sua data de nascimento."<?= $aria('data_nascimento') ?>>
+                    <small id="idadeDisplay" class="text-secondary" style="font-size:12px;" aria-live="polite"></small>
+                    <?= $err('data_nascimento') ?>
                 </div>
             </div>
 
-            <!-- Data de nascimento + Idade (calculada) -->
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label" for="dataNasc">Data de Nascimento *</label>
-                    <div class="input-group">
-                        <span class="input-icon i i-calendar" aria-hidden="true"></span>
-                        <input type="date" id="dataNasc" name="data_nascimento"
-                               class="form-control"
-                               value="<?= htmlspecialchars($campos['data_nasc'] ?? '') ?>"
-                               required>
-                    </div>
+            <div class="form-group">
+                <label class="form-label" for="email">E-mail *</label>
+                <div class="input-group">
+                    <span class="input-icon i i-mail" aria-hidden="true"></span>
+                    <input type="email" id="email" name="email" class="form-control" placeholder="seu@email.com"
+                           value="<?= $val('email') ?>" required maxlength="100" autocomplete="email"
+                           data-revisao="E-mail" data-erro-vazio="Informe seu e-mail."<?= $aria('email') ?>>
                 </div>
-                <div class="form-group">
-                    <label class="form-label" for="idadeDisplay">Idade</label>
-                    <input type="text" id="idadeDisplay" class="form-control"
-                           placeholder="Selecione a data" readonly
-                           aria-label="Idade calculada automaticamente"
-                           style="color:var(--text-muted);cursor:default;">
-                </div>
-            </div>
-
-        </div><!-- /.form-card pessoal -->
-
-
-        <!-- ================================================================
-             CARD 3 — Localização
-             ================================================================ -->
-        <div class="form-card">
-            <div class="form-section-header">
-                <span class="i i-map-pin" aria-hidden="true"></span> Localização
+                <?= $err('email') ?>
             </div>
 
             <div class="form-row">
                 <div class="form-group">
-                    <label class="form-label" for="cep">CEP</label>
-                    <input type="text" id="cep" name="cep" class="form-control"
-                           placeholder="00000-000" maxlength="9"
-                           value="<?= htmlspecialchars($campos['cep'] ?? '') ?>"
-                           autocomplete="postal-code">
-                    <small id="cepStatusJovem" class="text-muted" style="font-size:12px;" aria-live="polite"></small>
+                    <label class="form-label" for="senha">Senha *</label>
+                    <div class="input-group">
+                        <span class="input-icon i i-lock" aria-hidden="true"></span>
+                        <input type="password" id="senha" name="senha" class="form-control" placeholder="••••••••"
+                               minlength="8" required autocomplete="new-password" aria-describedby="senhaAjuda"
+                               data-erro-vazio="Crie uma senha."<?= $aria('senha') ?>>
+                    </div>
+                    <small id="senhaAjuda" class="text-secondary" style="font-size:12px;">Mínimo de 8 caracteres.</small>
+                    <?= $err('senha') ?>
                 </div>
                 <div class="form-group">
-                    <label class="form-label" for="cidadeEstado">Cidade / Estado</label>
+                    <label class="form-label" for="confirmarSenha">Confirmar senha *</label>
                     <div class="input-group">
-                        <span class="input-icon i i-map-pin" aria-hidden="true"></span>
-                        <input type="text" id="cidadeEstado" class="form-control"
-                               placeholder="Ex: São Paulo - SP"
-                               value="<?= htmlspecialchars(
-                                   !empty($campos['cidade'])
-                                       ? $campos['cidade'] . (!empty($campos['estado']) ? ' - ' . $campos['estado'] : '')
-                                       : ''
-                               ) ?>">
+                        <span class="input-icon i i-lock" aria-hidden="true"></span>
+                        <input type="password" id="confirmarSenha" name="confirmar_senha" class="form-control" placeholder="••••••••"
+                               minlength="8" required autocomplete="new-password" data-igual-a="senha"
+                               data-erro-igual="As senhas não coincidem." data-erro-vazio="Repita a senha."<?= $aria('confirmar_senha') ?>>
                     </div>
-                    <!-- Campos ocultos — preenchidos pelo JS ao digitar/buscar CEP -->
-                    <input type="hidden" name="cidade" id="hidCidade"
-                           value="<?= htmlspecialchars($campos['cidade'] ?? '') ?>">
-                    <input type="hidden" name="estado" id="hidEstado"
-                           value="<?= htmlspecialchars($campos['estado'] ?? '') ?>">
+                    <?= $err('confirmar_senha') ?>
                 </div>
             </div>
-
-        </div><!-- /.form-card localização -->
-
+        </section>
 
         <!-- ================================================================
-             CARD 4 — Escolaridade
+             ETAPA 2 — Formação e escolaridade
              ================================================================ -->
-        <div class="form-card">
-            <div class="form-section-header">
-                <span class="i i-graduation-cap" aria-hidden="true"></span> Escolaridade
-            </div>
+        <section class="etapa form-card" data-etapa="2" data-titulo="Formação" aria-labelledby="etapa2Titulo">
+            <h2 class="etapa-titulo" id="etapa2Titulo"><span class="i i-graduation-cap" aria-hidden="true"></span> Formação e escolaridade</h2>
+            <p class="etapa-descricao">Nível de ensino, curso e se você está cursando ou já concluiu.</p>
 
-            <!-- Stage 5: nível → curso/ano → situação (antes: texto livre "Ano Escolar /
-                 Conclusão" + checkbox "Possuo curso técnico"). As áreas técnicas são as
-                 mesmas de antes; o Match recebe os mesmos campos (tipo, curso, situação). -->
+            <!-- nível → curso/ano → situação (includes/formacao.php); o Match usa tipo, curso e situação -->
             <?= jc_formacao_campos([
                 'id' => 'cad', 'nome' => '', 'form' => '', 'situacao' => 'escolaridade_status',
                 'em_tecnico' => true, 'obrigatorio' => true,
@@ -334,115 +369,143 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <div class="form-checks-group" style="margin-top:4px;">
                 <label class="form-check">
-                    <input type="checkbox" name="clt" value="1"
-                           <?= !empty($campos['clt']) ? 'checked' : '' ?>>
+                    <input type="checkbox" name="clt" value="1" <?= !empty($campos['clt']) ? 'checked' : '' ?>>
                     <span class="form-check-label">Já trabalhei em regime CLT anteriormente</span>
                 </label>
             </div>
-
-        </div><!-- /.form-card escolaridade -->
-
+        </section>
 
         <!-- ================================================================
-             CARD 5 — Segurança (credenciais de login)
+             ETAPA 3 — Perfil profissional (opcional)
              ================================================================ -->
-        <div class="form-card">
-            <div class="form-section-header">
-                <span class="i i-lock" aria-hidden="true"></span> Segurança
-            </div>
+        <section class="etapa form-card" data-etapa="3" data-titulo="Perfil profissional" aria-labelledby="etapa3Titulo">
+            <h2 class="etapa-titulo" id="etapa3Titulo"><span class="i i-briefcase" aria-hidden="true"></span> Perfil profissional</h2>
+            <p class="etapa-descricao">Tudo aqui é opcional — experiência profissional não é exigida.
+                Você pode completar ou mudar depois, no seu perfil.</p>
 
-            <!-- E-mail -->
             <div class="form-group">
-                <label class="form-label" for="email">E-mail *</label>
-                <div class="input-group">
-                    <span class="input-icon i i-mail" aria-hidden="true"></span>
-                    <input type="email" id="email" name="email" class="form-control"
-                           placeholder="seu@email.com"
-                           value="<?= htmlspecialchars($campos['email'] ?? '') ?>"
-                           required autocomplete="email">
-                </div>
+                <label class="form-label" for="areaInteresse">Área de interesse</label>
+                <select id="areaInteresse" name="area_interesse" class="form-control" data-revisao="Área de interesse"<?= $aria('area_interesse') ?>>
+                    <option value="">Escolher depois</option>
+                    <?php foreach (['Administrativo', 'TI', 'Vendas', 'Logística', 'Marketing', 'Recursos Humanos',
+                                    'Financeiro', 'Saúde', 'Educação', 'Outro'] as $opc): ?>
+                    <option value="<?= htmlspecialchars($opc) ?>" <?= ($campos['area_interesse'] ?? '') === $opc ? 'selected' : '' ?>><?= htmlspecialchars($opc) ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <small class="text-secondary" style="font-size:12px;">É uma das informações usadas no Match com as vagas.</small>
+                <?= $err('area_interesse') ?>
             </div>
 
-            <!-- Senha + Confirmar -->
+            <div class="form-group">
+                <label class="form-label" for="resumoProfissional">Objetivo profissional</label>
+                <textarea id="resumoProfissional" name="resumo_profissional" class="form-control" rows="3" maxlength="1000"
+                          placeholder="Ex: Busco minha primeira oportunidade como jovem aprendiz na área administrativa."
+                          data-revisao="Objetivo profissional"<?= $aria('resumo_profissional') ?>><?= $val('resumo_profissional') ?></textarea>
+                <?= $err('resumo_profissional') ?>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="habilidades">Habilidades</label>
+                <input type="text" id="habilidades" name="habilidades" class="form-control" maxlength="1500"
+                       placeholder="Ex: Pacote Office, comunicação, trabalho em equipe"
+                       value="<?= htmlspecialchars($habilidades_txt, ENT_QUOTES) ?>" aria-describedby="habilidadesAjuda"
+                       data-revisao="Habilidades"<?= $aria('habilidades') ?>>
+                <small id="habilidadesAjuda" class="text-secondary" style="font-size:12px;">Separe por vírgula (até 15).</small>
+                <?= $err('habilidades') ?>
+            </div>
+        </section>
+
+        <!-- ================================================================
+             ETAPA 4 — Localização, revisão e conclusão
+             ================================================================ -->
+        <section class="etapa form-card" data-etapa="4" data-titulo="Localização e revisão" aria-labelledby="etapa4Titulo">
+            <h2 class="etapa-titulo" id="etapa4Titulo"><span class="i i-map-pin" aria-hidden="true"></span> Localização e conclusão</h2>
+            <p class="etapa-descricao">Sua cidade ajuda o Match a encontrar vagas perto de você. Empresas veem só cidade e UF.</p>
+
             <div class="form-row">
                 <div class="form-group">
-                    <label class="form-label" for="senha">Senha *</label>
-                    <div class="input-group">
-                        <span class="input-icon i i-lock" aria-hidden="true"></span>
-                        <input type="password" id="senha" name="senha"
-                               class="form-control" placeholder="••••••••"
-                               minlength="8" required autocomplete="new-password"
-                               aria-describedby="senhaAjuda">
-                    </div>
-                    <!-- Stage 4: a regra só aparecia depois do erro -->
-                    <small id="senhaAjuda" class="text-secondary" style="font-size:12px;">Mínimo de 8 caracteres.</small>
+                    <label class="form-label" for="cep">CEP</label>
+                    <input type="text" id="cep" name="cep" class="form-control" placeholder="00000-000" maxlength="9"
+                           inputmode="numeric" value="<?= $val('cep') ?>" autocomplete="postal-code" data-digitos="8"
+                           data-erro-digitos="O CEP tem 8 números." aria-describedby="cepStatusJovem"<?= $aria('cep') ?>>
+                    <small id="cepStatusJovem" class="text-muted" style="font-size:12px;" aria-live="polite"></small>
+                    <?= $err('cep') ?>
                 </div>
                 <div class="form-group">
-                    <label class="form-label" for="confirmarSenha">Confirmar Senha *</label>
+                    <label class="form-label" for="cidadeEstado">Cidade / UF</label>
                     <div class="input-group">
-                        <span class="input-icon i i-lock" aria-hidden="true"></span>
-                        <input type="password" id="confirmarSenha" name="confirmar_senha"
-                               class="form-control" placeholder="••••••••"
-                               minlength="8" required autocomplete="new-password">
+                        <span class="input-icon i i-map-pin" aria-hidden="true"></span>
+                        <input type="text" id="cidadeEstado" name="cidade_estado" class="form-control" placeholder="Ex: São Paulo - SP" maxlength="110"
+                               data-revisao="Cidade / UF"
+                               value="<?= htmlspecialchars(!empty($campos['cidade'])
+                                   ? $campos['cidade'] . (!empty($campos['estado']) ? ' - ' . $campos['estado'] : '') : '', ENT_QUOTES) ?>">
                     </div>
+                    <!-- preenchidos pelo CEP ou ao enviar (a partir de "Cidade - UF") -->
+                    <input type="hidden" name="cidade" id="hidCidade" value="<?= $val('cidade') ?>">
+                    <input type="hidden" name="estado" id="hidEstado" value="<?= $val('estado') ?>">
                 </div>
             </div>
 
-        </div><!-- /.form-card segurança -->
+            <h3 class="etapa-subtitulo"><span class="i i-list-checks" aria-hidden="true"></span> Revise seus dados</h3>
+            <div class="etapas-revisao" data-etapas-revisao>
+                <p class="text-secondary" style="font-size:13px;">Confira as informações das etapas anteriores antes de concluir.</p>
+            </div>
 
+            <div class="etapa-aceite">
+                <label class="form-check">
+                    <input type="checkbox" name="aceite_termos" value="1" required
+                           data-erro-vazio="Para criar a conta, leia e aceite os Termos de Uso e a Política de Privacidade."
+                           <?= !empty($campos['aceite_termos']) ? 'checked' : '' ?><?= $aria('aceite_termos') ?>>
+                    <span class="form-check-label">Li e aceito os
+                        <a class="link-botao" href="../documentos.php?doc=termos" target="_blank" rel="noopener" data-jc-modal-abrir="modalTermos">Termos de Uso</a> e a
+                        <a class="link-botao" href="../documentos.php?doc=privacidade" target="_blank" rel="noopener" data-jc-modal-abrir="modalPrivacidade">Política de Privacidade</a>. *</span>
+                </label>
+                <?= $err('aceite_termos') ?>
+            </div>
+            <?= $err('geral') ?>
 
-        <!-- ================================================================
-             CARD 6 — Submit
-             ================================================================ -->
-        <div class="form-submit-card">
-            <button type="submit" class="btn btn-primary btn-full btn-lg">
-                Cadastrar Agora
-            </button>
-            <p style="text-align:center;font-size:13px;color:var(--text-secondary);">
-                Já tem uma conta?
-                <a href="login.php" class="font-semibold">Faça login</a>
-            </p>
-        </div>
-
+            <div class="form-submit-card" data-etapas-fim>
+                <button type="submit" class="btn btn-primary btn-full btn-lg">Criar minha conta</button>
+                <p style="text-align:center;font-size:13px;color:var(--text-secondary);">
+                    Já tem uma conta? <a href="login.php" class="font-semibold">Faça login</a>
+                </p>
+            </div>
+        </section>
     </form>
 
 </div><!-- /.form-container -->
 </div><!-- /.form-page -->
 
-<!-- FABs + Assistente + Acessibilidade (Stage 4: antes o botão ♿ não tinha painel nem script) -->
+<?php include dirname(__DIR__) . '/includes/institucional.php'; ?>
 <?php include dirname(__DIR__) . '/includes/assistente.php'; ?>
+<?= jc_etapas_script() ?>
 
-
-<!-- ============================================================
-     SCRIPTS
-     ============================================================ -->
 <script>
-/* ── Tema ───────────────────────────────────────────────────── */
+/* Tema salvo */
 const savedTheme = localStorage.getItem('jc-theme');
 if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
 
-/* Stage 4: com erro de validação, o foco vai para a lista de erros no topo */
+/* Erro do servidor: o foco vai para o resumo dos erros */
 document.getElementById('errosCadastro')?.focus();
 
-/* ── Máscara CPF ────────────────────────────────────────────── */
+/* Máscara do CPF (000.000.000-00) */
 document.getElementById('cpf')?.addEventListener('input', function () {
     let v = this.value.replace(/\D/g, '').slice(0, 11);
-    v = v.replace(/(\d{3})(\d)/,           '$1.$2');
-    v = v.replace(/(\d{3})\.(\d{3})(\d)/,  '$1.$2.$3');
+    v = v.replace(/(\d{3})(\d)/,            '$1.$2');
+    v = v.replace(/(\d{3})\.(\d{3})(\d)/,   '$1.$2.$3');
     v = v.replace(/\.(\d{3})\.(\d{3})(\d)/, '.$1.$2-$3');
     this.value = v;
 });
 
-/* ── Máscara CEP ────────────────────────────────────────────── */
+/* Máscara do CEP (00000-000) */
 document.getElementById('cep')?.addEventListener('input', function () {
     let v = this.value.replace(/\D/g, '').slice(0, 8);
     if (v.length > 5) v = v.slice(0, 5) + '-' + v.slice(5);
     this.value = v;
 });
 
-/* ── Busca CEP via ViaCEP ───────────────────────────────────── */
-// Stage 4: a busca era silenciosa — sem "buscando", sem aviso de CEP não
-// encontrado ou de falha. O status aparece embaixo do campo (aria-live).
+/* CEP → cidade/UF (ViaCEP). O resultado aparece embaixo do campo; se falhar,
+   a pessoa digita a cidade à mão. */
 document.getElementById('cep')?.addEventListener('blur', async function () {
     const raw    = this.value.replace(/\D/g, '');
     const status = document.getElementById('cepStatusJovem');
@@ -455,53 +518,40 @@ document.getElementById('cep')?.addEventListener('blur', async function () {
             if (status) status.textContent = 'CEP não encontrado — preencha a cidade manualmente.';
             return;
         }
-        const cidEl = document.getElementById('cidadeEstado');
-        if (cidEl) cidEl.value = `${data.localidade} - ${data.uf}`;
+        document.getElementById('cidadeEstado').value = `${data.localidade} - ${data.uf}`;
         document.getElementById('hidCidade').value = data.localidade || '';
-        document.getElementById('hidEstado').value  = data.uf         || '';
+        document.getElementById('hidEstado').value = data.uf || '';
         if (status) status.replaceChildren(jcIcone('check-circle'), ' Cidade preenchida pelo CEP.');
     } catch {
-        // o usuário preenche manualmente
         if (status) status.textContent = 'Não foi possível buscar o CEP agora — preencha a cidade manualmente.';
     }
 });
 
-/* ── Cálculo automático de idade ────────────────────────────── */
+/* Idade calculada a partir da data de nascimento (só informativo) */
 document.getElementById('dataNasc')?.addEventListener('change', function () {
     const nasc = new Date(this.value);
-    if (isNaN(nasc)) return;
-    const hoje = new Date();
-    let   idade = hoje.getFullYear() - nasc.getFullYear();
-    const m     = hoje.getMonth() - nasc.getMonth();
-    if (m < 0 || (m === 0 && hoje.getDate() < nasc.getDate())) idade--;
     const el = document.getElementById('idadeDisplay');
-    if (el) el.value = idade > 0 ? `${idade} anos` : '';
+    if (isNaN(nasc) || !el) return;
+    const hoje = new Date();
+    let idade = hoje.getFullYear() - nasc.getFullYear();
+    const m = hoje.getMonth() - nasc.getMonth();
+    if (m < 0 || (m === 0 && hoje.getDate() < nasc.getDate())) idade--;
+    el.textContent = idade > 0 ? `${idade} anos` : '';
 });
 
-/* Stage 5: os campos de formação (nível → curso/ano → situação) são controlados
-   pelo script de includes/formacao.php */
-
-/* ── Extrai cidade/estado e valida antes do submit ──────────── */
-document.getElementById('formCadastroJovem')?.addEventListener('submit', function (e) {
-
-    // Divide "São Paulo - SP" → cidade = "São Paulo", estado = "SP"
+/* "Cidade - UF" → campos cidade e estado enviados ao servidor */
+function separarCidadeUf() {
     const val    = document.getElementById('cidadeEstado')?.value.trim() ?? '';
     const partes = val.split('-').map(s => s.trim());
     if (partes.length >= 2) {
         document.getElementById('hidCidade').value = partes.slice(0, -1).join('-').trim();
-        document.getElementById('hidEstado').value  = partes[partes.length - 1].toUpperCase();
+        document.getElementById('hidEstado').value = partes[partes.length - 1].toUpperCase().slice(0, 2);
     } else {
         document.getElementById('hidCidade').value = val;
     }
-
-    // Validação client-side de senhas
-    const s1 = document.getElementById('senha')?.value;
-    const s2 = document.getElementById('confirmarSenha')?.value;
-    if (s1 !== s2) {
-        e.preventDefault();
-        alert('As senhas não coincidem. Verifique e tente novamente.');
-    }
-});
+}
+document.getElementById('cidadeEstado')?.addEventListener('change', separarCidadeUf);
+document.getElementById('formCadastroJovem')?.addEventListener('submit', separarCidadeUf);
 </script>
 
 </body>

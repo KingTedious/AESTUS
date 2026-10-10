@@ -1,5 +1,5 @@
 <?php
-require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Sessao endurecida + CSRF
 require_once dirname(__DIR__) . '/includes/config.php';
 require_once dirname(__DIR__) . '/includes/auth.php';
 
@@ -68,7 +68,7 @@ if ($user['email_verificado'] == 1 || $user['telefone_verificado'] == 1) {
 
 <?php include_once dirname(__DIR__) . '/includes/header.php'; ?>
 
-<!-- Stage 5.1: 60 px da barra fixa + 40 px de respiro (antes o topo ficava atrás da barra) -->
+<!-- 60 px da barra fixa + 40 px de respiro -->
 <main class="container verificacao-main" style="padding: 100px 16px 40px; max-width: 560px; margin: 0 auto;">
     <div style="text-align: center; margin-bottom: 32px;">
         <h2>Como deseja verificar sua conta?</h2>
@@ -82,7 +82,7 @@ if ($user['email_verificado'] == 1 || $user['telefone_verificado'] == 1) {
             <h3>Via E-mail</h3>
             <p class="text-muted" style="font-size: 13px; margin-top: 8px;">
                 Enviaremos um código para:<br>
-                <strong style="color: var(--text-primary);"><!-- Stage 4: branco fixo sumia no tema claro --><?= htmlspecialchars($user['email']) ?></strong>
+                <strong style="color: var(--text-primary);"><!-- Branco fixo sumia no tema claro --><?= htmlspecialchars($user['email']) ?></strong>
             </p>
         </a>
 
@@ -96,7 +96,7 @@ if ($user['email_verificado'] == 1 || $user['telefone_verificado'] == 1) {
         </a>
     </div>
 
-    <!-- Stage 3: a verificação é opcional — antes não havia uma saída explícita desta tela -->
+    <!-- A verificação é opcional — antes não havia uma saída explícita desta tela -->
     <p style="text-align: center; margin-top: 28px;">
         <a href="../dashboard/index.php" class="back-link">Verificar depois e ir para o meu painel <span class="i i-arrow-right" aria-hidden="true"></span></a>
     </p>

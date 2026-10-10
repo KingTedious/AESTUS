@@ -1,6 +1,6 @@
 <?php
 /* ============================================================
-   processar_login.php  (raiz) — NEUTRALIZADO na Etapa 2 (HIGH-001)
+   processar_login.php  (raiz) — NEUTRALIZADO (HIGH-001)
 
    O login real acontece em:
      - jovem/processar_login.php

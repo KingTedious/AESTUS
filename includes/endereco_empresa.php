@@ -1,6 +1,6 @@
 <?php
 /* ============================================================
-   includes/endereco_empresa.php  (Stage 3)
+   includes/endereco_empresa.php
 
    Endereço completo da empresa: CEP, logradouro, número, complemento
    e bairro (colunas novas, opcionais) + cidade/estado (já existiam).

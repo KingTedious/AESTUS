@@ -18,13 +18,12 @@ error_log
 
 # Banco de Dados Local
 *.sql
-# schema versionavel: fonte reproduzivel do banco (Etapa 2).
-# Stage 3: comentario movido para linha propria — no fim da linha o "#" virava
-# parte do padrao e o schema.sql continuava ignorado.
+# Versionados: estrutura do banco, migrações aditivas e seed de demonstração.
+# (comentário sempre em linha própria: no fim da linha o "#" vira parte do padrão)
 !schema.sql
-# Stage 3: migracoes aditivas versionadas
 !migrations/*.sql
+!database/seed_demo.sql
 
-# Stage 3: curriculos enviados pelos usuarios sao dados pessoais — nao versionar
+# Currículos enviados pelos usuários são dados pessoais — não versionar
 uploads/curriculos/*
 !uploads/curriculos/.htaccess

@@ -8,20 +8,8 @@
    │ POST           → processa a candidatura                 │
    │ Redirect  →    GET ?result=ok | duplicate | error       │
    └─────────────────────────────────────────────────────────┘
-
-   ❌ PROBLEMAS DO ORIGINAL (todos corrigidos aqui):
-   1. session_start() depois do include config.php.
-   2. SQL Injection: real_escape_string() em vaga_id (inteiro)
-      — deveria ser intval() + prepared statement.
-   3. Candidatura processada via GET → F5 / back cria duplicata,
-      qualquer pessoa com a URL processa a ação.
-   4. Status 'Pendente' diverge do schema (DEFAULT 'Recebido').
-   5. $conn->error exposto para o usuário final.
-   6. include header.php após queries e <link> no body.
-   7. include footer.php em página com HTML próprio.
-   8. var(--principal) não existe no CSS v3.00.
    ============================================================ */
-require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Sessao endurecida + CSRF
 
 if (!isset($_SESSION['jovem_id'])) {
     header("Location: ../jovem/login.php");
@@ -38,7 +26,7 @@ $result_code = $_GET['result'] ?? null; // 'ok' | 'duplicate' | 'error' | null
 // ── Lê o vaga_id (de GET ou de result redirect) ───────────────────────────────
 $vaga_id = intval($_GET['vaga'] ?? $_GET['vaga_id'] ?? 0);
 
-// Stage 4: guarda de onde o jovem veio (painel, favoritos, candidaturas) para o
+// Guarda de onde o jovem veio (painel, favoritos, candidaturas) para o
 // "←" e o "Cancelar" voltarem aos detalhes com o mesmo "Voltar" — lista fixa,
 // a mesma de Vagas/listar.php; qualquer outro valor é ignorado.
 $voltar_chave = $_POST['voltar'] ?? $_GET['voltar'] ?? '';
@@ -59,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    // Stage 3: vaga inexistente (ou excluída com a página aberta) → volta ao painel.
+    // Vaga inexistente (ou excluída com a página aberta) → volta ao painel.
     // Antes o INSERT violava a chave estrangeira e mostrava um erro fatal.
     $stmt_vx = $conn->prepare("SELECT id FROM vagas WHERE id = ? LIMIT 1");
     $stmt_vx->bind_param("i", $vaga_id);
@@ -92,7 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     );
     $stmt_ins->bind_param("ii", $vaga_id, $jovem_id);
 
-    // Stage 3: no PHP 8.1+ o mysqli lança exceção (o "else" abaixo nunca rodava).
+    // No PHP 8.1+ o mysqli lança exceção (o "else" abaixo nunca rodava).
     // Chave duplicada (envio repetido em paralelo) vira "já candidatado".
     try {
         $inseriu = $stmt_ins->execute();
@@ -103,15 +91,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             header("Location: candidatar.php?vaga_id={$vaga_id}&result=duplicate{$voltar_qs}");
             exit;
         }
-        error_log("[JovemConnect] Erro ao inserir candidatura: " . $e->getMessage());
+        jc_log_excecao($e, 'candidatura.erro');
     }
 
     if ($inseriu) {
         $stmt_ins->close();
+        jc_log('candidatura.criada', 'info', ['vaga' => $vaga_id]);
         header("Location: candidatar.php?vaga_id={$vaga_id}&result=ok{$voltar_qs}");
     } else {
         // Loga o erro real; não expõe para o usuário
-        error_log("[JovemConnect] Erro ao inserir candidatura: " . $conn->error);
+        jc_log('candidatura.erro', 'erro', ['vaga' => $vaga_id]);
         $stmt_ins->close();
         header("Location: candidatar.php?vaga_id={$vaga_id}&result=error{$voltar_qs}");
     }
@@ -311,7 +300,7 @@ if (!$result_code && $ja_candidatado) {
         </p>
 
         <!-- POST — processa de forma segura -->
-        <!-- Stage 4: data-envio-unico trava o botão após o 1º clique — com duplo clique
+        <!-- Data-envio-unico trava o botão após o 1º clique — com duplo clique
              o 2º envio respondia "já candidatado" e a tela de sucesso nunca aparecia -->
         <form method="POST" action="candidatar.php" data-envio-unico="Enviando candidatura...">
             <input type="hidden" name="vaga_id" value="<?= $vaga_id ?>">
@@ -331,7 +320,7 @@ if (!$result_code && $ja_candidatado) {
 
 </div><!-- /container -->
 
-<!-- FABs + Assistente + Acessibilidade (Stage 4: antes o botão ♿ não tinha painel nem script) -->
+<!-- FABs + Assistente + Acessibilidade -->
 <?php include dirname(__DIR__) . '/includes/assistente.php'; ?>
 
 <script>

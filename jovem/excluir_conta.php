@@ -1,6 +1,6 @@
 <?php
 /* ============================================================
-   jovem/excluir_conta.php  (Etapa 2)
+   jovem/excluir_conta.php
 
    Exclusao da PROPRIA conta do jovem autenticado.
    Nasce protegida por: sessao + ownership + CSRF + POST.
@@ -25,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 csrf_require();
 
-// Stage 3: exige a confirmação enviada pelo modal ("Excluir Permanentemente")
+// Exige a confirmação enviada pelo modal ("Excluir Permanentemente")
 if (($_POST['confirmar'] ?? '') !== '1') {
     header('Location: perfil.php');
     exit;
@@ -40,7 +40,7 @@ $stmt->execute();
 $dados = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
-// Stage 3: também remove pelo nome padrão usado por uploads/curriculos.php,
+// Também remove pelo nome padrão usado por uploads/curriculos.php,
 // caso a coluna esteja vazia mas o arquivo exista
 $arquivos = ["curriculo_{$jovem_id}.pdf"];
 if (!empty($dados['curriculo'])) {
@@ -58,6 +58,7 @@ $stmt = $conn->prepare("DELETE FROM jovens WHERE id = ?");
 $stmt->bind_param("i", $jovem_id);
 $stmt->execute();
 $stmt->close();
+jc_log_seguranca('conta.excluida', 'info', ['tipo' => 'jovem']);
 
 // Encerra a sessao por completo
 $_SESSION = [];

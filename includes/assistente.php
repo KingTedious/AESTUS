@@ -1,45 +1,34 @@
 <?php
 /* ============================================================
-   includes/assistente.php  (Stage 3; ampliado na Stage 4)
+   includes/assistente.php — assistente, painel de acessibilidade e botões
+   flutuantes (✦ assistente / ♿ acessibilidade), iguais em todas as páginas.
 
-   Assistente JovemConnect (respostas PREDEFINIDAS, sem IA generativa)
-   + Painel de Acessibilidade + FABs flutuantes.
+   Assistente JovemConnect
+   - Com a IA configurada (GEMINI_API_KEY no .env + servidor Flask no ar), as
+     mensagens vão para IA/assistente_ajax.php → Flask → Gemini. A resposta é
+     mostrada como TEXTO (textContent): nada vindo da IA é interpretado como
+     HTML ou executado.
+   - Sem IA (sem chave, Flask fora do ar, erro, tempo esgotado), responde com
+     as respostas prontas (lista RESPOSTAS) e avisa que é uma resposta
+     automática. Limite de mensagens → aviso amigável.
+   - A conversa fica só na memória da página (some ao sair ou recarregar).
+   - Saudação configurável por página: $assistente_boas_vindas = 'Texto...';
+     (antes do include).
 
-   Extraído de includes/footer.php para poder ser incluído também nas
-   páginas com HTML próprio que mostravam os botões ✦/♿ sem nenhum
-   painel nem script (cliques não faziam nada).
+   Painel de acessibilidade
+   - Tamanho do texto (amplia o conteúdo sem ampliar painéis e botões
+     flutuantes), fonte para dislexia, alto contraste, tons de cinza e filtros
+     de daltonismo. Preferências guardadas no navegador (localStorage, só
+     essas preferências); chaves antigas são migradas uma vez (ver LEGADO).
+     "Idioma" aparece como "em breve".
 
-   Antes (footer.php) o chat chamava includes/chat_ajax.php, arquivo que
-   nunca existiu → toda pergunta respondia "Assistente temporariamente
-   indisponível". Agora responde localmente. Não mexe em tema (cada
-   página já cuida do seu).
-
-   Stage 4:
-   - Passa a ser a ÚNICA implementação do assistente e do painel de
-     acessibilidade: index.php e os dois dashboards tinham cópias próprias,
-     com outras chaves no localStorage — a preferência ligada numa página
-     se perdia na outra. Chaves antigas são migradas uma vez (ver LEGADO).
-   - Os controles do painel passam a ter efeito: tamanho do texto (o CSS
-     usa px, então mudar o font-size da raiz não fazia nada — agora o
-     conteúdo é ampliado sem ampliar os painéis/botões flutuantes), alto
-     contraste (não existia CSS para ele), tons de cinza + daltonismo
-     juntos (um apagava o outro). "Idioma" fica sinalizado como "em breve".
-   - Saudação do chat configurável por página:
-       $assistente_boas_vindas = 'Texto...';   // antes do include
-   - Dois comportamentos pequenos reaproveitados pelas páginas:
-       · <form data-envio-unico="Enviando..."> — trava o botão depois do
-         primeiro envio (evita vaga/candidatura/cadastro em dobro);
-       · jcAviso('mensagem', 'erro'|'sucesso') — aviso flutuante (usa o
-         .toast já existente) para erros de ações AJAX.
-
-   Stage 5:
-   - Ícones de traço (assets/css/style.css, seção 27) no lugar dos
-     emojis/símbolos dos botões ✦/♿, do chat e do painel. As respostas
-     predefinidas do assistente NÃO mudaram.
-   - Painel de acessibilidade ganhou o botão × (como o chat).
-   - Modais padronizados: <button data-jc-modal-abrir="idDoModal"> abre,
-     [data-jc-modal-fechar] fecha; Esc e clique no fundo também fecham e o
-     foco volta para quem abriu (ex.: Termos, Privacidade e Contato).
+   Utilidades usadas pelas páginas
+   - <form data-envio-unico="Enviando..."> — trava o botão depois do primeiro
+     envio (evita cadastro/vaga/candidatura em dobro).
+   - jcAviso('mensagem', 'erro'|'sucesso') — aviso flutuante.
+   - Modais: <button data-jc-modal-abrir="idDoModal"> abre o .jc-modal;
+     [data-jc-modal-fechar], Esc e clique no fundo fecham; o foco fica preso
+     no modal e volta para quem abriu.
 
    Uso (antes de </body>, no nível do <body>):
      <?php include dirname(__DIR__) . '/includes/assistente.php'; ?>
@@ -49,6 +38,21 @@ if (defined('JC_ASSISTENTE_INCLUIDO')) {
 }
 define('JC_ASSISTENTE_INCLUIDO', true);
 
+require_once __DIR__ . '/csrf.php';   // token para o assistente com IA (páginas sem csrf_js)
+
+// Caminho até a raiz do projeto ('' na página inicial, '../' nas subpastas) e tipo da página
+$_assist_raiz = (realpath(dirname($_SERVER['SCRIPT_FILENAME'] ?? '')) === realpath(dirname(__DIR__))) ? '' : '../';
+$_assist_arq  = strtolower(basename(dirname($_SERVER['SCRIPT_NAME'] ?? '')) . '/' . basename($_SERVER['SCRIPT_NAME'] ?? ''));
+$_assist_pagina = 'outra';
+foreach (['/index.php' => 'inicio', '/cadastro.php' => 'cadastro', '/login.php' => 'login', 'dashboard/' => 'painel',
+          'vagas/listar.php' => 'vagas', 'vagas/criar.php' => 'vagas', 'vagas/minhas.php' => 'vagas',
+          'vagas/favoritos.php' => 'favoritos', 'candidaturas/' => 'candidaturas', 'vagas/candidatar.php' => 'vaga',
+          '/perfil.php' => 'perfil', 'vagas/candidatos.php' => 'candidatos', 'vagas/avaliar.php' => 'avaliacao',
+          'empresa/locais.php' => 'locais', 'verificacoes/' => 'verificacao'] as $_k => $_v) {
+    if (str_contains($_assist_arq, $_k)) { $_assist_pagina = $_v; break; }
+}
+unset($_k, $_v, $_assist_arq);
+
 $_assist_boas_vindas = (isset($assistente_boas_vindas) && is_string($assistente_boas_vindas) && $assistente_boas_vindas !== '')
     ? $assistente_boas_vindas
     : 'Bem-vindo ao JovemConnect! Aqui é onde tudo começa para conectar jovens aprendizes com empresas incríveis. Como posso ajudar você hoje?';
@@ -56,7 +60,10 @@ $_assist_boas_vindas = (isset($assistente_boas_vindas) && is_string($assistente_
 <!-- ============================================================
      CHAT WIDGET — Assistente JovemConnect
      ============================================================ -->
-<div class="chat-widget" id="chatWidget" role="dialog" aria-label="Assistente JovemConnect" aria-hidden="true">
+<div class="chat-widget" id="chatWidget" role="dialog" aria-label="Assistente JovemConnect" aria-hidden="true"
+     data-endpoint="<?= htmlspecialchars($_assist_raiz) ?>IA/assistente_ajax.php"
+     data-pagina="<?= htmlspecialchars($_assist_pagina) ?>"
+     data-token="<?= htmlspecialchars(csrf_token()) ?>">
 
     <div class="chat-header">
         <div class="chat-header-left">
@@ -66,7 +73,12 @@ $_assist_boas_vindas = (isset($assistente_boas_vindas) && is_string($assistente_
         <button type="button" class="chat-close" id="chatClose" aria-label="Fechar assistente"><span class="i i-x" aria-hidden="true"></span></button>
     </div>
 
-    <div class="chat-body" id="chatBody" aria-live="polite">
+    <p class="chat-aviso" id="chatAviso">
+        <span class="i i-sparkles" aria-hidden="true"></span>
+        Assistente virtual com IA: pode cometer erros e não acessa sua conta. Não compartilhe dados pessoais.
+    </p>
+
+    <div class="chat-body" id="chatBody" aria-live="polite" aria-describedby="chatAviso">
         <div class="chat-msg"><?= htmlspecialchars($_assist_boas_vindas) ?></div>
     </div>
 
@@ -97,14 +109,14 @@ $_assist_boas_vindas = (isset($assistente_boas_vindas) && is_string($assistente_
         </h3>
         <div class="a11y-header-acoes">
             <button type="button" class="a11y-reset" id="a11yReset" title="Restaurar padrões" aria-label="Restaurar padrões de acessibilidade"><span class="i i-rotate-ccw" aria-hidden="true"></span></button>
-            <!-- Stage 5: fechar pelo × (antes só pelo Esc, pelo botão flutuante ou clicando fora) -->
+            <!-- Fechar pelo × -->
             <button type="button" class="a11y-fechar" id="a11yFechar" title="Fechar" aria-label="Fechar painel de acessibilidade"><span class="i i-x" aria-hidden="true"></span></button>
         </div>
     </div>
 
     <div class="a11y-body">
 
-        <!-- Idioma — Stage 4: a tradução ainda não existe; o controle não finge funcionar -->
+        <!-- Idioma — a tradução ainda não existe; o controle não finge funcionar -->
         <div class="a11y-item">
             <label class="a11y-label" for="a11yIdioma">
                 <span class="i i-globe" aria-hidden="true"></span> Idioma / Language
@@ -189,7 +201,7 @@ $_assist_boas_vindas = (isset($assistente_boas_vindas) && is_string($assistente_
 </div><!-- /#a11yPanel -->
 
 
-<!-- Stage 4: espaço no fim da página (só no celular) para os últimos
+<!-- Espaço no fim da página (só no celular) para os últimos
      campos/botões não ficarem embaixo dos botões flutuantes -->
 <div class="fab-espaco" aria-hidden="true"></div>
 
@@ -217,7 +229,7 @@ $_assist_boas_vindas = (isset($assistente_boas_vindas) && is_string($assistente_
         del(k)    { try { localStorage.removeItem(k); } catch (e) { /* idem */ } },
     };
 
-    /* ── Stage 4: migração das chaves antigas (index.php e dashboards) ────────
+    /* ── migração das chaves antigas (index.php e dashboards) ────────
        Quem ligou uma opção nessas páginas não perde a preferência: o valor
        antigo é copiado para a chave única (se ela ainda não existir) e a
        chave antiga é apagada. "jc-dyslexia" já era igual nas duas versões. */
@@ -262,11 +274,11 @@ $_assist_boas_vindas = (isset($assistente_boas_vindas) && is_string($assistente_
 
     function appendMsg(texto, isUser = false) {
         const div = document.createElement('div');
-        div.className = 'chat-msg';
+        div.className = 'chat-msg' + (isUser ? ' chat-msg-usuario' : '');
         if (isUser) {
             div.style.cssText = 'background:var(--accent-subtle);margin-left:20%;';
         }
-        div.textContent = texto;            // texto puro: nunca interpreta HTML digitado
+        div.textContent = texto;            // texto puro: nunca interpreta HTML (nem o digitado, nem o da IA)
         chatBody?.appendChild(div);
         if (chatBody) chatBody.scrollTop = chatBody.scrollHeight;
         return div;
@@ -276,6 +288,11 @@ $_assist_boas_vindas = (isset($assistente_boas_vindas) && is_string($assistente_
     // Casa PALAVRAS inteiras (sem acento): "dia" não dispara a resposta de "ia";
     // radicais com 3+ letras aceitam plural ("vagas", "empresas", "jovens").
     const RESPOSTAS = [
+        ['candidat', 'Para se candidatar, entre como jovem, abra “Vagas”, escolha a vaga e use “Candidatar-se”. Você acompanha o andamento em “Minhas candidaturas”. 📨'],
+        ['curricul', 'No seu perfil você pode enviar o currículo em PDF e completar formação, habilidades e experiências — isso ajuda no Match. 📄'],
+        ['senha',    'Esqueceu a senha? Na tela de login, use “Esqueci minha senha” para receber um código de recuperação. 🔑'],
+        ['perfil',   'Mantenha o perfil completo (formação, habilidades, experiências). Você escolhe se empresas podem encontrar seu perfil nas buscas. 👤'],
+        ['contato',  'Fale com a equipe pelo e-mail que aparece em “Contato”, no rodapé da página inicial. ✉️'],
         ['aprendiz', 'O Jovem Aprendiz é um programa que permite a jovens entre 14 e 24 anos seu primeiro emprego com carteira assinada. 📋'],
         ['empresa',  'Para publicar vagas, cadastre sua empresa em “Sou Empresa”. Nossa IA ajuda a encontrar candidatos compatíveis! 💼'],
         ['vaga',     'As vagas aparecem no seu painel após o login. A IA calcula a compatibilidade com o seu perfil! ✦'],
@@ -292,18 +309,74 @@ $_assist_boas_vindas = (isset($assistente_boas_vindas) && is_string($assistente_
         return achou ? achou[1] : PADRAO;
     }
 
-    function enviarMensagem() {
-        const texto = chatInput?.value.trim();
-        if (!texto) return;
+    /* ── IA generativa com alternativa local ──────────────────
+       Envia a mensagem para IA/assistente_ajax.php (que mascara dados pessoais,
+       limita tamanho e quantidade e chama o Flask/Gemini). Se a IA não estiver
+       disponível, responde com RESPOSTAS (acima). A conversa fica só aqui, na
+       memória da página. */
+    const historico = [];            // [{papel: 'usuario'|'assistente', texto}]
+    let enviando = false;
 
+    function mostrarResposta(el, texto, nota) {
+        el.classList.remove('chat-msg-digitando');
+        el.removeAttribute('aria-busy');
+        el.textContent = texto;
+        if (nota) {
+            const n = document.createElement('small');
+            n.className = 'chat-msg-nota';
+            n.textContent = nota;
+            el.appendChild(n);
+        }
+        if (chatBody) chatBody.scrollTop = chatBody.scrollHeight;
+    }
+
+    async function enviarMensagem() {
+        const texto = (chatInput?.value || '').trim().slice(0, 500);
+        if (!texto || enviando) return;
+        enviando = true;
+        chatInput.value = '';
+        chatSend?.setAttribute('disabled', '');
+        chatInput?.setAttribute('aria-busy', 'true');
         appendMsg(texto, true);
-        if (chatInput) chatInput.value = '';
 
-        const digitando = appendMsg('...');
-        setTimeout(() => {
-            digitando.textContent = responder(texto);
-            if (chatBody) chatBody.scrollTop = chatBody.scrollHeight;
-        }, 350);
+        const digitando = appendMsg('Digitando…');
+        digitando.classList.add('chat-msg-digitando');
+        digitando.setAttribute('aria-busy', 'true');
+
+        let resposta = null, nota = '', mascarado = false;
+        const ctrl = ('AbortController' in window) ? new AbortController() : null;
+        const limite = setTimeout(() => ctrl?.abort(), 25000);
+        try {
+            const r = await fetch(chatWidget.dataset.endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': chatWidget.dataset.token || '' },
+                body: JSON.stringify({ mensagem: texto, historico: historico.slice(-6), pagina: chatWidget.dataset.pagina || 'outra' }),
+                signal: ctrl?.signal,
+                credentials: 'same-origin',
+            });
+            const dados = await r.json().catch(() => ({}));
+            mascarado = dados.mascarado === true;
+            if (r.status === 429) {
+                resposta = typeof dados.erro === 'string' ? dados.erro : 'Muitas mensagens em pouco tempo. Aguarde um minuto.';
+            } else if (r.ok && dados.fonte === 'ia' && typeof dados.resposta === 'string' && dados.resposta.trim()) {
+                resposta = dados.resposta.trim();
+                historico.push({ papel: 'usuario', texto }, { papel: 'assistente', texto: resposta });
+            }
+        } catch (e) { /* sem conexão ou tempo esgotado: usa a resposta pronta */ }
+        clearTimeout(limite);
+
+        if (resposta === null) {
+            resposta = responder(texto);
+            nota = 'Resposta automática: o assistente com IA não está disponível agora.';
+        }
+        if (mascarado) {
+            nota = (nota ? nota + ' ' : '') + 'Removemos dados pessoais da sua mensagem antes de enviar.';
+        }
+        mostrarResposta(digitando, resposta, nota);
+        enviando = false;
+        chatSend?.removeAttribute('disabled');
+        chatInput?.removeAttribute('aria-busy');
+        chatInput?.focus();
     }
 
     chatSend?.addEventListener('click', enviarMensagem);
@@ -322,14 +395,14 @@ $_assist_boas_vindas = (isset($assistente_boas_vindas) && is_string($assistente_
             chatWidget?.classList.remove('is-open');
             chatWidget?.setAttribute('aria-hidden', 'true');
             btnChat?.setAttribute('aria-expanded', 'false');
-            // Stage 4 (revisão): o painel vem ANTES do botão no HTML — sem isto, quem
+            // O painel vem ANTES do botão no HTML — sem isto, quem
             // abre pelo teclado não alcança as opções com Tab
             a11yPanel?.querySelector('.a11y-body input:not([disabled]), .a11y-body select:not([disabled])')?.focus();
         }
     }
 
     btnA11y?.addEventListener('click', () => toggleA11y());
-    // Stage 5: botão × do painel (o foco volta para o botão que abre o painel)
+    // Botão × do painel (o foco volta para o botão que abre o painel)
     document.getElementById('a11yFechar')?.addEventListener('click', () => { toggleA11y(false); btnA11y?.focus(); });
 
     // Fechar ao clicar fora
@@ -346,14 +419,14 @@ $_assist_boas_vindas = (isset($assistente_boas_vindas) && is_string($assistente_
     // Fechar com Escape (o foco volta para o botão que abriu o painel)
     document.addEventListener('keydown', e => {
         if (e.key !== 'Escape') return;
-        if (modaisAbertos.length) return;   // Stage 5: Termos/Privacidade/Contato aberto → o Esc fecha só o modal
+        if (modaisAbertos.length) return;   // Termos/Privacidade/Contato aberto → o Esc fecha só o modal
         if (chatWidget?.classList.contains('is-open')) { toggleChat(false); btnChat?.focus(); }
         if (a11yPanel?.classList.contains('is-open'))  { toggleA11y(false); btnA11y?.focus(); }
     });
 
 
     /* ── Tamanho do texto ──────────────────────────────────────────
-       Stage 4: o CSS do projeto usa px, então mudar o font-size da raiz
+       O CSS do projeto usa px, então mudar o font-size da raiz
        não alterava nada. O conteúdo da página é ampliado com "zoom"
        (regra html[data-jc-zoom] no style.css), sem ampliar o chat, este
        painel e os botões flutuantes — eles continuam inteiros na tela. */
@@ -403,7 +476,7 @@ $_assist_boas_vindas = (isset($assistente_boas_vindas) && is_string($assistente_
 
 
     /* ── Filtros de cor: daltonismo + tons de cinza ────────────────
-       Stage 4: os dois usam a propriedade "filter" — antes um apagava o
+       Os dois usam a propriedade "filter" — antes um apagava o
        outro. Agora são combinados num único valor. */
     const selFilter = document.getElementById('a11yColorFilter');
     const chkGray   = document.getElementById('a11yGrayscale');
@@ -450,7 +523,7 @@ $_assist_boas_vindas = (isset($assistente_boas_vindas) && is_string($assistente_
     if (ls.get('jc-grayscale') === '1') applyGrayscale(true);
 
 
-    /* ── Alto Contraste (Stage 4: regras html[data-high-contrast] no style.css) ── */
+    /* ── Alto Contraste (regras html[data-high-contrast] no style.css) ── */
     const chkContrast = document.getElementById('a11yContrast');
 
     function applyContrast(on) {
@@ -480,7 +553,7 @@ $_assist_boas_vindas = (isset($assistente_boas_vindas) && is_string($assistente_
     });
 
 
-    /* ── Stage 4: aviso flutuante para erros/sucessos de ações AJAX ──
+    /* ── aviso flutuante para erros/sucessos de ações AJAX ──
        Reaproveita o .toast do style.css. Erros ficam mais tempo na tela. */
     window.jcAviso = function (mensagem, tipo) {
         const erro = (tipo !== 'sucesso');
@@ -496,7 +569,7 @@ $_assist_boas_vindas = (isset($assistente_boas_vindas) && is_string($assistente_
         clearTimeout(el._timer); clearTimeout(el._texto);
         // o texto entra um instante depois da região existir — senão o leitor de tela não anuncia
         el._texto = setTimeout(() => {
-            // Stage 5: ícone de erro/sucesso (antes ✕/✓ em texto); a mensagem continua como texto puro
+            // Ícone de erro/sucesso; a mensagem continua como texto puro
             const icone = document.createElement('span');
             icone.className = 'i ' + (erro ? 'i-x-circle' : 'i-check-circle');
             icone.setAttribute('aria-hidden', 'true');
@@ -507,7 +580,7 @@ $_assist_boas_vindas = (isset($assistente_boas_vindas) && is_string($assistente_
     };
 
 
-    /* ── Stage 5: modais padronizados ────────────────────────────────
+    /* ── modais padronizados ────────────────────────────────
        <button data-jc-modal-abrir="idDoModal"> abre o <div class="jc-modal">;
        qualquer [data-jc-modal-fechar] dentro dele fecha (×, "Fechar").
        Esc e clique no fundo escuro também fecham; o foco volta para o
@@ -534,7 +607,7 @@ $_assist_boas_vindas = (isset($assistente_boas_vindas) && is_string($assistente_
     }
     window.jcModal = { abrir: abrirModal, fechar: fecharModal };
 
-    // Stage 5: cria um ícone decorativo para mensagens montadas pelo JavaScript
+    // Cria um ícone decorativo para mensagens montadas pelo JavaScript
     window.jcIcone = function (nome) {
         const s = document.createElement('span');
         s.className = 'i i-' + nome;
@@ -566,7 +639,7 @@ $_assist_boas_vindas = (isset($assistente_boas_vindas) && is_string($assistente_
     });
 
 
-    /* ── Stage 4: modal aberto (role="dialog" aria-modal="true") prende o Tab ──
+    /* ── modal aberto (role="dialog" aria-modal="true") prende o Tab ──
        Antes o Tab saía do modal e chegava aos botões ✦/♿, escondidos atrás
        do fundo escuro. Vale para os modais de excluir conta e remover vaga. */
     document.addEventListener('keydown', e => {
@@ -585,7 +658,7 @@ $_assist_boas_vindas = (isset($assistente_boas_vindas) && is_string($assistente_
     });
 
 
-    /* ── Stage 4: formulário com envio único ──────────────────────
+    /* ── formulário com envio único ──────────────────────
        <form data-envio-unico="Enviando..."> → depois do primeiro envio
        válido, o botão é travado e mostra o texto. Validações da própria
        página (que chamam preventDefault) rodam antes e continuam valendo.

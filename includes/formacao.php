@@ -1,10 +1,9 @@
 <?php
 /* ============================================================
-   includes/formacao.php  (Stage 5)
+   includes/formacao.php
 
-   Formação estruturada: NÍVEL → CURSO/ANO → SITUAÇÃO.
-   Antes o jovem digitava qualquer texto em "Ano Escolar / Conclusão" e
-   em "Curso / Nível" — o texto livre era tratado como curso.
+   Formação estruturada: NÍVEL → CURSO/ANO → SITUAÇÃO (listas fixas, em vez
+   de texto livre, para o Match reconhecer o curso).
 
    Sem alterar o banco (nenhuma migração): usa as colunas que já existem
      jovens.formacao            → texto padronizado, ex. "Ensino Médio — 3º ano"
@@ -327,7 +326,7 @@ function jc_formacao_resumo(array $j): string
         }
         return $txt;
     }
-    // registro antigo: mesmo resumo da Stage 3
+    // registro antigo: mesmo resumo anterior
     $txt = $sit;
     if (($j['escolaridade_tipo'] ?? '') === 'tecnico') {
         $txt .= ' • Curso técnico' . (!empty($j['escolaridade_curso']) ? ': ' . $j['escolaridade_curso'] : '');
@@ -469,9 +468,10 @@ function jc_formacao_campos(array $o): string
 
     if (!$script) {
         $script = true;
+        $out .= '<noscript><style>[data-formacao-se],[data-formacao-outro-de]{display:block!important}</style></noscript>' . "\n";
         $out .= <<<'JS'
 <script>
-/* Stage 5: formação — mostra só os campos do nível escolhido */
+/* Formação — mostra só os campos do nível escolhido */
 (function () {
     function atualizar(bloco) {
         const nivel  = bloco.querySelector('[data-formacao-nivel]')?.value || '';

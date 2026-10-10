@@ -3,21 +3,8 @@
    Vagas/listar.php — Dual-mode:
    - GET sem ?id  → listagem com filtros
    - GET com ?id  → página de detalhes da vaga
-
-   ❌ PROBLEMAS DO ORIGINAL (todos corrigidos aqui):
-   1. session_start() depois do include config.php.
-   2. SQL Injection: $busca/$cidade/$estado direto nos LIKE
-      → nenhum escaping ou prepared statement.
-   3. N+1 Queries: dentro do while, uma query extra por vaga
-      para checar favorito (50 vagas = 51 queries).
-      Corrigido com LEFT JOIN na query principal.
-   4. N+1 query também com SQL Injection ($jovem_id/$vaga_id).
-   5. Link favoritar via GET → quebrado (favoritar.php = POST).
-   6. ../Candidaturas/candidatar.php → path errado.
-   7. SELECT v.* → sem controle das colunas, sem campos v3.00.
-   8. include header.php após queries e <link> no body.
    ============================================================ */
-require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Sessao endurecida + CSRF
 
 if (!isset($_SESSION['jovem_id'])) {
     header("Location: ../jovem/login.php");
@@ -25,7 +12,7 @@ if (!isset($_SESSION['jovem_id'])) {
 }
 
 require_once dirname(__DIR__) . "/includes/config.php";
-require_once dirname(__DIR__) . "/includes/locais.php";   // Stage 5.1: local efetivo da vaga
+require_once dirname(__DIR__) . "/includes/locais.php";   // Local efetivo da vaga
 
 $jovem_id = intval($_SESSION['jovem_id']);
 
@@ -36,7 +23,7 @@ if (isset($_GET['id']) && intval($_GET['id']) > 0) {
 
     $vaga_id = intval($_GET['id']);
 
-    // Stage 4: o "←" voltava sempre para a listagem, mesmo vindo do painel, dos
+    // O "←" voltava sempre para a listagem, mesmo vindo do painel, dos
     // favoritos ou das candidaturas. Agora volta para a origem — lista FIXA de
     // destinos (qualquer outro valor cai na listagem, nunca numa URL externa).
     $destinos_voltar = [
@@ -67,7 +54,7 @@ if (isset($_GET['id']) && intval($_GET['id']) > 0) {
         header("Location: listar.php");
         exit;
     }
-    // Stage 5.1: local de trabalho efetivo (local da vaga → endereço da empresa)
+    // Local de trabalho efetivo (local da vaga → endereço da empresa)
     $local_vaga = jc_local_efetivo($conn, $vaga_id);
 
     // ── Requisitos ────────────────────────────────────────────────────────────
@@ -190,7 +177,7 @@ if (isset($_GET['id']) && intval($_GET['id']) > 0) {
                 <?php endif; ?>
 
                 <?php if (!empty($vaga['tipo_contrato'])): ?>
-                <!-- Stage 3: o tipo de contrato já era carregado, mas não aparecia -->
+                <!-- O tipo de contrato já era carregado, mas não aparecia -->
                 <div class="detail-meta-item">
                     <span class="detail-meta-label">CONTRATO</span>
                     <span class="detail-meta-value">
@@ -249,7 +236,7 @@ if (isset($_GET['id']) && intval($_GET['id']) > 0) {
             </div>
             <div class="map-info">
                 <strong><?= htmlspecialchars($vaga['nome_empresa']) ?></strong>
-                <!-- Stage 5.1: local de trabalho efetivo, com o endereço completo quando existir -->
+                <!-- Local de trabalho efetivo, com o endereço completo quando existir -->
                 <span class="local-origem"><?= htmlspecialchars($local_vaga['rotulo'] ?? '') ?></span>
                 <?php if (($local_vaga['texto'] ?? '') !== ''): ?>
                 <span><?= htmlspecialchars($local_vaga['texto']) ?></span>
@@ -273,7 +260,7 @@ if (isset($_GET['id']) && intval($_GET['id']) > 0) {
             <span class="i i-send" aria-hidden="true"></span> Candidatar-se Agora
         </a>
         <?php else: ?>
-        <!-- Stage 4: antes era um "botão" que não fazia nada; agora leva ao acompanhamento -->
+        <!-- Leva ao acompanhamento -->
         <a href="../candidaturas/minhas.php" class="btn btn-secondary btn-sm btn-full"
            style="margin-bottom:12px;">
             <span class="i i-check-circle" aria-hidden="true"></span> Já candidatado · ver status
@@ -308,7 +295,7 @@ if (isset($_GET['id']) && intval($_GET['id']) > 0) {
 
 </div><!-- /.detail-page -->
 
-<!-- FABs + Assistente + Acessibilidade (Stage 3: antes os botões não tinham painel nem script) -->
+<!-- FABs + Assistente + Acessibilidade -->
 <?php include dirname(__DIR__) . '/includes/assistente.php'; ?>
 
 <script>
@@ -429,7 +416,7 @@ $areas_result = $conn->query(
 
     <div class="navbar-inner-right">
         <button class="icon-btn btn-theme" id="btnTheme" title="Alternar tema" aria-label="Alternar tema">🌙</button>
-        <!-- Stage 4: mesmos atalhos do painel do jovem -->
+        <!-- Mesmos atalhos do painel do jovem -->
         <a href="../candidaturas/minhas.php" class="icon-btn" title="Minhas candidaturas" aria-label="Minhas candidaturas"><span class="i i-clipboard-list" aria-hidden="true"></span></a>
         <a href="favoritos.php" class="icon-btn" title="Vagas favoritas" aria-label="Vagas favoritas"><span class="i i-star" aria-hidden="true"></span></a>
         <a href="../jovem/perfil.php" class="icon-btn" title="Meu Perfil" aria-label="Meu Perfil"><span class="i i-user" aria-hidden="true"></span></a>
@@ -498,7 +485,7 @@ $areas_result = $conn->query(
     <!-- Conteúdo principal -->
     <main class="dashboard-main">
 
-        <!-- Stage 4: caminho de volta explícito -->
+        <!-- Caminho de volta explícito -->
         <p style="margin:0 0 12px;"><a href="../dashboard/jovem.php" class="back-link"><span class="i i-arrow-left" aria-hidden="true"></span> Voltar ao painel</a></p>
 
         <div class="page-heading fade-up">
@@ -637,7 +624,7 @@ $areas_result = $conn->query(
 
 </div><!-- /.dashboard-wrap -->
 
-<!-- FABs + Assistente + Acessibilidade (Stage 3: antes os botões não tinham painel nem script) -->
+<!-- FABs + Assistente + Acessibilidade -->
 <?php include dirname(__DIR__) . '/includes/assistente.php'; ?>
 
 <script>
@@ -656,7 +643,7 @@ btnTheme?.addEventListener('click', () => {
 
 /* ── Toggle favorito (AJAX POST) ───────────────────────────── */
 async function toggleFavorito(vagaId, btn) {
-    if (btn.disabled) return;                  // Stage 4: ignora cliques repetidos durante a requisição
+    if (btn.disabled) return;                  // Ignora cliques repetidos durante a requisição
     btn.disabled = true;
     btn.setAttribute('aria-busy', 'true');
     btn.style.transform = 'scale(.8)';
@@ -672,13 +659,12 @@ async function toggleFavorito(vagaId, btn) {
         if (!res.ok || typeof data.favorito !== 'boolean')   // resposta inesperada também é erro
             throw Object.assign(new Error(data.error || ''), { amigavel: !!data.error });
         const rotulo = data.favorito ? 'Remover dos favoritos' : 'Salvar nos favoritos';
-        btn.replaceChildren(jcIcone(data.favorito ? 'star-cheia' : 'star'));   // Stage 5: ícone (antes ⭐/☆)
+        btn.replaceChildren(jcIcone(data.favorito ? 'star-cheia' : 'star'));   // Ícone
         btn.style.color = data.favorito ? 'var(--jc-favorito, #facc15)' : 'var(--text-muted)';
         btn.title       = rotulo;
-        btn.setAttribute('aria-label', rotulo);  // Stage 4: o leitor de tela acompanha o estado
+        btn.setAttribute('aria-label', rotulo);  // O leitor de tela acompanha o estado
     } catch (err) {
         console.error('Erro ao favoritar:', err);
-        // Stage 4: antes o erro só ia para o console — o usuário não sabia que não salvou
         window.jcAviso?.(err?.amigavel ? err.message : 'Não foi possível atualizar os favoritos. Tente de novo.');
     } finally {
         btn.style.transform = '';
@@ -690,7 +676,7 @@ async function toggleFavorito(vagaId, btn) {
 /* ── Avaliar Match IA ──────────────────────────────────────── */
 async function avaliarMatch(vagaId, btn) {
     btn.disabled  = true;
-    btn.innerHTML = '<span class="loading-spinner"></span> Analisando...';   // Stage 4: antes só o spinner
+    btn.innerHTML = '<span class="loading-spinner"></span> Analisando...';
     try {
         const res = await fetch('../IA/avaliar_ajax.php', {
             method: 'POST',
@@ -698,14 +684,14 @@ async function avaliarMatch(vagaId, btn) {
             body: JSON.stringify({ action: 'match', vaga_id: vagaId, jovem_id: <?= $jovem_id ?> }),
         });
         if (!res.ok) {
-            // Stage 3: guarda o motivo devolvido pelo servidor (ex.: "Servidor de IA indisponível.")
+            // Guarda o motivo devolvido pelo servidor (ex.: "Servidor de IA indisponível.")
             const corpo = await res.json().catch(() => ({}));
-            // Stage 4: sem motivo do servidor, mensagem amigável (antes aparecia "HTTP 500")
+            // Sem motivo do servidor, mensagem amigável
             throw Object.assign(new Error(corpo.error || 'Não foi possível avaliar agora.'), { amigavel: true });
         }
         const { score } = await res.json();
-        btn.replaceChildren(jcIcone('sparkles'), `Match: ${score ?? '--'}%`);   // Stage 5: ícone + texto
-        // Stage 5.1: atalho para a análise detalhada (composição da nota, local, contexto)
+        btn.replaceChildren(jcIcone('sparkles'), `Match: ${score ?? '--'}%`);   // Ícone + texto
+        // Atalho para a análise detalhada (composição da nota, local, contexto)
         const rodape = btn.closest('.job-card-footer');
         if (rodape && !rodape.querySelector('.match-link')) {
             const link = document.createElement('a');
@@ -715,11 +701,11 @@ async function avaliarMatch(vagaId, btn) {
             rodape.appendChild(link);
         }
         btn.style.color = 'var(--accent)';
-        btn.classList.add('match-resultado');   // Stage 5.1: resultado legível (sem o esmaecido de desabilitado)
+        btn.classList.add('match-resultado');   // Resultado legível (sem o esmaecido de desabilitado)
     } catch (err) {
         btn.disabled  = false;
-        // Stage 3: antes o botão só voltava ao normal, sem explicar o que houve
-        // Stage 4: erro de rede/resposta inválida não aparece em inglês ("Failed to fetch")
+        // Antes o botão só voltava ao normal, sem explicar o que houve
+        // Erro de rede/resposta inválida não aparece em inglês ("Failed to fetch")
         btn.replaceChildren(jcIcone('sparkles'), err?.amigavel ? err.message : 'Não foi possível avaliar agora. Tente de novo.');
         btn.title       = 'Clique para tentar novamente';
         setTimeout(() => { btn.innerHTML = '<span class="i i-sparkles" aria-hidden="true"></span> Match IA'; btn.title = ''; }, 3500);

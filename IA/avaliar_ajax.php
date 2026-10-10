@@ -6,12 +6,12 @@
      - dashboard/jovem.php    → jovem avalia uma vaga
      - dashboard/empresa.php   → empresa avalia um candidato
      - jovem/perfil.php        → IA Advisor analisa o currículo
-     - Vagas/avaliar.php       → análise detalhada (Stage 5.1: actions
+     - Vagas/avaliar.php       → análise detalhada (actions
                                  "analise" e "contexto")
 
    Retorna JSON sempre — nunca HTML.
    ============================================================ */
-require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Sessao endurecida + CSRF
 header('Content-Type: application/json; charset=utf-8');
 
 // Sem sessão → 401
@@ -29,7 +29,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 require_once dirname(__DIR__) . "/includes/config.php";
-require_once dirname(__DIR__) . "/includes/match.php";   // Stage 5.1: algoritmo em PHP + local efetivo
+require_once dirname(__DIR__) . "/includes/match.php";   // Algoritmo em PHP + local efetivo
+require_once dirname(__DIR__) . "/includes/candidato.php";  // regra de acesso da empresa ao candidato
 csrf_require(true);
 
 // Lê o body JSON
@@ -45,7 +46,6 @@ $action = $input['action'] ?? 'match'; // 'match' ou 'curriculo'
 
 /* ============================================================
    ACTIONS: match / analise / contexto — compatibilidade jovem ↔ vaga
-   Stage 5.1:
    - match    → nota (como antes). O Flask continua sendo chamado para
                 pares novos; fora do ar, a nota vem da cópia fiel do
                 algoritmo em PHP (includes/match.php) — antes dava
@@ -85,18 +85,14 @@ if (in_array($action, ['match', 'analise', 'contexto'], true)) {
             exit;
         }
 
-        // Stage 5.1: a análise detalhada só mostra perfis públicos (mesma regra de Vagas/avaliar.php)
-        if ($action !== 'match') {
-            $stmt_pub = $conn->prepare("SELECT id FROM jovens WHERE id = ? AND perfil_publico = 1 LIMIT 1");
-            $stmt_pub->bind_param("i", $jovem_id);
-            $stmt_pub->execute();
-            $publico = $stmt_pub->get_result()->fetch_assoc();
-            $stmt_pub->close();
-            if (!$publico) {
-                http_response_code(404);
-                echo json_encode(['error' => 'Candidato não encontrado.']);
-                exit;
-            }
+        // Nota, análise e contexto: só de candidatos com relação de recrutamento
+        // com a empresa (candidatura a uma vaga dela ou perfil público) —
+        // mesma regra de jovem/perfil.php e Vagas/avaliar.php.
+        if ($jovem_id > 0 && !jc_empresa_pode_ver_candidato($conn, $empresa_id, $jovem_id)) {
+            jc_log_seguranca('acesso.negado', 'aviso', ['recurso' => 'match_' . $action, 'jovem' => $jovem_id]);
+            http_response_code(404);
+            echo json_encode(['error' => 'Candidato não encontrado.']);
+            exit;
         }
 
     } else {
@@ -152,7 +148,7 @@ if (in_array($action, ['match', 'analise', 'contexto'], true)) {
             exit;
         }
 
-        // Stage 5.1: dados do perfil/vaga mudaram desde o cálculo guardado → atualiza
+        // Dados do perfil/vaga mudaram desde o cálculo guardado → atualiza
         // (antes a nota antiga ficava para sempre e não batia com a análise detalhada)
         if ($cache) {
             $analise = jc_match_texto_estatico($calc['score']);
@@ -169,6 +165,7 @@ if (in_array($action, ['match', 'analise', 'contexto'], true)) {
 
         // Par novo: Flask (como antes); fora do ar → mesmo cálculo em PHP
         session_write_close();   // a espera pelo Flask não trava as outras páginas do usuário
+        $t0 = microtime(true);
         $resposta = jc_flask_post('/avaliar', $dados['entrada'], 6);
         if (is_array($resposta) && isset($resposta['score'])) {
             $score   = intval($resposta['score']);
@@ -176,7 +173,7 @@ if (in_array($action, ['match', 'analise', 'contexto'], true)) {
             $motivos = is_array($resposta['motivos'] ?? null) ? $resposta['motivos'] : [];
             $fonte   = 'flask';
             if ($score !== $calc['score']) {
-                error_log("[JovemConnect] Match: Flask={$score} PHP={$calc['score']} (jovem {$jovem_id}, vaga {$vaga_id})");
+                jc_log('match.divergencia', 'aviso', ['flask' => $score, 'php' => $calc['score'], 'vaga' => $vaga_id]);
             }
         } else {
             $score   = $calc['score'];
@@ -186,6 +183,7 @@ if (in_array($action, ['match', 'analise', 'contexto'], true)) {
         }
 
         $guardar($score, $analise);
+        jc_log('match.calculado', 'info', ['fonte' => $fonte, 'vaga' => $vaga_id, 'ms' => intval((microtime(true) - $t0) * 1000)]);
         echo json_encode([
             'score'    => $score,
             'analise'  => $analise,
@@ -250,6 +248,7 @@ if (in_array($action, ['match', 'analise', 'contexto'], true)) {
         fn($t) => is_int($t) && $t > $agora - 600
     ));
     if (count($chamadas) >= 20) {
+        jc_log('match.contexto', 'aviso', ['disponivel' => false, 'motivo' => 'limite_sessao']);
         echo json_encode(['disponivel' => false]);
         exit;
     }
@@ -258,10 +257,17 @@ if (in_array($action, ['match', 'analise', 'contexto'], true)) {
     session_write_close();   // a espera pela IA não trava as outras páginas do usuário
 
     $payload  = jc_match_payload_ia($conn, $jovem_id, $vaga_id, $dados, $calc, $categorias, $ajuste, $quem);
+    $t0 = microtime(true);
     $resposta = jc_flask_post('/analise_contextual', $payload, 20);
     $analise  = (is_array($resposta) && ($resposta['disponivel'] ?? false) === true)
         ? jc_match_validar_ia($resposta['analise'] ?? null)
         : null;
+    jc_log('match.contexto', $analise !== null ? 'info' : 'aviso', [
+        'disponivel' => $analise !== null,
+        'motivo'     => $analise !== null ? 'ok' : (is_array($resposta) ? (string) ($resposta['motivo'] ?? 'resposta_invalida') : 'flask_indisponivel'),
+        'cache'      => (bool) ($resposta['do_cache'] ?? false),
+        'ms'         => intval((microtime(true) - $t0) * 1000),
+    ]);
     echo json_encode($analise !== null
         ? ['disponivel' => true, 'analise' => $analise]
         : ['disponivel' => false]);

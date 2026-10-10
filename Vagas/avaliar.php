@@ -18,12 +18,13 @@
      - jovem   → jovem_id sempre de $_SESSION['jovem_id'].
      - empresa → vaga precisa pertencer a empresa_id da sessão;
                  jovem_id (candidato) vem do GET, mas só é aceito
-                 se o perfil for público — mesma regra já usada em
-                 dashboard/empresa.php.
+                 com relação de recrutamento (includes/candidato.php):
+                 candidatura a uma vaga da empresa ou perfil público.
    ============================================================ */
-require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Sessao endurecida + CSRF
 require_once dirname(__DIR__) . '/includes/config.php';
-require_once dirname(__DIR__) . '/includes/locais.php';   // Stage 5.1: local efetivo da vaga
+require_once dirname(__DIR__) . '/includes/locais.php';   // Local efetivo da vaga
+require_once dirname(__DIR__) . '/includes/candidato.php';
 
 if (!isset($_SESSION['jovem_id']) && !isset($_SESSION['empresa_id'])) {
     header("Location: ../index.php");
@@ -80,14 +81,19 @@ if ($vaga_id <= 0) {
     } elseif ($jovem_id_avaliado <= 0) {
         $erroPagina = "Nenhum candidato foi especificado para esta avaliação.";
     } else {
-        $stmt_j = $conn->prepare(
-            "SELECT id, nome, cidade, estado, area_interesse
-             FROM jovens WHERE id = ? AND perfil_publico = 1 LIMIT 1"
-        );
-        $stmt_j->bind_param("i", $jovem_id_avaliado);
-        $stmt_j->execute();
-        $candidato = $stmt_j->get_result()->fetch_assoc();
-        $stmt_j->close();
+        $candidato = null;
+        if (jc_empresa_pode_ver_candidato($conn, $empresa_id, $jovem_id_avaliado)) {
+            $stmt_j = $conn->prepare(
+                "SELECT id, nome, cidade, estado, area_interesse
+                 FROM jovens WHERE id = ? LIMIT 1"
+            );
+            $stmt_j->bind_param("i", $jovem_id_avaliado);
+            $stmt_j->execute();
+            $candidato = $stmt_j->get_result()->fetch_assoc();
+            $stmt_j->close();
+        } else {
+            jc_log_seguranca('acesso.negado', 'aviso', ['recurso' => 'analise_match', 'jovem' => $jovem_id_avaliado]);
+        }
 
         if (!$candidato) {
             $erroPagina = "Candidato não encontrado.";
@@ -95,7 +101,7 @@ if ($vaga_id <= 0) {
     }
 }
 
-// Stage 5.1: local de trabalho efetivo (local da vaga → endereço principal da empresa)
+// Local de trabalho efetivo (local da vaga → endereço principal da empresa)
 $local_vaga = (!$erroPagina && $vaga) ? jc_local_efetivo($conn, $vaga_id) : [];
 
 $perfilLink = ($tipo === 'empresa') ? '../empresa/perfil.php' : '../jovem/perfil.php';
@@ -170,7 +176,7 @@ $voltarLink = ($tipo === 'empresa')
                 <?php endif; ?>
             </div>
             <?php if (($local_vaga['nivel'] ?? 'indisponivel') !== 'indisponivel'): ?>
-            <!-- Stage 5.1: local de trabalho efetivo (o mesmo usado no Match) -->
+            <!-- Local de trabalho efetivo (o mesmo usado no Match) -->
             <div class="job-card-location">
                 <span class="i i-map-pin" aria-hidden="true"></span>
                 <span><?= htmlspecialchars($local_vaga['texto']) ?></span>
@@ -198,7 +204,7 @@ $voltarLink = ($tipo === 'empresa')
         </div>
 
         <!-- ── RESULTADO (preenchido via JS) ───────────────────────────────────
-             Stage 5.1: nota centralizada (Match tradicional) + "Ver análise
+             Nota centralizada (Match tradicional) + "Ver análise
              detalhada" (modal com a composição da nota, o local de trabalho
              usado e a análise contextual opcional do Gemini). -->
         <section class="card fade-up match-card" id="cardResultado" aria-labelledby="matchTitulo" aria-live="polite">
@@ -228,7 +234,7 @@ $voltarLink = ($tipo === 'empresa')
             </div>
         </section>
 
-        <!-- Stage 5.1: análise detalhada (mesmo padrão dos modais da Stage 5) -->
+        <!-- Análise detalhada (mesmo padrão dos modais) -->
         <div class="jc-modal" id="modalAnalise" role="dialog" aria-modal="true" aria-labelledby="modalAnaliseTitulo">
             <div class="jc-modal-caixa match-modal">
                 <div class="jc-modal-topo">
@@ -288,7 +294,7 @@ $voltarLink = ($tipo === 'empresa')
 </main>
 </div>
 
-<!-- Stage 4: assistente + acessibilidade (esta página não tinha os botões ✦/♿) -->
+<!-- Assistente + acessibilidade (esta página não tinha os botões ✦/♿) -->
 <?php include dirname(__DIR__) . '/includes/assistente.php'; ?>
 
 <script>
@@ -306,7 +312,7 @@ btnTheme?.addEventListener('click', () => {
 });
 
 <?php if (!$erroPagina): ?>
-/* ── Stage 5.1: resultado do Match + análise detalhada ─────────────────────
+/* ── resultado do Match + análise detalhada ─────────────────────
    Todo texto vindo do servidor (inclusive da IA) entra com textContent —
    nunca innerHTML. */
 const MATCH_IDS = { vaga_id: <?= (int) $vaga_id ?>, jovem_id: <?= (int) $jovem_id_avaliado ?> };

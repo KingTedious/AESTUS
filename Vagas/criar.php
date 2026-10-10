@@ -1,20 +1,8 @@
 <?php
 /* ============================================================
    Vagas/criar.php — Publicação de nova vaga
-
-   ❌ PROBLEMAS DO ORIGINAL (todos corrigidos aqui):
-   1. session_start() depois dos includes.
-   2. real_escape_string() em vez de prepared statements
-      → SQL Injection em todos os campos POST.
-   3. $conn->error exposto ao usuário.
-   4. Sem PRG: F5 após sucesso republicava a vaga.
-   5. Campos v3.00 ausentes: carga_horaria, area, cep.
-   6. Sem inserção em requisitos_vaga e beneficios_vaga.
-   7. var(--principal) e var(--borda) não existem no CSS v3.00.
-   8. include header.php após queries e <link> no body.
-   9. include footer.php em página com HTML próprio.
    ============================================================ */
-require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Sessao endurecida + CSRF
 
 if (!isset($_SESSION['empresa_id'])) {
     header("Location: ../empresa/login.php");
@@ -22,10 +10,10 @@ if (!isset($_SESSION['empresa_id'])) {
 }
 
 require_once dirname(__DIR__) . "/includes/config.php";
-require_once dirname(__DIR__) . "/includes/locais.php";   // Stage 5.1: local de trabalho
+require_once dirname(__DIR__) . "/includes/locais.php";   // Local de trabalho
 
 $empresa_id = intval($_SESSION['empresa_id']);
-$tem_locais = jc_locais_disponiveis($conn);   // Stage 5.1: sem a migração, o formulário é o de antes
+$tem_locais = jc_locais_disponiveis($conn);   // Sem a migração, o formulário é o de antes
 
 /* ============================================================
    PROCESSAMENTO POST
@@ -57,7 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ? substr($cep, 0, 5) . '-' . substr($cep, 5)
         : null;
 
-    // ── Stage 5.1: local de trabalho ──────────────────────────────────────────
+    // ── local de trabalho ──────────────────────────────────────────
     // Padrão: endereço principal da empresa. Ou um local já cadastrado
     // (escritório, filial...). Ou "outro endereço", que vira um local novo
     // da empresa. A vaga guarda a referência + cópia de cidade/UF/CEP
@@ -198,8 +186,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // PRG → Stage 4: vai para "Minhas vagas" com o aviso certo. Antes ia para o
+    // PRG → vai para "Minhas vagas" com o aviso certo. Antes ia para o
     // perfil da empresa e mostrava "Perfil atualizado com sucesso!".
+    jc_log('vaga.criada', 'info', ['vaga' => $vaga_id, 'local' => $local_trabalho ?? 'vaga']);
     header("Location: minhas.php?publicada=1");
     exit;
 }
@@ -209,7 +198,6 @@ $error = $_GET['error'] ?? null;
 $erros_msg = [
     'missing' => 'Preencha os campos obrigatórios: Título, Descrição e Tipo de Contrato.',
     'db'      => 'Erro interno ao salvar a vaga. Tente novamente.',
-    // Stage 5.1
     'local'   => 'Informe pelo menos a cidade e a UF do local de trabalho (ou escolha o endereço principal da empresa).',
 ];
 ?>
@@ -232,14 +220,14 @@ $erros_msg = [
 <div class="form-container">
 
     <!-- ── Logo ──────────────────────────────────────────────────────────────── -->
-    <!-- Stage 5: marca oficial vertical, como nas outras telas de formulário -->
+    <!-- Marca oficial vertical, como nas outras telas de formulário -->
     <div class="form-page-logo">
         <a href="../dashboard/empresa.php" class="marca marca-vertical nav-logo" aria-label="JovemConnect — meu painel">
             <img src="../assets/img/marca/jovemconnect-vertical.png" alt="JovemConnect" width="546" height="420">
         </a>
     </div>
 
-    <!-- Stage 4: caminho de volta no topo (antes só no fim de um formulário longo) -->
+    <!-- Caminho de volta no topo -->
     <p style="margin:0 0 12px;"><a href="../dashboard/empresa.php" class="back-link"><span class="i i-arrow-left" aria-hidden="true"></span> Voltar ao painel</a></p>
 
     <!-- ── Erro (GET redirect) ────────────────────────────────────────────────── -->
@@ -249,7 +237,7 @@ $erros_msg = [
     </div>
     <?php endif; ?>
 
-    <!-- Stage 4: data-envio-unico evita publicar a mesma vaga duas vezes (duplo clique) -->
+    <!-- Data-envio-unico evita publicar a mesma vaga duas vezes (duplo clique) -->
     <form method="POST" id="formVaga" novalidate data-envio-unico="Publicando vaga...">
         <?= csrf_field() ?>
 
@@ -320,7 +308,7 @@ $erros_msg = [
 
         <!-- ================================================================
              CARD 3 — Localização
-             Stage 5.1: com a migração, "Local de trabalho" (endereço principal
+             Com a migração, "Local de trabalho" (endereço principal
              da empresa, um local cadastrado ou outro endereço). Sem ela, o
              card antigo (CEP/cidade/UF) continua igual.
              ================================================================ -->
@@ -536,7 +524,7 @@ $erros_msg = [
                 <span class="i i-send" aria-hidden="true"></span> Publicar Vaga Agora
             </button>
             <p style="text-align:center;font-size:13px;color:var(--text-secondary);">
-                <!-- Stage 4: "Voltar ao Painel" levava ao perfil da empresa -->
+                <!-- "Voltar ao Painel" levava ao perfil da empresa -->
                 <a href="../dashboard/empresa.php" class="link-seta"><span class="i i-arrow-left" aria-hidden="true"></span> Cancelar e voltar ao painel</a>
             </p>
         </div>
@@ -546,7 +534,7 @@ $erros_msg = [
 </div><!-- /.form-container -->
 </div><!-- /.form-page -->
 
-<!-- FABs + Assistente + Acessibilidade (Stage 4: antes o botão ♿ não tinha painel nem script) -->
+<!-- FABs + Assistente + Acessibilidade -->
 <?php include dirname(__DIR__) . '/includes/assistente.php'; ?>
 
 <!-- ============================================================
@@ -572,7 +560,7 @@ document.getElementById('btnBuscarCep')?.addEventListener('click', async functio
         return;
     }
 
-    this.innerHTML = '<span class="i i-loader spin" aria-hidden="true"></span>';   // Stage 5: ícone de carregamento
+    this.innerHTML = '<span class="i i-loader spin" aria-hidden="true"></span>';   // Ícone de carregamento
     this.setAttribute('aria-busy', 'true');
     this.disabled    = true;
 
@@ -580,7 +568,7 @@ document.getElementById('btnBuscarCep')?.addEventListener('click', async functio
         const res  = await fetch(`https://viacep.com.br/ws/${cepRaw}/json/`);
         const data = await res.json();
 
-        // Stage 4: CEP inexistente ≠ falha de conexão (antes a falha aparecia em inglês: "Failed to fetch")
+        // CEP inexistente ≠ falha de conexão
         if (data.erro) throw Object.assign(new Error('CEP não encontrado'), { naoEncontrado: true });
 
         document.getElementById('cidade').value = data.localidade ?? '';
@@ -596,7 +584,7 @@ document.getElementById('btnBuscarCep')?.addEventListener('click', async functio
     }
 });
 
-/* ── Stage 5.1: "Outro endereço" mostra (e habilita) os campos do local ── */
+/* ── "Outro endereço" mostra (e habilita) os campos do local ── */
 document.querySelectorAll('input[name="local_trabalho"]').forEach(r => r.addEventListener('change', () => {
     const outro = document.querySelector('input[name="local_trabalho"][value="outro"]');
     const bloco = document.getElementById('localOutro');

@@ -1,5 +1,5 @@
 <?php
-require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Sessao endurecida + CSRF
 require_once dirname(__DIR__) . '/includes/config.php';
 require_once dirname(__DIR__) . '/includes/mailer.php';
 
@@ -14,7 +14,7 @@ if (!$tipoUsuario || !$idUsuario) {
 }
 
 $tabela = ($tipoUsuario === 'jovem') ? 'jovens' : 'empresas';
-// Stage 3: a tabela empresas não tem coluna "nome" (é nome_empresa). Antes, a
+// A tabela empresas não tem coluna "nome" (é nome_empresa). Antes, a
 // verificação de e-mail da EMPRESA parava com erro fatal "Unknown column 'nome'".
 $colNome = ($tabela === 'jovens') ? 'nome' : 'nome_empresa AS nome';
 $mensagemSucesso = null;
@@ -32,7 +32,9 @@ if (!function_exists('gerarEEnviarCodigoEmail')) {
         $update->execute();
         $update->close();
 
-        return enviarCodigoVerificacao($email, $nome, $novoCodigo);
+        $enviado = enviarCodigoVerificacao($email, $nome, $novoCodigo);
+        jc_log_seguranca('verificacao.email.enviado', $enviado ? 'info' : 'aviso', ['ok' => (bool) $enviado]);
+        return $enviado;
     }
 }
 
@@ -63,9 +65,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_verificar'])) {
         $update->execute();
         $update->close();
 
+        jc_log_seguranca('verificacao.email.sucesso', 'info');
         header("Location: ../dashboard/index.php?verified=1");
         exit;
     } else {
+        jc_log_seguranca('verificacao.email.falha', 'aviso');
         $mensagemErro = "Código incorreto ou expirado. Verifique a caixa de entrada ou solicite o reenvio.";
     }
 }
@@ -125,7 +129,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
 <?php include_once dirname(__DIR__) . '/includes/header.php'; ?>
 
-<!-- Stage 5.1: 60 px da barra fixa + 40 px de respiro (antes o topo ficava atrás da barra) -->
+<!-- 60 px da barra fixa + 40 px de respiro -->
 <main class="container verificacao-main" style="padding: 100px 16px 40px; max-width: 480px; margin: 0 auto;">
     <div class="card" style="text-align: center; padding: 32px 24px;">
         <div class="icone-destaque" aria-hidden="true"><span class="i i-mail" aria-hidden="true"></span></div>
@@ -152,7 +156,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             <input type="hidden" name="acao_verificar" value="1">
             <?= csrf_field() ?>
             <div class="form-group" style="margin-bottom: 20px;">
-                <!-- Stage 4: o campo não tinha rótulo (só o texto de exemplo "000000") -->
+                <!-- O campo não tinha rótulo (só o texto de exemplo "000000") -->
                 <input type="text" name="codigo" class="form-control" placeholder="000000" maxlength="6" required
                        aria-label="Código de verificação de 6 dígitos" inputmode="numeric" autocomplete="one-time-code" 
                        style="font-size: 28px; text-align: center; letter-spacing: 8px; font-weight: bold; padding: 12px; font-family: monospace;">
@@ -168,7 +172,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 Não recebeu o código? Reenviar e-mail
             </button>
         </form>
-        <!-- Stage 4: saídas explícitas (antes só pelo logo do topo) -->
+        <!-- Saídas explícitas -->
         <p style="margin-top: 24px; font-size: 13px; display: flex; flex-direction: column; gap: 8px; align-items: center;">
             <a href="escolher_verificacao.php" class="back-link"><span class="i i-arrow-left" aria-hidden="true"></span> Escolher outra forma de verificação</a>
             <a href="../dashboard/index.php" class="back-link">Verificar depois e ir para o meu painel <span class="i i-arrow-right" aria-hidden="true"></span></a>

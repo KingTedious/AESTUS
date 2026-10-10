@@ -1,15 +1,14 @@
 <?php
 /* ============================================================
-   uploads/ver_curriculo.php  (Stage 3)
+   uploads/ver_curriculo.php
 
    Entrega o PDF do currículo COM controle de acesso:
      - o próprio jovem (sessão jovem_id = id pedido); ou
-     - uma empresa logada, se o perfil do jovem for público
-       (mesma regra de jovem/perfil.php para empresas).
+     - uma empresa com relação de recrutamento com o jovem
+       (includes/candidato.php — mesma regra de jovem/perfil.php).
 
    O acesso direto a uploads/curriculos/*.pdf fica bloqueado pelo
-   .htaccess daquela pasta. Antes, qualquer pessoa — mesmo sem login —
-   baixava o currículo de qualquer jovem trocando o número na URL.
+   .htaccess daquela pasta: o PDF só sai por este arquivo.
    ============================================================ */
 require_once dirname(__DIR__) . '/includes/session.php';
 jc_session_start();
@@ -23,6 +22,7 @@ if (!$tem_jovem && !$tem_empresa) {
 }
 
 require_once dirname(__DIR__) . '/includes/config.php';
+require_once dirname(__DIR__) . '/includes/candidato.php';
 
 function curriculo_nao_encontrado(): never {
     // Mesma resposta para "não existe" e "sem permissão": não revela nada
@@ -42,7 +42,7 @@ if (!$eh_dono && !$tem_empresa) {
     curriculo_nao_encontrado();          // outro jovem não vê currículo alheio
 }
 
-$stmt = $conn->prepare("SELECT curriculo, perfil_publico FROM jovens WHERE id = ? LIMIT 1");
+$stmt = $conn->prepare("SELECT curriculo FROM jovens WHERE id = ? LIMIT 1");
 $stmt->bind_param("i", $jovem_id);
 $stmt->execute();
 $jovem = $stmt->get_result()->fetch_assoc();
@@ -51,8 +51,9 @@ $stmt->close();
 if (!$jovem || empty($jovem['curriculo'])) {
     curriculo_nao_encontrado();
 }
-if (!$eh_dono && !$jovem['perfil_publico']) {
-    curriculo_nao_encontrado();          // perfil privado: empresa não acessa
+if (!$eh_dono && !jc_empresa_pode_ver_candidato($conn, intval($_SESSION['empresa_id']), $jovem_id)) {
+    jc_log_seguranca('acesso.negado', 'aviso', ['recurso' => 'curriculo', 'jovem' => $jovem_id]);
+    curriculo_nao_encontrado();          // sem relação de recrutamento: empresa não acessa
 }
 
 $arquivo = __DIR__ . '/curriculos/' . basename($jovem['curriculo']);

@@ -1,6 +1,6 @@
 <?php
 /* ============================================================
-   includes/match.php  (Stage 5.1)
+   includes/match.php
 
    Match tradicional em PHP — CÓPIA FIEL do algoritmo de
    IA/recomendar.py (rota /avaliar): mesmos critérios, pesos, regras,
@@ -8,7 +8,7 @@
 
    Para que serve:
    1. Fallback: com o Flask fora do ar, o Match continua calculando a
-      nota (antes aparecia "Servidor de IA indisponível").
+      nota.
    2. Composição da nota: os pontos de cada critério já eram calculados
       separadamente no algoritmo; aqui eles são devolvidos para a
       análise detalhada (pontos ÷ peso = nota da categoria). Nada é
@@ -19,7 +19,7 @@
    Gemini (opcional) só ESCREVE a análise contextual — não altera a nota.
    ============================================================ */
 
-require_once __DIR__ . '/locais.php';   // local efetivo da vaga (Stage 5.1)
+require_once __DIR__ . '/locais.php';   // local efetivo da vaga
 
 if (!function_exists('jc_match_calcular')) {
 
@@ -423,12 +423,15 @@ if (!function_exists('jc_match_calcular')) {
         if ($corpo === false) {
             return null;
         }
+        $inicio = microtime(true);
         $ch = curl_init('http://127.0.0.1:5000' . $rota);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_POST           => true,
             CURLOPT_POSTFIELDS     => $corpo,
-            CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
+            // X-Request-Id: o mesmo identificador aparece nos logs do PHP e do Flask
+            CURLOPT_HTTPHEADER     => ['Content-Type: application/json',
+                                       'X-Request-Id: ' . (function_exists('jc_req_id') ? jc_req_id() : '')],
             CURLOPT_TIMEOUT        => $timeout,
             CURLOPT_CONNECTTIMEOUT => 3,
         ]);
@@ -437,6 +440,13 @@ if (!function_exists('jc_match_calcular')) {
         $codigo = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
         if ($errno || $result === false || $codigo !== 200) {
+            if (function_exists('jc_log')) {
+                jc_log('flask.falha', 'aviso', [
+                    'rota'    => $rota,
+                    'motivo'  => $errno === CURLE_OPERATION_TIMEDOUT ? 'timeout' : ($errno ? 'conexao' : 'http_' . $codigo),
+                    'ms'      => intval((microtime(true) - $inicio) * 1000),
+                ]);
+            }
             return null;
         }
         $dec = json_decode($result, true);

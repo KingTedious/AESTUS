@@ -435,3 +435,14 @@ ALTER TABLE `vagas`
   ADD KEY `idx_vaga_local` (`local_id`),
   ADD CONSTRAINT `fk_vaga_local`
     FOREIGN KEY (`local_id`) REFERENCES `empresa_locais` (`id`) ON DELETE SET NULL;
+
+
+-- Stage 6: aceite dos Termos de Uso e da Política de Privacidade (mesma migração de
+-- migrations/2026-10-10_stage6_aceite_termos.sql)
+ALTER TABLE `jovens`
+  ADD COLUMN `termos_versao`     VARCHAR(20) DEFAULT NULL COMMENT 'Versão dos Termos/Privacidade aceita no cadastro',
+  ADD COLUMN `termos_aceitos_em` DATETIME    DEFAULT NULL COMMENT 'Quando a caixa de aceite foi marcada e enviada';
+
+ALTER TABLE `empresas`
+  ADD COLUMN `termos_versao`     VARCHAR(20) DEFAULT NULL COMMENT 'Versão dos Termos/Privacidade aceita no cadastro',
+  ADD COLUMN `termos_aceitos_em` DATETIME    DEFAULT NULL COMMENT 'Quando a caixa de aceite foi marcada e enviada';

@@ -1,23 +1,8 @@
 <?php
 /* ============================================================
    Vagas/curriculoIA.php — Análise de currículo pela IA
-
-   ❌ PROBLEMAS DO ORIGINAL (todos corrigidos aqui):
-   1. session_start() depois do include config.php.
-   2. file_get_contents() com stream context → sem controle real
-      de timeout, sem tratamento de erros HTTP, sem verificação
-      de código de resposta.
-   3. localhost:5000 → usar 127.0.0.1:5000 (mais confiável).
-   4. Payload inconsistente: enviava {"texto":"..."} mas o
-      Flask v3.00 /curriculo espera {resumo, habilidades, formacoes}.
-   5. Sem htmlspecialchars() nas saídas da IA → XSS.
-   6. $_POST['texto'] repopulado sem htmlspecialchars() → XSS.
-   7. include header.php após processamento e <link> no body.
-   8. var(--borda) e var(--principal) não existem no CSS v3.00.
-   9. Página não carregava dados reais do perfil do jovem —
-      forçava o usuário a redigitar o que já estava no banco.
    ============================================================ */
-require_once dirname(__DIR__) . '/includes/csrf.php';   // Etapa 2: sessao endurecida + CSRF
+require_once dirname(__DIR__) . '/includes/csrf.php';   // Sessao endurecida + CSRF
 
 if (!isset($_SESSION['jovem_id'])) {
     header("Location: ../jovem/login.php");
@@ -94,7 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     curl_close($ch);
 
     if ($curl_errno || $result === false || $http_code !== 200) {
-        // Stage 4: sem endereço/porta interna na mensagem — o jovem não tem o que fazer com isso
+        // Sem endereço/porta interna na mensagem — o jovem não tem o que fazer com isso
         $erro_ia = "O servidor de IA está indisponível no momento. Tente novamente em alguns minutos.";
     } else {
         $decoded = json_decode($result, true);
@@ -276,7 +261,7 @@ $resumo_atual = htmlspecialchars(
 
 </div><!-- /container -->
 
-<!-- FABs + Assistente + Acessibilidade (Stage 4: antes o botão ♿ não tinha painel nem script) -->
+<!-- FABs + Assistente + Acessibilidade -->
 <?php include dirname(__DIR__) . '/includes/assistente.php'; ?>
 
 <script>
@@ -285,7 +270,7 @@ const savedTheme = localStorage.getItem('jc-theme');
 if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
 
 /* ── Feedback visual no submit ─────────────────────────────────
-   Stage 4: feito pelo data-envio-unico do formulário (includes/assistente.php),
+   Feito pelo data-envio-unico do formulário (includes/assistente.php),
    que também destrava o botão ao voltar pelo navegador — antes ele ficava
    preso em "Analisando..." depois do "Voltar". */
 </script>

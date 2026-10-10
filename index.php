@@ -1,25 +1,14 @@
 <?php
 /* ============================================================
-   index.php — Landing page pública do JovemConnect
+   index.php — página inicial pública do JovemConnect
 
-   ❌ PROBLEMAS DO ORIGINAL (todos corrigidos aqui):
-   1. require_once 'includes/config.php' → página pública sem
-      nenhuma query. Abria conexão de banco para todo visitante.
-   2. 200+ linhas de CSS inline → tudo movido para o design system.
-   3. Hero com layout centralizado (coluna única) → o print mostra
-      duas colunas: texto à esquerda, imagem à direita.
-   4. Sem session_start() → sem redirect para usuário já logado.
-   5. Sem toggle de tema (dark/light) funcional.
-   6. Sem chat widget do Assistente JovemConnect.
-   7. Sem painel de acessibilidade.
-   8. Navbar sem ícone de tema e sem logo-box.
-   9. Footer sem links de Termos/Privacidade/Contato.
-
-   Stage 5: marca oficial (horizontal na barra e no rodapé; símbolo no
-   celular), fotos oficiais ao fundo do hero e da seção "Sobre" (no lugar
-   dos emojis 👩‍💻/🏢), Termos/Privacidade/Contato em modais.
+   - Visitante: apresentação (hero), seção "Sobre" com revelação suave ao
+     rolar a página, rodapé com Termos de Uso, Privacidade e Contato (modais
+     de includes/institucional.php) e o assistente (includes/assistente.php).
+   - Quem já está logado é levado direto ao próprio painel.
+   - Não abre conexão com o banco (página sem consultas).
    ============================================================ */
-require_once __DIR__ . '/includes/session.php';   // Etapa 2: cookies de sessao endurecidos
+require_once __DIR__ . '/includes/session.php';   // Cookies de sessao endurecidos
 jc_session_start();
 
 // Usuário já logado → redireciona para o painel correto
@@ -43,6 +32,12 @@ if (isset($_SESSION['empresa_id'])) {
     <link rel="stylesheet" href="Assets/css/style.css">
     <link rel="icon" type="image/png" sizes="32x32" href="assets/img/marca/jovemconnect-icone-32.png">
     <link rel="apple-touch-icon" href="assets/img/marca/jovemconnect-icone-180.png">
+<script>
+/* Revelar ao rolar: ligado antes da primeira pintura (sem "piscar"); sem suporte
+   ou com "reduzir movimento", nada é escondido. */
+if ('IntersectionObserver' in window && !matchMedia('(prefers-reduced-motion: reduce)').matches)
+    document.documentElement.classList.add('revelar-ativo');
+</script>
 </head>
 <body class="landing-page">
 
@@ -67,13 +62,13 @@ if (isset($_SESSION['empresa_id'])) {
             Entrar
         </a>
         <button class="btn-theme" id="btnTheme" title="Alternar tema" aria-label="Alternar tema">🌙</button>
-        <a href="comecar.php" class="btn btn-primary btn-sm">Começar</a><!-- Stage 3: escolha Jovem/Empresa -->
+        <a href="comecar.php" class="btn btn-primary btn-sm">Começar</a><!-- Escolha Jovem/Empresa -->
     </div>
 </nav>
 
 <!-- ============================================================
      HERO SECTION
-     Stage 5: texto em primeiro plano; a foto oficial (pessoa no
+     Texto em primeiro plano; a foto oficial (pessoa no
      computador) fica ao fundo, até a borda da seção, discreta e coberta
      pela cor do site. Decorativa → alt vazio. No celular vira uma faixa
      abaixo do texto (não cobre o conteúdo).
@@ -108,23 +103,23 @@ if (isset($_SESSION['empresa_id'])) {
      ============================================================ -->
 <section class="about-section" id="sobre">
 
-    <!-- Stage 5: foto oficial (edifício) ao fundo, do lado esquerdo até a borda -->
+    <!-- Foto oficial (edifício) ao fundo, do lado esquerdo até a borda -->
     <div class="home-fundo about-fundo" aria-hidden="true">
         <img src="assets/img/home/edificio-empresa.jpg" alt="" width="683" height="1024" loading="lazy" decoding="async">
     </div>
 
     <div class="about-text">
-        <h2>Simplificando o Programa<br>Jovem Aprendiz</h2>
-        <p>
+        <h2 data-revelar>Simplificando o Programa<br>Jovem Aprendiz</h2>
+        <p data-revelar style="--ordem:1">
             Nossa plataforma utiliza <strong>inteligência artificial</strong> para encontrar
             a combinação perfeita entre o perfil do candidato e as necessidades da empresa.
         </p>
         <ul class="about-features">
-            <li>Análise de compatibilidade via IA</li>
-            <li>Gerador de currículos profissional</li>
-            <li>Filtros geográficos e de área</li>
+            <li data-revelar style="--ordem:2">Análise de compatibilidade via IA</li>
+            <li data-revelar style="--ordem:3">Gerador de currículos profissional</li>
+            <li data-revelar style="--ordem:4">Filtros geográficos e de área</li>
         </ul>
-        <div class="about-links">
+        <div class="about-links" data-revelar style="--ordem:5">
             <a href="https://www.gov.br/trabalho-e-emprego/pt-br/servicos/jovem-aprendiz"
                target="_blank" rel="noopener" class="highlight">
                 Guia Oficial do Jovem Aprendiz (Gov.br) <span class="i i-external-link" aria-hidden="true"></span><span class="sr-only">(abre em nova aba)</span>
@@ -149,14 +144,13 @@ if (isset($_SESSION['empresa_id'])) {
     <div class="footer-logo marca marca-rodape">
         <img src="assets/img/marca/jovemconnect-horizontal.png" alt="JovemConnect" width="493" height="160" loading="lazy">
     </div>
-    <p class="footer-tagline">
+    <p class="footer-tagline" data-revelar>
         Promovendo inclusão social e profissional através de tecnologia de ponta
         e inteligência artificial generativa.
     </p>
-    <!-- Stage 5: abrem modais sem sair da página (includes/institucional.php).
-         Os textos oficiais de Termos/Privacidade e o e-mail oficial de contato
-         ainda não foram fornecidos — os modais mostram isso, sem texto inventado. -->
-    <nav class="footer-links" aria-label="Informações do JovemConnect">
+    <!-- Abrem modais sem sair da página (includes/institucional.php); o texto dos
+         Termos e da Privacidade fica em includes/documentos.php (minutas). -->
+    <nav class="footer-links" aria-label="Informações do JovemConnect" data-revelar style="--ordem:1">
         <button type="button" class="footer-link" data-jc-modal-abrir="modalTermos" aria-haspopup="dialog"><span class="i i-file-text" aria-hidden="true"></span> Termos de Uso</button>
         <button type="button" class="footer-link" data-jc-modal-abrir="modalPrivacidade" aria-haspopup="dialog"><span class="i i-shield" aria-hidden="true"></span> Privacidade</button>
         <button type="button" class="footer-link" data-jc-modal-abrir="modalContato" aria-haspopup="dialog"><span class="i i-mail" aria-hidden="true"></span> Contato</button>
@@ -167,7 +161,7 @@ if (isset($_SESSION['empresa_id'])) {
 
 <!-- ============================================================
      ASSISTENTE + ACESSIBILIDADE + FABs
-     Stage 4: esta página tinha uma cópia própria do chat e do painel de
+     Esta página tinha uma cópia própria do chat e do painel de
      acessibilidade, com outras chaves no localStorage (a preferência ligada
      aqui se perdia nas outras páginas). Agora usa o mesmo componente de
      todas as páginas.
@@ -198,15 +192,26 @@ btnTheme?.addEventListener('click', () => {
     localStorage.setItem('jc-theme', next);
 });
 
+/* ── Revelar ao rolar ([data-revelar]) ─────────────────────────────
+   Sem IntersectionObserver ou com "reduzir movimento", nada é escondido. */
+(() => {
+    const itens = document.querySelectorAll('[data-revelar]');
+    if (!itens.length || !html.classList.contains('revelar-ativo')) return;   // ligado no <head>
+    const obs = new IntersectionObserver(entradas => entradas.forEach(en => {
+        if (en.isIntersecting) { en.target.classList.add('revelado'); obs.unobserve(en.target); }
+    }), { threshold: 0.01 });
+    itens.forEach(el => obs.observe(el));
+})();
+
 /* ── Navbar ao scroll ─────────────────────────────────────────── */
 window.addEventListener('scroll', () => {
     document.getElementById('mainNav')
         ?.classList.toggle('scrolled', window.scrollY > 20);
 }, { passive: true });
 
-/* Stage 4: chat e acessibilidade agora vêm de includes/assistente.php */
+/* Chat e acessibilidade agora vêm de includes/assistente.php */
 
-/* Stage 4: aviso depois de excluir a conta (o redirecionamento já trazia ?conta=excluida) */
+/* Aviso depois de excluir a conta (o redirecionamento já trazia ?conta=excluida) */
 if (new URLSearchParams(location.search).get('conta') === 'excluida') {
     window.jcAviso?.('Sua conta foi excluída.', 'sucesso');
     history.replaceState(null, '', location.pathname);
