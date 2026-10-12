@@ -3151,3 +3151,38 @@ html[data-high-contrast] .match-barra { border-color: var(--text-primary); }
 @keyframes jc-pulsar { 50% { opacity: .45; } }
 .chat-send[disabled] { opacity: .55; cursor: wait; }
 
+
+/* ============================================================
+   Stage 7 — denúncia de vaga e avisos de moderação
+   ============================================================ */
+.denuncia-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-top: 12px;
+  text-align: left;
+}
+.denuncia-card > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 12px 16px;
+  cursor: pointer;
+  list-style: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.denuncia-card > summary::-webkit-details-marker { display: none; }
+.denuncia-card > summary:hover { color: var(--text-primary); }
+.denuncia-card[open] > summary { border-bottom: 1px solid var(--border); color: var(--text-primary); }
+.denuncia-corpo { padding: 14px 16px 16px; font-size: 13px; }
+.denuncia-corpo fieldset { border: 0; padding: 0; margin: 0 0 14px; min-width: 0; }
+.denuncia-corpo legend { font-weight: 700; margin-bottom: 8px; color: var(--text-primary); }
+.denuncia-opcao { display: flex; align-items: flex-start; gap: 8px; padding: 5px 0; cursor: pointer; color: var(--text-secondary); }
+.denuncia-opcao input { width: 16px; height: 16px; margin-top: 2px; flex-shrink: 0; accent-color: var(--accent); }
+.denuncia-ajuda { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
+.denuncia-feita { display: flex; gap: 8px; align-items: flex-start; margin-top: 12px; font-size: 12px; color: var(--text-secondary); text-align: left; }
+.aviso-moderacao { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; margin-top: 10px; font-size: 12.5px; line-height: 1.5; color: var(--text-secondary); }
+.aviso-moderacao .i { margin-top: 2px; flex-shrink: 0; }

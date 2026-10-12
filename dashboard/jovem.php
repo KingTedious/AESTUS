@@ -10,8 +10,10 @@ if (!isset($_SESSION['jovem_id'])) {
 }
 
 require_once dirname(__DIR__) . "/includes/config.php";
+require_once dirname(__DIR__) . "/includes/conta_status.php";   // Stage 7: só vagas visíveis
 
 $jovem_id   = intval($_SESSION['jovem_id']);
+$sql_visiveis = jc_vagas_visiveis_sql($conn, 'v');   // '' sem a migração da Stage 7
 $jovem_nome = $_SESSION['jovem_nome'] ?? 'Jovem';
 
 // ── Filtro de área via GET ────────────────────────────────────────────────────
@@ -20,9 +22,9 @@ $area_filtro = !empty($_GET['area']) ? trim($_GET['area']) : null;
 
 // ── 1. Áreas distintas (chips de filtro do sidebar) ──────────────────────────
 $result_areas = $conn->query(
-    "SELECT DISTINCT area FROM vagas
-     WHERE  area IS NOT NULL AND area != ''
-     ORDER  BY area ASC"
+    "SELECT DISTINCT v.area FROM vagas v
+     WHERE  v.area IS NOT NULL AND v.area != ''{$sql_visiveis}
+     ORDER  BY v.area ASC"
 );
 
 // ── 2. Vagas (com ou sem filtro de área) ─────────────────────────────────────
@@ -33,7 +35,7 @@ if ($area_filtro) {
                 e.nome_empresa
          FROM   vagas v
          JOIN   empresas e ON v.empresa_id = e.id
-         WHERE  v.area = ?
+         WHERE  v.area = ?{$sql_visiveis}
          ORDER  BY v.criado_em DESC"
     );
     $stmt_vagas->bind_param("s", $area_filtro);
@@ -44,6 +46,7 @@ if ($area_filtro) {
                 e.nome_empresa
          FROM   vagas v
          JOIN   empresas e ON v.empresa_id = e.id
+         WHERE  1 = 1{$sql_visiveis}
          ORDER  BY v.criado_em DESC"
     );
 }

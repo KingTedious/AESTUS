@@ -29,6 +29,7 @@
    é a cidade da vaga (ou o endereço da empresa, se a vaga não tiver).
    ============================================================ */
 require_once __DIR__ . '/endereco_empresa.php';
+require_once __DIR__ . '/moderacao.php';   // Stage 7: regras de texto centrais
 
 if (!function_exists('jc_locais_disponiveis')) {
 
@@ -85,7 +86,17 @@ if (!function_exists('jc_locais_disponiveis')) {
         if ($l['cidade'] === '' || !preg_match('/^[A-Z]{2}$/', $l['estado'])) {
             return 'Informe pelo menos a cidade e a UF do local de trabalho.';
         }
-        return null;
+        // Stage 7: mesmas regras de texto do resto do site (caracteres de controle,
+        // codificação e código HTML/JavaScript executável são recusados)
+        $m = jc_mod_formulario([
+            'local.nome'        => [$l['nome'] ?? '', 'nome'],
+            'local.logradouro'  => [$l['logradouro'] ?? '', 'logradouro'],
+            'local.numero'      => [$l['numero'] ?? '', 'numero'],
+            'local.complemento' => [$l['complemento'] ?? '', 'complemento'],
+            'local.bairro'      => [$l['bairro'] ?? '', 'bairro'],
+            'local.cidade'      => [$l['cidade'] ?? '', 'cidade'],
+        ]);
+        return $m['erros'] ? (string) reset($m['erros']) : null;
     }
 
     /** "Escritório — Unidade Augusta" (ou só o tipo, se não tiver nome). */

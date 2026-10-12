@@ -1,5 +1,6 @@
 # Stage 3: o log tem nomes, IDs, IPs e detalhes técnicos de erros —
-# não deve ser acessível pelo navegador (http://.../logs/sistema.log).
+# não deve ser acessível pelo navegador (app.log, seguranca.log, ia.log).
+# Só vale no Apache com AllowOverride; em outro servidor, bloqueie a pasta na configuração dele.
 <IfModule mod_authz_core.c>
     Require all denied
 </IfModule>

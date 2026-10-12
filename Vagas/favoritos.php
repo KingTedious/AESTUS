@@ -10,6 +10,7 @@ if (!isset($_SESSION['jovem_id'])) {
 }
 
 require_once dirname(__DIR__) . "/includes/config.php";
+require_once dirname(__DIR__) . "/includes/conta_status.php";   // Stage 7: vagas fora do ar
 
 $jovem_id = intval($_SESSION['jovem_id']);
 
@@ -23,7 +24,8 @@ $stmt = $conn->prepare(
          v.salario, v.carga_horaria, v.area, v.tipo_contrato,
          e.nome_empresa,
          f.id AS fav_id,
-         f.criado_em AS favoritado_em
+         f.criado_em AS favoritado_em,
+         " . jc_vaga_visivel_expr($conn, 'v') . " AS visivel
      FROM favoritos f
      JOIN vagas    v ON f.vaga_id    = v.id
      JOIN empresas e ON v.empresa_id = e.id
@@ -100,6 +102,36 @@ $stmt->close();
 
         <?php while ($row = $result->fetch_assoc()):
             $vaga_id = intval($row['id']);
+            if (!intval($row['visivel'])):
+                // Stage 7: vaga fora do ar (moderação ou empresa suspensa) — o favorito
+                // continua guardado, mas sem os dados da vaga; dá para remover.
+        ?>
+        <div class="job-card" id="card-fav-<?= $vaga_id ?>">
+            <div class="job-card-top">
+                <h3 class="job-card-title">Vaga indisponível</h3>
+                <span class="badge badge-warning">Fora do ar</span>
+            </div>
+            <p class="aviso-moderacao"><span class="i i-info" aria-hidden="true"></span>
+                <span>Esta vaga saiu do ar: pode estar em revisão pela equipe do JovemConnect ou ter sido retirada.
+                Se ela voltar, aparece aqui de novo.</span></p>
+            <div class="job-card-footer" style="margin-top:14px;">
+                <button type="button" class="btn btn-secondary btn-sm btn-full" onclick="desfavoritar(<?= $vaga_id ?>, this)">
+                    <span class="i i-star-cheia" aria-hidden="true"></span> Remover dos Favoritos
+                </button>
+                <noscript>
+                    <form method="POST" action="favoritar.php">
+                        <input type="hidden" name="vaga_id" value="<?= $vaga_id ?>">
+                        <?= csrf_field() ?>
+                        <button type="submit" class="btn btn-secondary btn-sm btn-full">
+                            <span class="i i-star-cheia" aria-hidden="true"></span> Remover dos Favoritos
+                        </button>
+                    </form>
+                </noscript>
+            </div>
+        </div><!-- /.job-card (indisponível) -->
+        <?php
+                continue;
+            endif;
         ?>
 
         <div class="job-card" id="card-fav-<?= $vaga_id ?>">

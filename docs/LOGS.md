@@ -36,11 +36,30 @@ Exemplo:
 `gemini.falha`. Chamadas antigas a `registrar_log()` continuam funcionando e
 viram o evento `legado`.
 
+Stage 7 (Central administrativa e moderação — ver
+[ADMINISTRACAO_E_MODERACAO.md](ADMINISTRACAO_E_MODERACAO.md#logs)):
+
+- `seguranca.log`: `admin.<ação>` — espelho de **cada** registro do histórico
+  administrativo (ex.: `admin.login`, `admin.conta.suspensa`, `admin.vaga.moderada`,
+  `admin.cli.admin_criado`), gravado só depois do COMMIT, com `dados.registro` (id em
+  `admin_auditoria`) e `dados.elo` (16 primeiros caracteres do hash daquele registro);
+  `admin.login_csrf`; `login.bloqueado` (conta suspensa tentou entrar);
+  `conta.sessao_encerrada`; `denuncia.criada`, `denuncia.limite`, `denuncia.recusada`.
+- `app.log`: `admin.auditoria_erro`, `admin.erro_inesperado`, `cli.admin_erro`,
+  `moderacao.sinalizado`, `moderacao.erro_fila`, `vaga.recusada`, `denuncia.erro`.
+- `ia.log`: `moderacao.analise` e `gemini.falha` com `rota=moderacao`.
+
+O `elo` é o único valor que não passa pela máscara de números (é gerado pelo sistema,
+16 caracteres hexadecimais); a conferência do histórico compara esses elos com a tabela
+para revelar registros apagados ou trocados.
+
 ## O que nunca é gravado
 
 Senhas, tokens/CSRF, cookies, chaves de API, códigos de verificação, CPF, CNPJ,
 telefone, e-mail, CEP e endereço, data de nascimento, currículo, textos digitados
-(mensagens do assistente, prompts e respostas da IA). Campos com esses nomes viram
+(mensagens do assistente, prompts e respostas da IA) e, na Central administrativa,
+senha, segredo e códigos do autenticador, o texto avaliado pela moderação e a
+justificativa do administrador (que fica só no histórico, mascarada). Campos com esses nomes viram
 `[removido]`; e-mails e sequências longas de números dentro de textos são trocados
 por `[e-mail]`/`[número]`. Textos são cortados e não conseguem quebrar a linha
 (o JSON escapa quebras de linha), então ninguém consegue "inventar" um evento.
@@ -50,8 +69,11 @@ Erros de banco guardam só o código do erro (a mensagem pode conter SQL e dados
 
 - PHP: um arquivo por dia e um novo se passar de `JC_LOG_MAX_MB` (2 MB); o
   anterior vira `app-AAAAMMDD-HHMMSS.log`. Arquivos com mais de `JC_LOG_DIAS`
-  (30) dias são apagados na próxima gravação.
+  (30) dias (ou além dos 60 mais recentes) são apagados **no momento de uma rotação**
+  (não a cada gravação).
 - Flask: `ia.log` troca à meia-noite e guarda os últimos `JC_LOG_DIAS` arquivos.
+
+Como investigar problemas com esses logs: [LOGS_E_DIAGNOSTICO.md](LOGS_E_DIAGNOSTICO.md).
 
 ## Falhas
 

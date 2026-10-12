@@ -22,7 +22,7 @@ if (!function_exists('registrar_log')) {
 // handler, um erro inesperado (chave estrangeira, dado longo demais, coluna
 // inexistente...) virava "Fatal error" com caminho do arquivo, SQL e stack
 // trace na tela (display_errors do XAMPP). Agora os detalhes completos vão
-// para logs/sistema.log e o usuário recebe só uma mensagem amigável
+// para logs/app.log (evento erro.inesperado, via jc_log_excecao) e o usuário recebe só uma mensagem amigável
 // (JSON nos endpoints AJAX). Não engole o erro: ele continua registrado.
 if (!function_exists('jc_excecao_nao_tratada')) {
     function jc_excecao_nao_tratada(Throwable $e): void {
@@ -105,6 +105,14 @@ if ($conn->connect_error) {
 
 // Charset utf8mb4: suporta todos os caracteres latinos e emojis
 $conn->set_charset(DB_CHARSET);
+
+// ── Stage 7: conta suspensa pela administração perde a sessão ─────────────────
+// Só age quando há sessão de jovem ou empresa aberta e a migração da Stage 7
+// foi aplicada; sem ela, nada muda (ver includes/conta_status.php).
+if (session_status() === PHP_SESSION_ACTIVE && (isset($_SESSION['jovem_id']) || isset($_SESSION['empresa_id']))) {
+    require_once __DIR__ . '/conta_status.php';
+    jc_conta_verificar_sessao($conn);
+}
 
 // ── FLASK: não verificar aqui ─────────────────────────────────────────────────
 // A checagem de disponibilidade do servidor de IA pertence a avaliar_ajax.php.

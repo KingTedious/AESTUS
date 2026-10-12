@@ -38,12 +38,19 @@ $empresa = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
 // ── Verifica senha ────────────────────────────────────────────────────────────
-// ATENÇÃO: o usuário de teste (id=3) tem senha '123456' em texto puro no banco.
-// password_verify() NÃO vai funcionar para ele até que a senha seja re-hashada.
-// Para corrigir, atualize no banco:
-//   UPDATE empresas SET senha = '$2y$...' WHERE id = 3;
-// Gere o hash com: echo password_hash('123456', PASSWORD_DEFAULT);
+// password_verify() exige senha gravada com password_hash(). No schema.sql a
+// empresa de exemplo (id=3) já tem hash; quem tem senha em texto puro é um
+// jovem de exemplo (tabela jovens), que por isso não consegue entrar.
 if ($empresa && password_verify($senha, $empresa['senha'])) {
+
+    // Stage 7: conta suspensa pela administração não entra (aviso só depois da senha certa)
+    require_once dirname(__DIR__) . '/includes/conta_status.php';
+    if (jc_conta_suspensa($conn, 'empresa', intval($empresa['id']))) {
+        jc_log_seguranca('login.bloqueado', 'aviso', ['tipo' => 'empresa', 'motivo' => 'conta_suspensa']);
+        $_SESSION['erro_login'] = jc_conta_msg_suspensa();
+        header("Location: login.php");
+        exit;
+    }
 
     // Login bem-sucedido → limpa erros anteriores
     unset($_SESSION['erro_login']);

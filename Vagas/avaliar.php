@@ -25,6 +25,7 @@ require_once dirname(__DIR__) . '/includes/csrf.php';   // Sessao endurecida + C
 require_once dirname(__DIR__) . '/includes/config.php';
 require_once dirname(__DIR__) . '/includes/locais.php';   // Local efetivo da vaga
 require_once dirname(__DIR__) . '/includes/candidato.php';
+require_once dirname(__DIR__) . '/includes/conta_status.php';   // Stage 7: visibilidade
 
 if (!isset($_SESSION['jovem_id']) && !isset($_SESSION['empresa_id'])) {
     header("Location: ../index.php");
@@ -46,9 +47,11 @@ if ($vaga_id <= 0) {
 } elseif ($tipo === 'jovem') {
     $jovem_id_avaliado = intval($_SESSION['jovem_id']);
 
+    // Stage 7: o jovem só avalia vaga visível (não fora do ar pela moderação
+    // nem de empresa suspensa)
     $stmt_v = $conn->prepare(
         "SELECT id, titulo, cidade, estado, area, tipo_contrato, descricao
-         FROM vagas WHERE id = ? LIMIT 1"
+         FROM vagas v WHERE v.id = ?" . jc_vagas_visiveis_sql($conn, 'v') . " LIMIT 1"
     );
     $stmt_v->bind_param("i", $vaga_id);
     $stmt_v->execute();

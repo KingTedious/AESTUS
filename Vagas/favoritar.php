@@ -42,6 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 require_once dirname(__DIR__) . "/includes/config.php";
+require_once dirname(__DIR__) . "/includes/conta_status.php";   // Stage 7: visibilidade
 
 $jovem_id = intval($_SESSION['jovem_id']);
 $vaga_id  = intval($_POST['vaga_id'] ?? 0);
@@ -76,6 +77,14 @@ $stmt_chk->execute();
 $stmt_chk->store_result();
 $ja_favoritado = $stmt_chk->num_rows > 0;
 $stmt_chk->close();
+
+// Stage 7: só dá para ADICIONAR vaga visível (fora do ar pela moderação ou de
+// empresa suspensa, não); REMOVER dos favoritos continua sempre possível.
+if (!$ja_favoritado && !jc_vaga_visivel($conn, $vaga_id)) {
+    if ($is_ajax) jsonError(404, 'Esta vaga não está disponível no momento.');
+    header("Location: ../dashboard/jovem.php");
+    exit;
+}
 
 if ($ja_favoritado) {
     // ── REMOVE dos favoritos ──────────────────────────────────────────────────

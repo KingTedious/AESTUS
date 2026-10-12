@@ -8,6 +8,12 @@ do `=`; linhas começando com `#` são comentários.
 O PHP lê o `.env` por `includes/env.php`; o Flask (`IA/recomendar.py`) lê o mesmo
 arquivo. Variáveis definidas no sistema operacional têm prioridade.
 
+Exceções no Flask: `FLASK_DEBUG` e a integração antiga `google-generativeai` (que usa
+`GEMINI_API_KEY`) só olham as **variáveis de ambiente reais**, não o `.env`
+(ver [IA_E_MATCH.md](IA_E_MATCH.md#integração-antiga-google-generativeai)). Lidas pelo código mas fora do
+`.env.example`: `DB_CHARSET`, `FLASK_DEBUG` (manter `0`) e `JC_GEMINI_API_BASE` (só para testes com um Gemini
+simulado em `127.0.0.1`).
+
 ## Banco de dados (PHP)
 
 | Variável | Padrão | Uso |
@@ -38,7 +44,8 @@ de e-mail não funciona (o resto do site sim).
 
 Depois de mudar o `.env`, feche a janela "JovemConnect - IA" e rode
 `iniciar_ia.bat` de novo. Confira em <http://127.0.0.1:5000/ping>: `"assistente": true`
-indica que há chave configurada (a chave em si nunca é mostrada).
+indica que há chave configurada (a chave em si nunca é mostrada). A mesma chave habilita a
+análise complementar de moderação da Central administrativa (`"moderacao": true` no `/ping`).
 
 Use sempre uma chave **nova e só sua**. Se uma chave já foi publicada (Git,
 mensagem, print), revogue-a no painel do Google e gere outra.
@@ -50,3 +57,13 @@ mensagem, print), revogue-a no painel do Google e gere outra.
 | `JC_LOG_DIR` | `logs/` do projeto | Pasta dos logs (PHP e Flask) |
 | `JC_LOG_MAX_MB` | `2` | Tamanho máximo de um arquivo de log do PHP antes de abrir outro |
 | `JC_LOG_DIAS` | `30` | Por quantos dias os arquivos antigos são guardados |
+
+## Central administrativa (opcional — Stage 7)
+
+| Variável | Padrão | Uso |
+|---|---|---|
+| `JC_ADMIN_OCIOSO_SEG` | `900` (15 min) | Encerra a sessão administrativa depois desse tempo sem uso (aceito de 120 a 3600; fora disso vale o limite mais próximo) |
+| `JC_ADMIN_MAX_SEG` | `28800` (8 h) | Encerra a sessão administrativa depois desse tempo desde a entrada (aceito de 900 a 43200) |
+
+Não existe variável com senha ou conta de administrador: administradores são criados só pela linha de
+comando (`php scripts/admin.php criar ...`, ver [ADMINISTRACAO_E_MODERACAO.md](ADMINISTRACAO_E_MODERACAO.md)).

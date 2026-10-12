@@ -26,6 +26,11 @@ function mascararEmail(string $email): string {
 }
 
 // --- ETAPA 1: ENVIAR O E-MAIL DE RECUPERAÇÃO ---
+// ATENÇÃO (auditoria de 10/10/2026, pendência SEG-01 — NÃO corrigida): esta etapa
+// não apaga $_SESSION['recuperacao_codigo_ok'] deixado por uma validação anterior,
+// e a etapa 3 confere só essa marca e a validade no banco. Assim, quem validou o
+// próprio código e depois pede um código para outro e-mail consegue trocar a senha
+// da outra conta. Ver docs/SEGURANCA_E_PRIVACIDADE.md antes de mexer aqui.
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_solicitar_codigo'])) {
     csrf_require();
     $emailInput = trim($_POST['email'] ?? '');

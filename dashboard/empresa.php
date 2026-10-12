@@ -4,6 +4,7 @@
    ============================================================ */
 require_once dirname(__DIR__) . '/includes/csrf.php';   // Sessao endurecida + CSRF
 require_once dirname(__DIR__) . "/includes/config.php";
+require_once dirname(__DIR__) . "/includes/conta_status.php";   // Stage 7: moderação e contas suspensas
 
 // Proteção de rota
 if (!isset($_SESSION['empresa_id'])) {
@@ -26,8 +27,11 @@ $empresa_nome = $empresa['nome_empresa']  ?? $_SESSION['empresa_nome'] ?? 'Empre
 $empresa_area = $empresa['area_atuacao']  ?? null;
 
 // ── 1. Vagas publicadas ───────────────────────────────────────────────────────
+// Stage 7: estado de moderação (só com a migração; sem ela, NULL = vaga normal)
+$cols_moderacao = jc_stage7_disponivel($conn) ? ", moderacao_status, moderacao_motivo"
+                                              : ", NULL AS moderacao_status, NULL AS moderacao_motivo";
 $stmt_vagas = $conn->prepare(
-    "SELECT id, titulo, cidade, estado, area, salario, carga_horaria
+    "SELECT id, titulo, cidade, estado, area, salario, carga_horaria{$cols_moderacao}
      FROM   vagas
      WHERE  empresa_id = ?
      ORDER  BY criado_em DESC"
@@ -62,7 +66,7 @@ $stmt_cands = $conn->prepare(
      JOIN   candidaturas c ON c.jovem_id = j.id
      JOIN   vagas        v ON c.vaga_id  = v.id
      WHERE  v.empresa_id   = ?
-       AND  j.perfil_publico = 1
+       AND  j.perfil_publico = 1" . jc_jovens_ativos_sql($conn, 'j') . "
      ORDER  BY c.criado_em DESC"
 );
 $stmt_cands->bind_param("i", $empresa_id);
@@ -88,7 +92,7 @@ if ($result_cands->num_rows === 0 && $empresa_area) {
              TIMESTAMPDIFF(YEAR, j.data_nascimento, CURDATE()) AS idade
          FROM   jovens j
          WHERE  j.area_interesse LIKE ?
-           AND  j.perfil_publico = 1
+           AND  j.perfil_publico = 1" . jc_jovens_ativos_sql($conn, 'j') . "
          ORDER  BY j.criado_em DESC
          LIMIT  12"
     );
@@ -350,6 +354,15 @@ if ($modo_fallback && $total_vagas > 1) {
                 <span class="badge badge-area"><?= htmlspecialchars($vaga['area']) ?></span>
                 <?php endif; ?>
             </div>
+
+            <?php $aviso_mod = jc_vaga_aviso_moderacao($vaga['moderacao_status'], $vaga['moderacao_motivo']);
+                  if ($aviso_mod): ?>
+            <!-- Stage 7: vaga fora do ar pela moderação (só a empresa dona vê este aviso) -->
+            <p class="aviso-moderacao">
+                <span class="badge badge-<?= $aviso_mod['classe'] === 'erro' ? 'danger' : 'warning' ?>"><?= htmlspecialchars($aviso_mod['selo']) ?></span>
+                <span><?= htmlspecialchars($aviso_mod['texto']) ?></span>
+            </p>
+            <?php endif; ?>
 
             <div class="job-card-meta">
                 <?php if (!empty($vaga['salario'])): ?>

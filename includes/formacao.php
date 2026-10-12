@@ -18,7 +18,11 @@
    formulário reconhece os textos padronizados; texto antigo que não dá
    para reconhecer aparece em "Outro" (o jovem confere e salva).
    POST no formato antigo (sem "formacao_nivel") segue o caminho antigo.
+
+   Stage 7: o texto digitado em "Outro"/"Qual?" passa pela validação e pela
+   moderação centrais (includes/moderacao.php).
    ============================================================ */
+require_once __DIR__ . '/moderacao.php';
 
 const JC_FORMACAO_SEP = ' — ';
 
@@ -191,6 +195,26 @@ function jc_formacao_ler_post(array $post, array &$erros, string $p = '', string
         }
     }
 
+    // Stage 7: o texto DIGITADO ("Outro" / "Qual?") passa pela validação e pela
+    // moderação central (código executável é recusado; conteúdo suspeito vira
+    // sinal para a fila — quem chama registra com jc_mod_registrar()).
+    $r['sinais'] = [];
+    $livre = '';
+    if ($nivel === 'outro') {
+        $livre = $r['outro'];
+    } elseif ($nivel === 'medio' && $r['em_tecnico'] && $v['curso_tecnico'] === 'Outro') {
+        $livre = $v['curso_tecnico_outro'];
+    } elseif (($c = jc_formacao_cursos($nivel)) && $v[$c[0]] === 'Outro') {
+        $livre = $v[$c[0] . '_outro'];
+    }
+    if ($livre !== '' && function_exists('jc_mod_formulario')) {
+        $m = jc_mod_formulario(['jovem.formacao_livre' => [$livre, 'formacao']]);
+        if ($m['erros']) {
+            $erros[] = $m['erros']['formacao'];
+        }
+        $r['sinais'] = $m['sinais'];
+    }
+
     switch ($nivel) {
         case 'medio': $completo = ($r['ano'] !== null);   break;
         case 'outro': $completo = ($r['outro'] !== '');   break;
@@ -198,6 +222,10 @@ function jc_formacao_ler_post(array $post, array &$erros, string $p = '', string
     }
     $r['rotulo'] = $completo ? jc_formacao_rotulo($nivel, $r['ano'], $r['curso'], $r['outro']) : '';
     $r['tipo']   = ($r['curso_tecnico'] !== '') ? 'tecnico' : 'regular';
+    if (isset($r['sinais']['jovem.formacao_livre']) && $r['rotulo'] !== '') {
+        // o que fica gravado é o rótulo ("Ensino Técnico — <texto>"): a fila guarda o hash dele
+        $r['sinais']['jovem.formacao_livre']['hash'] = hash('sha256', $r['rotulo']);
+    }
     return $r;
 }
 

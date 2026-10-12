@@ -51,6 +51,15 @@ $stmt->close();
 // ── Verifica senha ────────────────────────────────────────────────────────────
 if ($jovem && password_verify($senha, $jovem['senha'])) {
 
+    // Stage 7: conta suspensa pela administração não entra (aviso só depois da senha certa)
+    require_once dirname(__DIR__) . '/includes/conta_status.php';
+    if (jc_conta_suspensa($conn, 'jovem', intval($jovem['id']))) {
+        jc_log_seguranca('login.bloqueado', 'aviso', ['tipo' => 'jovem', 'motivo' => 'conta_suspensa']);
+        $_SESSION['erro_login'] = jc_conta_msg_suspensa();
+        header("Location: login.php");
+        exit;
+    }
+
     unset($_SESSION['erro_login']);
 
     // ✅ Chaves corretas — lidas por todas as páginas do projeto

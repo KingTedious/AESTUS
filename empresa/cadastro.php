@@ -20,6 +20,7 @@ require_once dirname(__DIR__) . "/includes/config.php";
 require_once dirname(__DIR__) . "/includes/endereco_empresa.php";   // endereço completo da empresa
 require_once dirname(__DIR__) . "/includes/termos.php";             // versão e registro do aceite
 require_once dirname(__DIR__) . "/includes/etapas.php";             // formulário em etapas
+require_once dirname(__DIR__) . "/includes/moderacao.php";          // Stage 7: validação + moderação centrais
 
 $erros  = [];   // chave = nome do campo (mensagem aparece perto dele)
 $campos = [];   // valores para repreencher o formulário quando houver erro
@@ -55,6 +56,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $aceite     = ($_POST['aceite_termos'] ?? '') === '1';
     $campos['aceite_termos'] = $aceite;
 
+    // ── Stage 7: validação estrutural + moderação (includes/moderacao.php) ────
+    // Os cortes de tamanho acima continuam valendo como antes.
+    $mod = jc_mod_formulario([
+        'empresa.nome'         => [$campos['nome_empresa'], 'nome_empresa'],
+        'empresa.area_atuacao' => [$campos['area_atuacao'], 'area_atuacao'],
+        'empresa.cidade'       => [$campos['cidade'], 'cidade'],
+        'empresa.descricao'    => [$campos['descricao'], 'descricao'],
+        'empresa.site'         => [$campos['site_oficial'], 'site_oficial'],
+        'local.logradouro'     => [$campos['logradouro'] ?? '', 'logradouro'],
+        'local.numero'         => [$campos['numero'] ?? '', 'numero'],
+        'local.complemento'    => [$campos['complemento'] ?? '', 'complemento'],
+        'local.bairro'         => [$campos['bairro'] ?? '', 'bairro'],
+    ]);
+    foreach ($mod['erros'] as $campo_form => $msg) {
+        // endereço: a mensagem aparece junto do CEP (mesma etapa)
+        $chave_erro = in_array($campo_form, ['logradouro', 'numero', 'complemento', 'bairro'], true) ? 'cep' : $campo_form;
+        $erros[$chave_erro] = $erros[$chave_erro] ?? $msg;
+    }
+    foreach (['empresa.nome' => 'nome_empresa', 'empresa.area_atuacao' => 'area_atuacao', 'empresa.cidade' => 'cidade',
+              'empresa.descricao' => 'descricao', 'empresa.site' => 'site_oficial', 'local.logradouro' => 'logradouro',
+              'local.numero' => 'numero', 'local.complemento' => 'complemento', 'local.bairro' => 'bairro'] as $chave => $campo) {
+        if (isset($mod['valores'][$chave])) {
+            $campos[$campo] = $mod['valores'][$chave];
+        }
+    }
+
     // ── Validações ────────────────────────────────────────────────────────────
     if ($campos['nome_empresa'] === '')
         $erros['nome_empresa'] = 'Informe o nome da empresa.';
@@ -76,7 +103,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($campos['estado'] !== '' && !preg_match('/^[A-Z]{2}$/', $campos['estado']))
         $erros['estado'] = 'Use a sigla do estado com 2 letras (ex.: SP).';
 
-    if ($campos['site_oficial'] !== '' && !filter_var(
+    if ($campos['site_oficial'] !== '' && !isset($erros['site_oficial']) && !filter_var(
             preg_match('~^https?://~i', $campos['site_oficial']) ? $campos['site_oficial'] : 'https://' . $campos['site_oficial'],
             FILTER_VALIDATE_URL))
         $erros['site_oficial'] = 'Endereço do site inválido.';
@@ -139,6 +166,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $novo_id = intval($conn->insert_id);
             $stmt_ins->close();
             jc_termos_registrar($conn, 'empresas', $novo_id);
+            // Stage 7: conteúdo suspeito vai para a fila de moderação (a conta é criada normalmente)
+            jc_mod_registrar($conn, 'empresa', $novo_id, $mod['sinais'], 'empresa', $novo_id);
 
             // Login automático após o cadastro
             $_SESSION['empresa_id']   = $novo_id;

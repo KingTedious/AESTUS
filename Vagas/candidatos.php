@@ -10,6 +10,7 @@ if (!isset($_SESSION['empresa_id'])) {
 }
 
 require_once dirname(__DIR__) . "/includes/config.php";
+require_once dirname(__DIR__) . "/includes/conta_status.php";   // Stage 7: moderação e contas suspensas
 
 $empresa_id = intval($_SESSION['empresa_id']);
 
@@ -33,8 +34,10 @@ if ($vaga_id <= 0) {
 
 // ── Verifica que a vaga pertence a ESTA empresa ──────────────────────────────
 // (Ownership check — corrige a falha de autorização do original)
+$cols_moderacao = jc_stage7_disponivel($conn) ? ", moderacao_status, moderacao_motivo"
+                                              : ", NULL AS moderacao_status, NULL AS moderacao_motivo";
 $stmt_vaga = $conn->prepare(
-    "SELECT id, titulo, area, cidade, estado, salario, carga_horaria
+    "SELECT id, titulo, area, cidade, estado, salario, carga_horaria{$cols_moderacao}
      FROM   vagas
      WHERE  id = ? AND empresa_id = ?
      LIMIT  1"
@@ -156,7 +159,7 @@ $stmt_c = $conn->prepare(
          c.criado_em
      FROM candidaturas c
      JOIN jovens j ON c.jovem_id = j.id
-     WHERE c.vaga_id = ?
+     WHERE c.vaga_id = ?" . jc_jovens_ativos_sql($conn, 'j') . "
      ORDER BY c.criado_em DESC"
 );
 $stmt_c->bind_param("i", $vaga_id);
@@ -230,6 +233,14 @@ $stmt_c->close();
                     • R$ <?= htmlspecialchars($vaga['salario']) ?>
                     <?php endif; ?>
                 </p>
+                <?php $aviso_mod = jc_vaga_aviso_moderacao($vaga['moderacao_status'], $vaga['moderacao_motivo']);
+                      if ($aviso_mod): ?>
+                <!-- Stage 7: vaga fora do ar pela moderação -->
+                <p class="aviso-moderacao">
+                    <span class="badge badge-<?= $aviso_mod['classe'] === 'erro' ? 'danger' : 'warning' ?>"><?= htmlspecialchars($aviso_mod['selo']) ?></span>
+                    <span><?= htmlspecialchars($aviso_mod['texto']) ?></span>
+                </p>
+                <?php endif; ?>
             </div>
             <a href="../Vagas/criar.php" class="btn btn-primary btn-sm"><span class="i i-plus" aria-hidden="true"></span> Nova Vaga</a>
         </div>

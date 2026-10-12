@@ -11,6 +11,8 @@ if (!isset($_SESSION['empresa_id'])) {
 
 require_once dirname(__DIR__) . "/includes/config.php";
 require_once dirname(__DIR__) . "/includes/locais.php";   // Local de trabalho
+require_once dirname(__DIR__) . "/includes/moderacao.php";      // Stage 7: validação + moderação centrais
+require_once dirname(__DIR__) . "/includes/conta_status.php";   // Stage 7: estados de moderação
 
 $empresa_id = intval($_SESSION['empresa_id']);
 $tem_locais = jc_locais_disponiveis($conn);   // Sem a migração, o formulário é o de antes
@@ -38,6 +40,79 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($titulo) || empty($descricao) || empty($tipo_contrato)) {
         header("Location: criar.php?error=missing");
         exit;
+    }
+
+    // ── Stage 7: validação estrutural + moderação (includes/moderacao.php) ────
+    // Requisitos/benefícios: os itens acima do tamanho da coluna continuam sendo
+    // descartados como antes; os demais passam pelas mesmas regras de texto.
+    $req_lista = array_values(array_filter(array_map('trim', explode(',', $requisitos_raw)),
+                                           fn($r) => $r !== '' && strlen($r) <= 150));
+    $ben_lista = array_values(array_filter(array_map('trim', explode(',', $beneficios_raw)),
+                                           fn($b) => $b !== '' && strlen($b) <= 100));
+    $mod = jc_mod_formulario([
+        'vaga.titulo'        => [$titulo, 'titulo'],
+        'vaga.descricao'     => [$descricao, 'descricao'],
+        'vaga.salario'       => [$salario, 'salario'],
+        'vaga.carga_horaria' => [$carga_horaria, 'carga_horaria'],
+        'vaga.cidade'        => [$cidade, 'cidade'],
+    ], ['tipo_contrato' => $tipo_contrato]);
+    $mod_req = jc_mod_lista('vaga.requisito', $req_lista);
+    $mod_ben = jc_mod_lista('vaga.beneficio', $ben_lista);
+    $erros_validacao = array_values($mod['erros']);
+    foreach ([$mod_req['erro'], $mod_ben['erro']] as $e) {
+        if ($e !== null) {
+            $erros_validacao[] = $e;
+        }
+    }
+    if ($erros_validacao) {
+        // volta ao formulário com o que foi digitado (rascunho só na sessão desta empresa)
+        $_SESSION['vaga_rascunho'] = [
+            'titulo' => mb_substr($titulo, 0, 300), 'descricao' => mb_substr($descricao, 0, 6000),
+            'salario' => mb_substr($salario, 0, 100), 'carga_horaria' => mb_substr($carga_horaria, 0, 40),
+            'area' => mb_substr($area, 0, 100), 'tipo_contrato' => mb_substr($tipo_contrato, 0, 50),
+            'requisitos' => mb_substr($requisitos_raw, 0, 3000), 'beneficios' => mb_substr($beneficios_raw, 0, 2000),
+        ];
+        $_SESSION['vaga_erros'] = array_slice($erros_validacao, 0, 8);
+        jc_log('vaga.recusada', 'aviso', ['campos' => implode(',', array_keys($mod['erros']))]);
+        header("Location: criar.php?error=validacao");
+        exit;
+    }
+    $titulo        = $mod['valores']['vaga.titulo'] ?? $titulo;
+    $descricao     = $mod['valores']['vaga.descricao'] ?? $descricao;
+    $salario       = $mod['valores']['vaga.salario'] ?? $salario;
+    $carga_horaria = $mod['valores']['vaga.carga_horaria'] ?? $carga_horaria;
+    $cidade        = $mod['valores']['vaga.cidade'] ?? $cidade;
+    $req_lista     = array_values($mod_req['valores']);
+    $ben_lista     = array_values($mod_ben['valores']);
+    $sinais_vaga   = $mod['sinais']
+                   + ($mod_req['sinal'] ? ['vaga.requisito' => $mod_req['sinal']] : [])
+                   + ($mod_ben['sinal'] ? ['vaga.beneficio' => $mod_ben['sinal']] : []);
+    // Muitas vagas da mesma empresa em pouco tempo (10+ na última hora): sinal para a fila
+    if (jc_stage7_disponivel($conn)) {
+        $stmt_fl = $conn->prepare("SELECT COUNT(*) AS n FROM vagas WHERE empresa_id = ? AND criado_em >= NOW() - INTERVAL 1 HOUR");
+        $stmt_fl->bind_param("i", $empresa_id);
+        $stmt_fl->execute();
+        $recentes = intval($stmt_fl->get_result()->fetch_assoc()['n'] ?? 0);
+        $stmt_fl->close();
+        if ($recentes >= 10) {
+            $sinais_vaga['vaga.flood'] = ['decisao' => 'sinalizar', 'risco' => 'medio', 'mensagem' => null, 'hash' => null,
+                'regras' => [['cod' => 'flood.vagas', 'cat' => 'Spam', 'risco' => 'medio',
+                              'desc' => 'Muitas vagas publicadas pela mesma empresa em pouco tempo']]];
+        }
+    }
+    // Estado de moderação inicial (separado da publicação):
+    //   risco alto  → "pendente": fora do ar até a revisão humana;
+    //   risco médio → "sinalizada": no ar, com item na fila;
+    //   risco baixo → "aprovada" (no ar), com item na fila de baixa prioridade.
+    $nivel_mod = 0;
+    foreach ($sinais_vaga as $sv) {
+        $nivel_mod = max($nivel_mod, jc_mod_nivel((string) ($sv['risco'] ?? 'baixo')));
+    }
+    $status_mod = $nivel_mod >= 3 ? 'pendente' : ($nivel_mod >= 2 ? 'sinalizada' : 'aprovada');
+    if (!jc_stage7_disponivel($conn)) {
+        // Sem a migração da Stage 7 não há estados de moderação nem fila: a vaga é publicada como na
+        // v4.00 (o bloqueio de código executável, que não depende do banco, continua valendo).
+        $status_mod = 'aprovada';
     }
 
     // Formata CEP apenas se preenchido (00000-000)
@@ -136,6 +211,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $vaga_id = intval($conn->insert_id);
         $stmt->close();
+        // Stage 7: estado de moderação inicial (padrão do banco = "aprovada")
+        if ($status_mod !== 'aprovada' && jc_stage7_disponivel($conn)) {
+            $motivo_mod = $status_mod === 'pendente' ? 'revisao_automatica' : null;
+            $stmt_mod = $conn->prepare("UPDATE vagas SET moderacao_status = ?, moderacao_motivo = ?, moderacao_em = NOW() WHERE id = ?");
+            $stmt_mod->bind_param("ssi", $status_mod, $motivo_mod, $vaga_id);
+            $stmt_mod->execute();
+            $stmt_mod->close();
+        }
         if ($tem_locais_form) {
             $conn->commit();
         }
@@ -150,9 +233,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // ── Insere requisitos (tabela requisitos_vaga) ────────────────────────────
     if (!empty($requisitos_raw)) {
-        $requisitos = array_filter(
-            array_map('trim', explode(',', $requisitos_raw))
-        );
+        $requisitos = $req_lista;   // Stage 7: já validados e normalizados
         if (!empty($requisitos)) {
             $stmt_req = $conn->prepare(
                 "INSERT INTO requisitos_vaga (vaga_id, requisito) VALUES (?, ?)"
@@ -169,9 +250,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // ── Insere benefícios (tabela beneficios_vaga) ────────────────────────────
     if (!empty($beneficios_raw)) {
-        $beneficios = array_filter(
-            array_map('trim', explode(',', $beneficios_raw))
-        );
+        $beneficios = $ben_lista;   // Stage 7: já validados e normalizados
         if (!empty($beneficios)) {
             $stmt_ben = $conn->prepare(
                 "INSERT INTO beneficios_vaga (vaga_id, beneficio) VALUES (?, ?)"
@@ -188,8 +267,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // PRG → vai para "Minhas vagas" com o aviso certo. Antes ia para o
     // perfil da empresa e mostrava "Perfil atualizado com sucesso!".
-    jc_log('vaga.criada', 'info', ['vaga' => $vaga_id, 'local' => $local_trabalho ?? 'vaga']);
-    header("Location: minhas.php?publicada=1");
+    jc_log('vaga.criada', 'info', ['vaga' => $vaga_id, 'local' => $local_trabalho ?? 'vaga', 'moderacao' => $status_mod]);
+    // Stage 7: sinais vão para a fila de moderação (nunca suspendem a conta)
+    jc_mod_registrar($conn, 'vaga', $vaga_id, $sinais_vaga, 'empresa', $empresa_id);
+    header("Location: minhas.php?" . ($status_mod === 'pendente' ? 'revisao=1' : 'publicada=1'));
     exit;
 }
 
@@ -199,7 +280,14 @@ $erros_msg = [
     'missing' => 'Preencha os campos obrigatórios: Título, Descrição e Tipo de Contrato.',
     'db'      => 'Erro interno ao salvar a vaga. Tente novamente.',
     'local'   => 'Informe pelo menos a cidade e a UF do local de trabalho (ou escolha o endereço principal da empresa).',
+    'validacao' => 'A vaga não foi publicada. Corrija o texto e envie de novo:',
 ];
+// Stage 7: rascunho e motivos quando a validação recusou o envio (só uma vez)
+$rascunho = ($error === 'validacao' && is_array($_SESSION['vaga_rascunho'] ?? null)) ? $_SESSION['vaga_rascunho'] : [];
+$erros_validacao = ($error === 'validacao' && is_array($_SESSION['vaga_erros'] ?? null)) ? $_SESSION['vaga_erros'] : [];
+unset($_SESSION['vaga_rascunho'], $_SESSION['vaga_erros']);
+$rv  = fn(string $campo): string => htmlspecialchars((string) ($rascunho[$campo] ?? ''), ENT_QUOTES);
+$sel = fn(string $campo, string $valor): string => (($rascunho[$campo] ?? null) === $valor) ? ' selected' : '';
 ?>
 <!DOCTYPE html>
 <html lang="pt-br" data-theme="dark">
@@ -234,6 +322,13 @@ $erros_msg = [
     <?php if ($error && isset($erros_msg[$error])): ?>
     <div class="form-card" role="alert" style="border-color:rgba(239,68,68,.4);margin-bottom:0;">
         <p class="form-error"><span class="i i-alert-triangle" aria-hidden="true"></span> <?= htmlspecialchars($erros_msg[$error]) ?></p>
+        <?php if ($erros_validacao): ?>
+        <ul class="erros-lista">
+            <?php foreach ($erros_validacao as $ev): ?>
+            <li><?= htmlspecialchars((string) $ev) ?></li>
+            <?php endforeach; ?>
+        </ul>
+        <?php endif; ?>
     </div>
     <?php endif; ?>
 
@@ -268,7 +363,7 @@ $erros_msg = [
                 <label class="form-label" for="titulo">Título da Vaga *</label>
                 <input
                     type="text" id="titulo" name="titulo"
-                    class="form-control"
+                    class="form-control" maxlength="150" value="<?= $rv('titulo') ?>"
                     placeholder="Ex: Auxiliar Administrativo, Desenvolvedor Júnior"
                     required>
             </div>
@@ -280,26 +375,26 @@ $erros_msg = [
                     <select id="tipo_contrato" name="tipo_contrato"
                             class="form-control" required>
                         <option value="">Selecione...</option>
-                        <option value="Jovem Aprendiz">Jovem Aprendiz</option>
-                        <option value="Estágio">Estágio</option>
-                        <option value="CLT">CLT (Efetivo)</option>
-                        <option value="PJ">PJ</option>
+                        <option value="Jovem Aprendiz"<?= $sel('tipo_contrato', 'Jovem Aprendiz') ?>>Jovem Aprendiz</option>
+                        <option value="Estágio"<?= $sel('tipo_contrato', 'Estágio') ?>>Estágio</option>
+                        <option value="CLT"<?= $sel('tipo_contrato', 'CLT') ?>>CLT (Efetivo)</option>
+                        <option value="PJ"<?= $sel('tipo_contrato', 'PJ') ?>>PJ</option>
                     </select>
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="area">Área de Atuação</label>
                     <select id="area" name="area" class="form-control">
                         <option value="">Selecione uma área...</option>
-                        <option value="Administrativo">Administrativo</option>
-                        <option value="TI">TI</option>
-                        <option value="Vendas">Vendas</option>
-                        <option value="Logística">Logística</option>
-                        <option value="Marketing">Marketing</option>
-                        <option value="Recursos Humanos">Recursos Humanos</option>
-                        <option value="Financeiro">Financeiro</option>
-                        <option value="Saúde">Saúde</option>
-                        <option value="Educação">Educação</option>
-                        <option value="Outro">Outro</option>
+                        <option value="Administrativo"<?= $sel('area', 'Administrativo') ?>>Administrativo</option>
+                        <option value="TI"<?= $sel('area', 'TI') ?>>TI</option>
+                        <option value="Vendas"<?= $sel('area', 'Vendas') ?>>Vendas</option>
+                        <option value="Logística"<?= $sel('area', 'Logística') ?>>Logística</option>
+                        <option value="Marketing"<?= $sel('area', 'Marketing') ?>>Marketing</option>
+                        <option value="Recursos Humanos"<?= $sel('area', 'Recursos Humanos') ?>>Recursos Humanos</option>
+                        <option value="Financeiro"<?= $sel('area', 'Financeiro') ?>>Financeiro</option>
+                        <option value="Saúde"<?= $sel('area', 'Saúde') ?>>Saúde</option>
+                        <option value="Educação"<?= $sel('area', 'Educação') ?>>Educação</option>
+                        <option value="Outro"<?= $sel('area', 'Outro') ?>>Outro</option>
                     </select>
                 </div>
             </div>
@@ -430,7 +525,7 @@ $erros_msg = [
                         <span class="input-icon">R$</span>
                         <input
                             type="text" id="salario" name="salario"
-                            class="form-control"
+                            class="form-control" maxlength="50" value="<?= $rv('salario') ?>"
                             placeholder="Ex: 1200.00 ou A combinar"
                             style="padding-left:44px;">
                     </div>
@@ -439,11 +534,11 @@ $erros_msg = [
                     <label class="form-label" for="carga_horaria">Carga Horária</label>
                     <select id="carga_horaria" name="carga_horaria" class="form-control">
                         <option value="">Selecione...</option>
-                        <option value="20h/semana">20h/semana (Jovem Aprendiz padrão)</option>
-                        <option value="25h/semana">25h/semana</option>
-                        <option value="30h/semana">30h/semana</option>
-                        <option value="40h/semana">40h/semana</option>
-                        <option value="A combinar">A combinar</option>
+                        <option value="20h/semana"<?= $sel('carga_horaria', '20h/semana') ?>>20h/semana (Jovem Aprendiz padrão)</option>
+                        <option value="25h/semana"<?= $sel('carga_horaria', '25h/semana') ?>>25h/semana</option>
+                        <option value="30h/semana"<?= $sel('carga_horaria', '30h/semana') ?>>30h/semana</option>
+                        <option value="40h/semana"<?= $sel('carga_horaria', '40h/semana') ?>>40h/semana</option>
+                        <option value="A combinar"<?= $sel('carga_horaria', 'A combinar') ?>>A combinar</option>
                     </select>
                 </div>
             </div>
@@ -470,7 +565,7 @@ $erros_msg = [
                     class="form-control"
                     rows="6"
                     placeholder="Descreva as responsabilidades, o ambiente de trabalho e o que o candidato vai aprender..."
-                    required></textarea>
+                    maxlength="5000" required><?= $rv('descricao') ?></textarea>
             </div>
 
         </div><!-- /.form-card descrição -->
@@ -493,7 +588,7 @@ $erros_msg = [
                 </label>
                 <input
                     type="text" id="requisitos" name="requisitos"
-                    class="form-control"
+                    class="form-control" value="<?= $rv('requisitos') ?>"
                     placeholder="Ex: Ensino Médio em curso, Excel básico, Boa comunicação">
                 <!-- Preview de chips -->
                 <div id="reqChips" class="skills-wrap" style="margin-top:10px;min-height:0;"></div>
@@ -509,7 +604,7 @@ $erros_msg = [
                 </label>
                 <input
                     type="text" id="beneficios" name="beneficios"
-                    class="form-control"
+                    class="form-control" value="<?= $rv('beneficios') ?>"
                     placeholder="Ex: Vale Transporte, Vale Refeição, Curso de Capacitação">
                 <div id="benChips" class="skills-wrap" style="margin-top:10px;min-height:0;"></div>
             </div>

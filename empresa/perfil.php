@@ -12,11 +12,12 @@ if (!isset($_SESSION['empresa_id'])) {
 require_once dirname(__DIR__) . "/includes/config.php";
 require_once dirname(__DIR__) . "/includes/endereco_empresa.php";   // Endereço completo
 require_once dirname(__DIR__) . "/includes/locais.php";             // Locais de trabalho
+require_once dirname(__DIR__) . "/includes/moderacao.php";          // Stage 7: validação + moderação centrais
 
 $empresa_id = intval($_SESSION['empresa_id']);
 
 // ── PRG: redireciona após save para evitar resubmissão no F5 ──────────────────
-$saved = isset($_GET['saved']) ? (int)$_GET['saved'] : 0; // 1=ok, 2=erro
+$saved = isset($_GET['saved']) ? (int)$_GET['saved'] : 0; // 1=ok, 2=erro, 3=em uso, 4=texto recusado (Stage 7)
 
 // ── Processamento POST ────────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -53,13 +54,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // Trocar o e-mail desfaz a verificação (o endereço novo não foi verificado)
-    $stmt = $conn->prepare("SELECT email, email_verificado FROM empresas WHERE id = ? LIMIT 1");
+    $cols_end_atual = empresa_tem_endereco($conn) ? ', logradouro, numero, complemento, bairro' : '';
+    $stmt = $conn->prepare("SELECT email, email_verificado, nome_empresa, cidade, area_atuacao, descricao, site_oficial, linkedin{$cols_end_atual}
+                            FROM empresas WHERE id = ? LIMIT 1");
     $stmt->bind_param("i", $empresa_id);
     $stmt->execute();
     $atual = $stmt->get_result()->fetch_assoc();
     $stmt->close();
     $email_verificado = (mb_strtolower((string)$atual['email']) === mb_strtolower($email))
                         ? (int)$atual['email_verificado'] : 0;
+
+    // Stage 7: valida e modera só o que MUDOU (texto antigo não trava o salvamento)
+    $igual = fn($a, $b): bool => trim(str_replace("\r\n", "\n", (string) $a)) === trim(str_replace("\r\n", "\n", (string) $b));
+    $entrada = [];
+    foreach (['empresa.nome' => ['nome_empresa', $nome_empresa], 'empresa.cidade' => ['cidade', $cidade],
+              'empresa.area_atuacao' => ['area_atuacao', $area_atuacao], 'empresa.descricao' => ['descricao', $descricao],
+              'empresa.site' => ['site_oficial', $site_oficial], 'empresa.linkedin' => ['linkedin', $linkedin],
+              'local.logradouro' => ['logradouro', $end['logradouro']], 'local.numero' => ['numero', $end['numero']],
+              'local.complemento' => ['complemento', $end['complemento']], 'local.bairro' => ['bairro', $end['bairro']]]
+             as $chave => [$coluna, $valor]) {
+        if (!$igual($valor, $atual[$coluna] ?? '')) {
+            $entrada[$chave] = [$valor, $coluna];
+        }
+    }
+    $mod = jc_mod_formulario($entrada);
+    if ($mod['erros']) {
+        $_SESSION['erro_perfil'] = (string) reset($mod['erros']);
+        header("Location: perfil.php?saved=4");
+        exit;
+    }
+    $nome_empresa      = $mod['valores']['empresa.nome'] ?? $nome_empresa;
+    $cidade            = $mod['valores']['empresa.cidade'] ?? $cidade;
+    $area_atuacao      = $mod['valores']['empresa.area_atuacao'] ?? $area_atuacao;
+    $descricao         = $mod['valores']['empresa.descricao'] ?? $descricao;
+    $site_oficial      = $mod['valores']['empresa.site'] ?? $site_oficial;
+    $linkedin          = $mod['valores']['empresa.linkedin'] ?? $linkedin;
+    foreach (['logradouro', 'numero', 'complemento', 'bairro'] as $c) {
+        $end[$c] = $mod['valores']['local.' . $c] ?? $end[$c];
+    }
 
     $stmt = $conn->prepare(
         "UPDATE empresas
@@ -99,6 +131,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($ok) {
+        // Stage 7: conteúdo suspeito vai para a fila de moderação (o perfil é salvo normalmente)
+        jc_mod_registrar($conn, 'empresa', $empresa_id, $mod['sinais'], 'empresa', $empresa_id);
         // Vagas que usam o endereço principal acompanham a mudança (cidade/UF/CEP)
         jc_vagas_sincronizar_empresa($conn, $empresa_id);
         $_SESSION['empresa_nome'] = $nome_empresa;
@@ -144,6 +178,10 @@ $stmt_v->close();
 
 // Inicial para o avatar
 $inicial = strtoupper(mb_substr($emp['nome_empresa'], 0, 1));
+
+// Stage 7: texto recusado pela validação/moderação (?saved=4)
+$erro_perfil = (string) ($_SESSION['erro_perfil'] ?? '');
+unset($_SESSION['erro_perfil']);
 ?>
 <!DOCTYPE html>
 <html lang="pt-br" data-theme="dark">
@@ -181,6 +219,8 @@ $inicial = strtoupper(mb_substr($emp['nome_empresa'], 0, 1));
 <div id="toast" class="toast toast-error"><span class="i i-x-circle" aria-hidden="true"></span>Não foi possível salvar. Confira o nome, o e-mail, o CNPJ (14 dígitos) e o CEP (8 dígitos).</div>
 <?php elseif ($saved === 3): ?>
 <div id="toast" class="toast toast-error"><span class="i i-x-circle" aria-hidden="true"></span>Este e-mail ou CNPJ já está em uso por outra empresa.</div>
+<?php elseif ($saved === 4): ?>
+<div id="toast" class="toast toast-error"><span class="i i-x-circle" aria-hidden="true"></span><?= htmlspecialchars($erro_perfil !== '' ? $erro_perfil : 'Confira o texto digitado. Nada foi salvo.') ?></div>
 <?php endif; ?>
 
 <!-- ============================================================

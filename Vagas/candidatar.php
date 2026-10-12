@@ -17,6 +17,7 @@ if (!isset($_SESSION['jovem_id'])) {
 }
 
 require_once dirname(__DIR__) . "/includes/config.php";
+require_once dirname(__DIR__) . "/includes/conta_status.php";   // Stage 7: só vagas visíveis
 
 $jovem_id = intval($_SESSION['jovem_id']);
 
@@ -49,7 +50,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Vaga inexistente (ou excluída com a página aberta) → volta ao painel.
     // Antes o INSERT violava a chave estrangeira e mostrava um erro fatal.
-    $stmt_vx = $conn->prepare("SELECT id FROM vagas WHERE id = ? LIMIT 1");
+    // Stage 7: vaga fora do ar pela moderação (ou de empresa suspensa) também.
+    $stmt_vx = $conn->prepare("SELECT v.id FROM vagas v WHERE v.id = ?" . jc_vagas_visiveis_sql($conn, 'v') . " LIMIT 1");
     $stmt_vx->bind_param("i", $vaga_id);
     $stmt_vx->execute();
     $vaga_existe = $stmt_vx->get_result()->fetch_assoc();
@@ -122,7 +124,7 @@ $stmt_v = $conn->prepare(
             e.nome_empresa
      FROM   vagas v
      JOIN   empresas e ON v.empresa_id = e.id
-     WHERE  v.id = ?
+     WHERE  v.id = ?" . jc_vagas_visiveis_sql($conn, 'v') . "
      LIMIT  1"
 );
 $stmt_v->bind_param("i", $vaga_id);

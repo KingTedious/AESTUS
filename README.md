@@ -13,6 +13,12 @@ Plataforma de empregabilidade que conecta jovens em busca do primeiro emprego
   Google Gemini configurada, a plataforma também gera a análise explicativa do
   Match e o Assistente JovemConnect responde com IA generativa. Sem chave, tudo
   continua funcionando (Match tradicional e respostas prontas do assistente).
+- **Central administrativa** (`admin/`): busca e correção de contas e vagas,
+  suspensão reversível, moderação de vagas, fila de sinalizações e denúncias,
+  histórico auditável e análise de conteúdo por IA só como orientação. Os
+  administradores são criados **somente pela linha de comando**
+  (`scripts/admin.php`), com senha e autenticador (veja
+  [docs/ADMINISTRACAO_E_MODERACAO.md](docs/ADMINISTRACAO_E_MODERACAO.md)).
 
 ## Tecnologias
 
@@ -45,11 +51,17 @@ Plataforma de empregabilidade que conecta jovens em busca do primeiro emprego
    `flask` e `flask-cors`) e abre o site no navegador. Funciona a partir de
    qualquer pasta ou pen drive. Teste: <http://127.0.0.1:5000/ping>.
 6. Acesse `http://localhost/JovemConnect/` (o nome da pasta do projeto).
+7. **Central administrativa (opcional)** — com a migração da Stage 7 aplicada (ou
+   instalação nova), crie o primeiro administrador no terminal, na pasta do projeto:
+   `C:\xampp\php\php.exe scripts\admin.php criar --email=voce@exemplo.com --nome="Seu Nome"`
+   e entre em `http://localhost/JovemConnect/admin/login.php`.
 
 ## Estrutura
 
 ```
 ├── index.php, comecar.php, documentos.php   página inicial, escolha jovem/empresa, Termos/Privacidade
+├── admin/      Central administrativa (contas, vagas, moderação, histórico, segurança)
+├── scripts/    admin.php: criação de administradores pela linha de comando (bloqueado para o navegador)
 ├── jovem/      cadastro, login, perfil (próprio e visto pela empresa), excluir conta
 ├── empresa/    cadastro, login, perfil, locais de trabalho, excluir conta
 ├── dashboard/  painéis do jovem e da empresa
@@ -70,12 +82,14 @@ Plataforma de empregabilidade que conecta jovens em busca do primeiro emprego
 
 | Documento | Conteúdo |
 |---|---|
+| [docs/README.md](docs/README.md) | **Índice da documentação técnica completa** (arquitetura, fluxos, banco, arquivos e funções, rotas, segurança, testes, manutenção) |
 | [docs/ARQUITETURA.md](docs/ARQUITETURA.md) | Como as partes se conectam, regras de acesso, Match e IA |
 | [docs/CONFIGURACAO.md](docs/CONFIGURACAO.md) | Todas as variáveis do `.env` |
 | [docs/MIGRACOES.md](docs/MIGRACOES.md) | Como atualizar um banco existente |
 | [docs/SEED_DEMO.md](docs/SEED_DEMO.md) | Dados de demonstração e contas de teste |
 | [docs/ASSISTENTE_E_IA.md](docs/ASSISTENTE_E_IA.md) | Assistente com IA, alternativas sem IA e roteiro de testes |
 | [docs/LOGS.md](docs/LOGS.md) | Formato, eventos, retenção e privacidade dos logs |
+| [docs/ADMINISTRACAO_E_MODERACAO.md](docs/ADMINISTRACAO_E_MODERACAO.md) | Central administrativa, permissões, moderação, denúncias e auditoria |
 
 Os textos de **Termos de Uso** e **Política de Privacidade** (`includes/documentos.php`)
 são **minutas** e precisam de revisão jurídica antes de uso real.
@@ -84,9 +98,14 @@ são **minutas** e precisam de revisão jurídica antes de uso real.
 
 Senhas com `password_hash`; consultas com *prepared statements*; token CSRF em
 todos os formulários e chamadas AJAX; cookie de sessão HttpOnly/SameSite;
-currículos e logs em pastas bloqueadas para o navegador; empresas só veem
-candidatos com relação de recrutamento; dados pessoais fora dos logs e mascarados
-antes de ir para a IA. Nunca coloque chaves ou senhas no código ou no Git.
+currículos e logs em pastas bloqueadas para o navegador (via `.htaccess`, no Apache); empresas só veem
+candidatos que se candidataram às suas vagas ou que deixaram o perfil visível (ligado por padrão); dados pessoais fora dos logs e mascarados
+antes de ir para a IA. Textos enviados pelos formulários passam por validação e
+moderação no servidor (código executável é recusado; indícios de golpe,
+discriminação ou ofensa vão para revisão humana). A Central administrativa tem
+sessão própria, segundo fator, limite de tentativas, permissões conferidas no
+servidor e histórico encadeado por hash. Nunca coloque chaves ou senhas no código ou no Git.
+Riscos conhecidos e pendências: [docs/SEGURANCA_E_PRIVACIDADE.md](docs/SEGURANCA_E_PRIVACIDADE.md).
 
 ## Contato
 

@@ -1,5 +1,14 @@
 <?php
 // includes/validacoes.php
+/* ------------------------------------------------------------------
+   Stage 7 — ARQUIVO LEGADO, SEM USO. Nenhuma página inclui este arquivo
+   (conferido na auditoria da Stage 7). Ele foi mantido sem alterações de
+   comportamento só para não apagar código do projeto.
+   NÃO use em código novo: o filtro por trecho de palavra recusaria nomes
+   legítimos (ex.: "Paulo" contém "pau") e a lista de caracteres recusa
+   nomes estrangeiros (ex.: "Nguyễn"). A validação e a moderação oficiais
+   ficam em includes/validacao.php e includes/moderacao.php.
+   ------------------------------------------------------------------ */
 
 /**
  * Normaliza o texto removendo acentos e convertendo leetspeak simples

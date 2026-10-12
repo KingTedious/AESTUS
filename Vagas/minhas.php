@@ -10,6 +10,7 @@ if (!isset($_SESSION['empresa_id'])) {
 }
 
 require_once dirname(__DIR__) . "/includes/config.php";
+require_once dirname(__DIR__) . "/includes/conta_status.php";   // Stage 7: avisos de moderação
 
 $empresa_id = intval($_SESSION['empresa_id']);
 
@@ -43,15 +44,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'
 
 $deleted   = isset($_GET['deleted']);
 $publicada = isset($_GET['publicada']);   // Retorno de Vagas/criar.php
+$revisao   = isset($_GET['revisao']);     // Stage 7: vaga criada que ficou para revisão da equipe
 
 /* ============================================================
    GET: busca vagas da empresa com contagem de candidatos
    ============================================================ */
+$cols_moderacao = jc_stage7_disponivel($conn) ? "v.moderacao_status, v.moderacao_motivo,"
+                                              : "NULL AS moderacao_status, NULL AS moderacao_motivo,";
 $stmt = $conn->prepare(
     "SELECT
          v.id, v.titulo, v.descricao, v.cidade, v.estado,
          v.salario, v.carga_horaria, v.area, v.tipo_contrato,
-         v.criado_em,
+         v.criado_em, {$cols_moderacao}
          COUNT(c.id) AS total_candidatos
      FROM vagas v
      LEFT JOIN candidaturas c ON c.vaga_id = v.id
@@ -100,6 +104,8 @@ $stmt->close();
     <!-- Toast de feedback -->
     <?php if ($deleted): ?>
     <div id="toast" class="toast toast-success"><span class="i i-check-circle" aria-hidden="true"></span>Vaga removida com sucesso.</div>
+    <?php elseif ($revisao): ?>
+    <div id="toast" class="toast toast-success"><span class="i i-check-circle" aria-hidden="true"></span>Vaga recebida! Ela passa por uma revisão da equipe antes de aparecer para os jovens.</div>
     <?php elseif ($publicada): ?>
     <div id="toast" class="toast toast-success"><span class="i i-check-circle" aria-hidden="true"></span>Vaga publicada! Ela já aparece para os jovens.</div>
     <?php endif; ?>
@@ -150,6 +156,14 @@ $stmt->close();
                         <span class="badge"><?= htmlspecialchars($row['tipo_contrato']) ?></span>
                         <?php endif; ?>
                     </div>
+                    <?php $aviso_mod = jc_vaga_aviso_moderacao($row['moderacao_status'], $row['moderacao_motivo']);
+                          if ($aviso_mod): ?>
+                    <!-- Stage 7: vaga fora do ar pela moderação (só a empresa dona vê) -->
+                    <p class="aviso-moderacao" style="margin:0 0 8px;">
+                        <span class="badge badge-<?= $aviso_mod['classe'] === 'erro' ? 'danger' : 'warning' ?>"><?= htmlspecialchars($aviso_mod['selo']) ?></span>
+                        <span><?= htmlspecialchars($aviso_mod['texto']) ?></span>
+                    </p>
+                    <?php endif; ?>
                     <p class="text-muted" style="font-size:12px;">
                         <?php if (!empty($row['cidade'])): ?>
                         <span class="i i-map-pin" aria-hidden="true"></span> <?= htmlspecialchars($row['cidade']) ?>

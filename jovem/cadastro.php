@@ -20,11 +20,13 @@ require_once dirname(__DIR__) . "/includes/config.php";
 require_once dirname(__DIR__) . "/includes/formacao.php";   // nível → curso/ano → situação
 require_once dirname(__DIR__) . "/includes/termos.php";     // versão e registro do aceite
 require_once dirname(__DIR__) . "/includes/etapas.php";     // formulário em etapas
+require_once dirname(__DIR__) . "/includes/moderacao.php";  // Stage 7: validação + moderação centrais
 
 $erros  = [];   // chave = nome do campo (mensagem aparece perto dele); sem chave = erro geral
 $campos = [];
 $form_formacao = null;
 $habilidades_txt = '';
+$sinais_mod = [];   // Stage 7: sinais de moderação (registrados na fila depois de gravar)
 
 /* Em que etapa fica cada campo (a página reabre na etapa do primeiro erro). */
 $etapa_dos_campos = [
@@ -109,6 +111,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (count($habilidades) > 15) {
         $erros['habilidades'] = 'Informe no máximo 15 habilidades (você pode adicionar outras depois, no perfil).';
     }
+
+    // ── Stage 7: validação estrutural + moderação (includes/moderacao.php) ────
+    // Os limites de tamanho continuam sendo aplicados como antes (corte acima);
+    // aqui entram codificação, caracteres de controle/invisíveis, formato do nome,
+    // código HTML/JavaScript executável (recusado) e sinais para a fila.
+    $mod = jc_mod_formulario([
+        'jovem.nome'           => [$campos['nome'], 'nome'],
+        'jovem.cidade'         => [$campos['cidade'], 'cidade'],
+        'jovem.area_interesse' => [$campos['area_interesse'], 'area_interesse'],
+        'jovem.resumo'         => [$campos['resumo_profissional'], 'resumo_profissional'],
+    ]);
+    foreach ($mod['erros'] as $campo_form => $msg) {
+        $erros[$campo_form === 'cidade' ? 'cep' : $campo_form] = $msg;   // cidade vem do CEP (etapa 4)
+    }
+    foreach (['jovem.nome' => 'nome', 'jovem.cidade' => 'cidade', 'jovem.area_interesse' => 'area_interesse',
+              'jovem.resumo' => 'resumo_profissional'] as $chave => $campo) {
+        if (isset($mod['valores'][$chave])) {
+            $campos[$campo] = $mod['valores'][$chave];
+        }
+    }
+    $mod_hab = jc_mod_lista('jovem.habilidade', $habilidades);
+    if ($mod_hab['erro'] !== null) {
+        $erros['habilidades'] = $mod_hab['erro'];
+    }
+    $habilidades = [];
+    foreach ($mod_hab['valores'] as $h) {   // normalizado (acentos em NFC, sem invisíveis): sem repetir
+        if (!in_array(mb_strtolower($h), array_map('mb_strtolower', $habilidades), true)) {
+            $habilidades[] = $h;
+        }
+    }
+    $sinais_mod = $mod['sinais'] + ($mod_hab['sinal'] ? ['jovem.habilidade' => $mod_hab['sinal']] : [])
+                + ($form_formacao['sinais'] ?? []);
 
     // ── Validações ────────────────────────────────────────────────────────────
     if ($campos['nome'] === '')
@@ -196,6 +230,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             jc_termos_registrar($conn, 'jovens', $novo_id);
             $conn->commit();
+            // Stage 7: conteúdo suspeito vai para a fila de moderação (a conta é criada normalmente)
+            jc_mod_registrar($conn, 'jovem', $novo_id, $sinais_mod, 'jovem', $novo_id);
 
             // Login automático após o cadastro
             $_SESSION['jovem_id']   = $novo_id;

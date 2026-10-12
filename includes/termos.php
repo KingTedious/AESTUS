@@ -10,12 +10,13 @@
    migração, o cadastro continua exigindo a caixa, mas não grava a data.
 
    Ao publicar uma versão nova dos documentos, troque JC_TERMOS_VERSAO e
-   JC_TERMOS_DATA (e o texto em includes/institucional.php).
+   JC_TERMOS_DATA (e o texto em includes/documentos.php; os modais ficam em
+   includes/institucional.php).
    ============================================================ */
 
 if (!defined('JC_TERMOS_VERSAO')) {
-    define('JC_TERMOS_VERSAO', '1.0-minuta');      // até a revisão jurídica: minuta
-    define('JC_TERMOS_DATA', '10/10/2026');
+    define('JC_TERMOS_VERSAO', '1.1-minuta');      // até a revisão jurídica: minuta (1.1 = Stage 7: moderação, denúncias, equipe administrativa)
+    define('JC_TERMOS_DATA', '11/10/2026');
 }
 
 if (!function_exists('jc_termos_colunas')) {

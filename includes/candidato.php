@@ -16,7 +16,12 @@
    momento em que o jovem escolhe se apresentar àquela empresa).
    CPF, CEP, endereço, telefone e data de nascimento nunca entram na
    visão da empresa.
+
+   Stage 7: jovem com conta SUSPENSA pela administração fica
+   indisponível para todas as empresas (mesma resposta de "sem
+   permissão"); nada é apagado e tudo volta com a reativação.
    ============================================================ */
+require_once __DIR__ . '/esquema.php';
 
 if (!function_exists('jc_empresa_acesso_candidato')) {
 
@@ -35,12 +40,13 @@ if (!function_exists('jc_empresa_acesso_candidato')) {
             return $r;
         }
 
-        $stmt = $conn->prepare("SELECT perfil_publico FROM jovens WHERE id = ? LIMIT 1");
+        $com_status = jc_stage7_disponivel($conn);
+        $stmt = $conn->prepare("SELECT perfil_publico" . ($com_status ? ", conta_status" : "") . " FROM jovens WHERE id = ? LIMIT 1");
         $stmt->bind_param("i", $jovem_id);
         $stmt->execute();
         $j = $stmt->get_result()->fetch_assoc();
         $stmt->close();
-        if (!$j) {
+        if (!$j || ($com_status && ($j['conta_status'] ?? 'ativa') === 'suspensa')) {
             return $r;
         }
         $r['publico'] = (int) $j['perfil_publico'] === 1;

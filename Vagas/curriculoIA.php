@@ -10,6 +10,7 @@ if (!isset($_SESSION['jovem_id'])) {
 }
 
 require_once dirname(__DIR__) . "/includes/config.php";
+require_once dirname(__DIR__) . "/includes/moderacao.php";   // Stage 7: validação + moderação centrais
 
 $jovem_id = intval($_SESSION['jovem_id']);
 
@@ -56,6 +57,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Usa o texto do POST (editável) ou o resumo atual
     $resumo_analise = trim($_POST['resumo'] ?? $jovem['resumo_profissional'] ?? '');
 
+    // Stage 7: o resumo EDITADO passa pela validação/moderação antes de ir para a IA
+    // e para o banco (texto igual ao já gravado não é conferido de novo)
+    $sinais_resumo = [];
+    $resumo_editado = $resumo_analise !== '' && str_replace("\r\n", "\n", $resumo_analise)
+                      !== str_replace("\r\n", "\n", trim((string) ($jovem['resumo_profissional'] ?? '')));
+    if ($resumo_editado) {
+        $mod = jc_mod_formulario(['jovem.resumo' => [$resumo_analise, 'resumo']]);
+        if ($mod['erros']) {
+            $erro_ia = (string) reset($mod['erros']);
+        } else {
+            $resumo_analise = $mod['valores']['jovem.resumo'] ?? $resumo_analise;
+            $sinais_resumo  = $mod['sinais'];
+        }
+    }
+}
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $erro_ia === null) {
+
     $payload = [
         'resumo'      => $resumo_analise,
         'habilidades' => $habilidades,
@@ -94,6 +112,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt_upd->bind_param("si", $resumo_analise, $jovem_id);
                 $stmt_upd->execute();
                 $stmt_upd->close();
+                jc_mod_registrar($conn, 'jovem', $jovem_id, $sinais_resumo, 'jovem', $jovem_id);   // Stage 7
                 // Atualiza local para repopular o form
                 $jovem['resumo_profissional'] = $resumo_analise;
             }

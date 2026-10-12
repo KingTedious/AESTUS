@@ -14,7 +14,9 @@
       análise detalhada (pontos ÷ peso = nota da categoria). Nada é
       estimado: categorias sem critério no algoritmo (habilidades,
       experiência, distância, transporte) não recebem nota.
-   A igualdade com o Python é conferida por um teste de paridade.
+   A igualdade com o Python foi conferida por um teste de paridade na réplica
+   de desenvolvimento (1.205 entradas, 0 divergências); o script não está no
+   repositório. Mudou uma regra aqui? Mude igual em IA/recomendar.py.
 
    Gemini (opcional) só ESCREVE a análise contextual — não altera a nota.
    ============================================================ */

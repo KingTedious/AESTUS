@@ -83,6 +83,10 @@ if (!function_exists('jc_log')) {
             }
             $saida = [];
             foreach (array_slice($valor, 0, 30, true) as $k => $v) {
+                if ($k === 'elo' && is_string($v) && preg_match('/^[0-9a-f]{16}$/', $v)) {
+                    $saida[$k] = $v;   // começo do hash da auditoria (Stage 7): gerado pelo sistema; não passa pela máscara de números
+                    continue;
+                }
                 $saida[$k] = (is_string($k) && jc_log_campo_proibido($k)) ? '[removido]' : jc_log_limpar($v, $nivel + 1);
             }
             return $saida;
@@ -101,6 +105,9 @@ if (!function_exists('jc_log')) {
     function jc_log_usuario(): string {
         // $_SESSION continua legível depois de session_write_close()
         if (isset($_SESSION) && is_array($_SESSION)) {
+            if (isset($_SESSION['adm_id'])) {
+                return 'admin:' . intval($_SESSION['adm_id']);   // Central administrativa (Stage 7)
+            }
             if (isset($_SESSION['jovem_id'])) {
                 return 'jovem:' . intval($_SESSION['jovem_id']);
             }

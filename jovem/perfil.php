@@ -10,6 +10,7 @@ require_once dirname(__DIR__) . '/includes/csrf.php';   // Sessao endurecida + C
 require_once dirname(__DIR__) . "/includes/config.php";
 require_once dirname(__DIR__) . "/includes/formacao.php";   // Nível → curso/ano → situação
 require_once dirname(__DIR__) . "/includes/candidato.php";  // quem (empresa) pode ver este candidato
+require_once dirname(__DIR__) . "/includes/moderacao.php";  // Stage 7: validação + moderação centrais
 
 // ── Auth inline (não usa verificar_autenticacao pois atende jovem E empresa) ──
 $tem_jovem   = isset($_SESSION['jovem_id']);
@@ -62,6 +63,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $eh_dono) {
 
     $action = $_POST['action'] ?? 'update_perfil';
 
+    // Stage 7: texto recusado pela validação/moderação → volta com o motivo (?saved=5)
+    $recusar = function (string $msg, string $ancora = ''): void {
+        $_SESSION['erro_perfil'] = $msg;
+        header("Location: perfil.php?saved=5" . $ancora);
+        exit;
+    };
+    // compara ignorando só a quebra de linha do navegador (\r\n) e espaços nas pontas
+    $igual = fn($a, $b): bool => trim(str_replace("\r\n", "\n", (string) $a)) === trim(str_replace("\r\n", "\n", (string) $b));
+
     // ── Atualização dos dados principais ─────────────────────────────────────
     if ($action === 'update_perfil') {
 
@@ -93,13 +103,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $eh_dono) {
 
         $stmt = $conn->prepare(
             "SELECT email, email_verificado, escolaridade_status, escolaridade_tipo,
-                    escolaridade_curso, formacao
+                    escolaridade_curso, formacao, nome, cidade, resumo_profissional, area_interesse
              FROM jovens WHERE id = ? LIMIT 1"
         );
         $stmt->bind_param("i", $jovem_id);
         $stmt->execute();
         $atual = $stmt->get_result()->fetch_assoc();
         $stmt->close();
+
+        // Stage 7: valida e modera só o que MUDOU (texto antigo não trava o salvamento)
+        $entrada = [];
+        foreach (['jovem.nome' => ['nome', $nome], 'jovem.cidade' => ['cidade', $cidade],
+                  'jovem.resumo' => ['resumo_profissional', $resumo], 'jovem.area_interesse' => ['area_interesse', $area_interesse]]
+                 as $chave => [$coluna, $valor]) {
+            if (!$igual($valor, $atual[$coluna] ?? '')) {
+                $entrada[$chave] = [$valor, $coluna];
+            }
+        }
+        $mod = jc_mod_formulario($entrada);
+        if ($mod['erros']) {
+            $recusar((string) reset($mod['erros']));
+        }
+        $nome           = $mod['valores']['jovem.nome'] ?? $nome;
+        $cidade         = $mod['valores']['jovem.cidade'] ?? $cidade;
+        $resumo         = $mod['valores']['jovem.resumo'] ?? $resumo;
+        $area_interesse = $mod['valores']['jovem.area_interesse'] ?? $area_interesse;
+        $sinais_mod     = $mod['sinais'];
 
         // Trocar o e-mail desfaz a verificação (o endereço novo não foi verificado)
         $email_verificado = (mb_strtolower((string)$atual['email']) === mb_strtolower($email))
@@ -127,6 +156,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $eh_dono) {
             $esc_tipo   = $form_formacao['tipo'];
             $esc_curso  = ($form_formacao['curso_tecnico'] !== '') ? $form_formacao['curso_tecnico'] : null;
             $formacao   = $form_formacao['rotulo'];
+            $sinais_mod += $form_formacao['sinais'] ?? [];   // Stage 7
         } elseif (isset($_POST['escolaridade_status'])) {
             if (in_array($_POST['escolaridade_status'], ['cursando', 'completo'], true)) {
                 $esc_status = $_POST['escolaridade_status'];
@@ -156,6 +186,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $eh_dono) {
         $stmt->execute();
         $stmt->close();
 
+        // Stage 7: conteúdo suspeito vai para a fila de moderação (o perfil é salvo normalmente)
+        jc_mod_registrar($conn, 'jovem', $jovem_id, $sinais_mod, 'jovem', $jovem_id);
+
         // Atualiza nome na sessão
         $_SESSION['jovem_nome'] = $nome;
 
@@ -183,6 +216,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $eh_dono) {
         $conclusao   = ($nova['situacao'] === 'completo' ? 'Concluído' : 'Cursando') . ($ano_conc !== '' ? " ($ano_conc)" : '');
         $area        = in_array($nova['nivel'], ['tecnico', 'superior', 'profissionalizante'], true)
                        ? mb_substr($nova['curso'], 0, 100) : '';
+        // Stage 7: instituição digitada passa pela validação/moderação
+        $mod = jc_mod_formulario(['jovem.formacao_instituicao' => [$instituicao, 'instituicao']]);
+        if ($mod['erros']) {
+            $_SESSION['erro_formacao'] = (string) reset($mod['erros']);
+            header("Location: perfil.php?saved=4#formacao");
+            exit;
+        }
+        $instituicao = $mod['valores']['jovem.formacao_instituicao'] ?? $instituicao;
         $stmt = $conn->prepare(
             "INSERT INTO formacao_jovem (jovem_id, titulo, instituicao, conclusao, area)
              VALUES (?, ?, ?, ?, ?)"
@@ -190,6 +231,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $eh_dono) {
         $stmt->bind_param("issss", $jovem_id, $titulo, $instituicao, $conclusao, $area);
         $stmt->execute();
         $stmt->close();
+        jc_mod_registrar($conn, 'jovem', $jovem_id, $mod['sinais'] + ($nova['sinais'] ?? []), 'jovem', $jovem_id);
         header("Location: perfil.php#formacao");
         exit;
     }
@@ -200,6 +242,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $eh_dono) {
         $conclusao   = mb_substr(trim($_POST['form_conclusao']   ?? ''), 0, 20);
         $area        = mb_substr(trim($_POST['form_area']        ?? ''), 0, 100);
 
+        // Stage 7: validação/moderação (os cortes de tamanho acima continuam como antes)
+        $mod = jc_mod_formulario([
+            'jovem.formacao_titulo'      => [$titulo, 'titulo'],
+            'jovem.formacao_instituicao' => [$instituicao, 'instituicao'],
+            'jovem.formacao_conclusao'   => [$conclusao, 'conclusao'],
+            'jovem.formacao_area'        => [$area, 'area'],
+        ]);
+        if ($mod['erros']) {
+            $_SESSION['erro_formacao'] = (string) reset($mod['erros']);
+            header("Location: perfil.php?saved=4#formacao");
+            exit;
+        }
+        $titulo      = $mod['valores']['jovem.formacao_titulo'] ?? $titulo;
+        $instituicao = $mod['valores']['jovem.formacao_instituicao'] ?? $instituicao;
+        $conclusao   = $mod['valores']['jovem.formacao_conclusao'] ?? $conclusao;
+        $area        = $mod['valores']['jovem.formacao_area'] ?? $area;
+
         if (!empty($titulo)) {
             $stmt = $conn->prepare(
                 "INSERT INTO formacao_jovem (jovem_id, titulo, instituicao, conclusao, area)
@@ -208,6 +267,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $eh_dono) {
             $stmt->bind_param("issss", $jovem_id, $titulo, $instituicao, $conclusao, $area);
             $stmt->execute();
             $stmt->close();
+            jc_mod_registrar($conn, 'jovem', $jovem_id, $mod['sinais'], 'jovem', $jovem_id);
         }
         header("Location: perfil.php#formacao");
         exit;
@@ -229,6 +289,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $eh_dono) {
     // ── Adicionar habilidade ──────────────────────────────────────────────────
     if ($action === 'add_habilidade') {
         $habilidade = mb_substr(trim(preg_replace('/\s+/u', ' ', $_POST['habilidade'] ?? '')), 0, 80);
+        // Stage 7: validação/moderação central (o corte de 80 caracteres continua)
+        $mod = jc_mod_formulario(['jovem.habilidade' => [$habilidade, 'habilidade']]);
+        if ($mod['erros']) {
+            $recusar((string) reset($mod['erros']), '#habilidades');
+        }
+        $habilidade = $mod['valores']['jovem.habilidade'] ?? $habilidade;
         if ($habilidade !== '') {
             // Não duplica. Não há chave UNIQUE na tabela (o INSERT IGNORE
             // nunca bloqueava nada); a comparação usa a collation da coluna
@@ -248,6 +314,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $eh_dono) {
                 $stmt->bind_param("is", $jovem_id, $habilidade);
                 $stmt->execute();
                 $stmt->close();
+                jc_mod_registrar($conn, 'jovem', $jovem_id, $mod['sinais'], 'jovem', $jovem_id);
             }
         }
         header("Location: perfil.php#habilidades");
@@ -274,6 +341,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $eh_dono) {
         $periodo  = mb_substr(trim($_POST['exp_periodo']  ?? ''), 0, 50);
         $descricao = trim($_POST['exp_descricao'] ?? '');
 
+        // Stage 7: validação/moderação central (os cortes acima continuam como antes)
+        $mod = jc_mod_formulario([
+            'jovem.exp_titulo'    => [$titulo, 'exp_titulo'],
+            'jovem.exp_local'     => [$local, 'exp_local'],
+            'jovem.exp_periodo'   => [$periodo, 'exp_periodo'],
+            'jovem.exp_descricao' => [$descricao, 'exp_descricao'],
+        ]);
+        if ($mod['erros']) {
+            $recusar((string) reset($mod['erros']), '#experiencias');
+        }
+        $titulo    = $mod['valores']['jovem.exp_titulo'] ?? $titulo;
+        $local     = $mod['valores']['jovem.exp_local'] ?? $local;
+        $periodo   = $mod['valores']['jovem.exp_periodo'] ?? $periodo;
+        $descricao = $mod['valores']['jovem.exp_descricao'] ?? $descricao;
+
         if (!empty($titulo)) {
             $stmt = $conn->prepare(
                 "INSERT INTO experiencias_jovem (jovem_id, titulo, local, periodo, descricao)
@@ -282,6 +364,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $eh_dono) {
             $stmt->bind_param("issss", $jovem_id, $titulo, $local, $periodo, $descricao);
             $stmt->execute();
             $stmt->close();
+            jc_mod_registrar($conn, 'jovem', $jovem_id, $mod['sinais'], 'jovem', $jovem_id);
         }
         header("Location: perfil.php#experiencias");
         exit;
@@ -401,6 +484,9 @@ $esc_resumo = jc_formacao_resumo($jovem);
 // Motivo de um erro ao salvar a formação (?saved=4)
 $erro_formacao = $eh_dono ? (string)($_SESSION['erro_formacao'] ?? '') : '';
 unset($_SESSION['erro_formacao']);
+// Stage 7: texto recusado pela validação/moderação (?saved=5)
+$erro_perfil = $eh_dono ? (string)($_SESSION['erro_perfil'] ?? '') : '';
+unset($_SESSION['erro_perfil']);
 
 // Currículo em PDF — só mostra link se o arquivo existir de fato
 $tem_curriculo = !empty($jovem['curriculo'])
@@ -475,6 +561,8 @@ if ($eh_empresa && ($_GET['voltar'] ?? '') === 'candidatos' && intval($_GET['vag
 <div id="toast" class="toast toast-error"><span class="i i-x-circle" aria-hidden="true"></span>Este e-mail já está em uso por outra conta.</div>
 <?php elseif ($saved === 4): ?>
 <div id="toast" class="toast toast-error"><span class="i i-x-circle" aria-hidden="true"></span><?= htmlspecialchars($erro_formacao !== '' ? $erro_formacao : 'Confira os dados da formação.') ?></div>
+<?php elseif ($saved === 5): ?>
+<div id="toast" class="toast toast-error"><span class="i i-x-circle" aria-hidden="true"></span><?= htmlspecialchars($erro_perfil !== '' ? $erro_perfil : 'Confira o texto digitado. Nada foi salvo.') ?></div>
 <?php endif; ?>
 
 <!-- ============================================================

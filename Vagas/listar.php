@@ -13,6 +13,8 @@ if (!isset($_SESSION['jovem_id'])) {
 
 require_once dirname(__DIR__) . "/includes/config.php";
 require_once dirname(__DIR__) . "/includes/locais.php";   // Local efetivo da vaga
+require_once dirname(__DIR__) . "/includes/conta_status.php";   // Stage 7: visibilidade (moderação/suspensão)
+require_once dirname(__DIR__) . "/includes/moderacao.php";      // Stage 7: motivos de denúncia
 
 $jovem_id = intval($_SESSION['jovem_id']);
 
@@ -42,7 +44,7 @@ if (isset($_GET['id']) && intval($_GET['id']) > 0) {
                 e.nome_empresa, e.cidade AS empresa_cidade
          FROM   vagas v
          JOIN   empresas e ON v.empresa_id = e.id
-         WHERE  v.id = ?
+         WHERE  v.id = ?" . jc_vagas_visiveis_sql($conn, 'v') . "
          LIMIT  1"
     );
     $stmt_v->bind_param("i", $vaga_id);
@@ -95,6 +97,25 @@ if (isset($_GET['id']) && intval($_GET['id']) > 0) {
     $ja_candidatado = $stmt_c->num_rows > 0;
     $stmt_c->close();
 
+    // ── Stage 7: denúncia (só com a migração aplicada) ────────────────────────
+    $denuncia_ativa = jc_stage7_disponivel($conn);
+    $denuncia_feita = null;
+    if ($denuncia_ativa) {
+        $stmt_d = $conn->prepare("SELECT criado_em FROM denuncias WHERE vaga_id = ? AND jovem_id = ? LIMIT 1");
+        $stmt_d->bind_param("ii", $vaga_id, $jovem_id);
+        $stmt_d->execute();
+        $denuncia_feita = $stmt_d->get_result()->fetch_assoc();
+        $stmt_d->close();
+    }
+    $denuncia_msgs = [
+        'ok'       => ['sucesso', 'check-circle', 'Denúncia enviada. A equipe do JovemConnect vai analisar a vaga. Obrigado por avisar!'],
+        'ja'       => ['info', 'info', 'Você já tinha denunciado esta vaga. A denúncia anterior continua em análise.'],
+        'limite'   => ['aviso', 'alert-triangle', 'Você atingiu o limite de denúncias de hoje. Tente de novo amanhã ou fale com a equipe pelo Contato.'],
+        'invalida' => ['erro', 'x-circle', 'Não foi possível enviar: escolha um motivo e escreva só texto nos detalhes (até 500 caracteres).'],
+        'erro'     => ['erro', 'x-circle', 'Não foi possível enviar a denúncia agora. Tente de novo em instantes.'],
+    ];
+    $denuncia_retorno = is_string($_GET['denuncia'] ?? null) ? ($denuncia_msgs[$_GET['denuncia']] ?? null) : null;
+
     ?>
 <!DOCTYPE html>
 <html lang="pt-br" data-theme="dark">
@@ -130,6 +151,13 @@ if (isset($_GET['id']) && intval($_GET['id']) > 0) {
 
     <!-- ── COLUNA PRINCIPAL ──────────────────────────────────────────────────── -->
     <div class="detail-main">
+
+        <?php if ($denuncia_retorno): ?>
+        <div class="alerta alerta-<?= $denuncia_retorno[0] ?>" role="<?= $denuncia_retorno[0] === 'erro' ? 'alert' : 'status' ?>">
+            <span class="i i-<?= $denuncia_retorno[1] ?>" aria-hidden="true"></span>
+            <span><?= htmlspecialchars($denuncia_retorno[2]) ?></span>
+        </div>
+        <?php endif; ?>
 
         <!-- Header da vaga -->
         <div class="detail-vaga-header">
@@ -291,6 +319,42 @@ if (isset($_GET['id']) && intval($_GET['id']) > 0) {
             <?php endif; ?>
         </div>
 
+        <?php if ($denuncia_ativa): ?>
+        <!-- Stage 7: denunciar a vaga (vai para a fila de moderação; nada é escondido automaticamente) -->
+        <?php if ($denuncia_feita): ?>
+        <p class="denuncia-feita"><span class="i i-check" aria-hidden="true"></span>
+            Você denunciou esta vaga em <?= htmlspecialchars(date('d/m/Y', strtotime($denuncia_feita['criado_em']))) ?>. A equipe vai analisar.</p>
+        <?php else: ?>
+        <details class="denuncia-card"<?= ($_GET['denuncia'] ?? '') === 'invalida' ? ' open' : '' ?>>
+            <summary><span class="i i-alert-triangle" aria-hidden="true"></span> Algo errado com esta vaga? Denunciar</summary>
+            <form method="post" action="denunciar.php" class="denuncia-corpo">
+                <?= csrf_field() ?>
+                <input type="hidden" name="vaga_id" value="<?= $vaga_id ?>">
+                <input type="hidden" name="voltar" value="<?= htmlspecialchars($voltar_chave) ?>">
+                <fieldset>
+                    <legend>Qual é o problema?</legend>
+                    <?php foreach (jc_denuncia_motivos() as $cod => $rot): ?>
+                    <label class="denuncia-opcao">
+                        <input type="radio" name="motivo" value="<?= htmlspecialchars($cod) ?>" required>
+                        <span><?= htmlspecialchars($rot) ?></span>
+                    </label>
+                    <?php endforeach; ?>
+                </fieldset>
+                <div class="form-group">
+                    <label class="form-label" for="denunciaDetalhe">Detalhes (opcional)</label>
+                    <textarea id="denunciaDetalhe" name="detalhe" class="form-control" rows="3" maxlength="500"
+                              aria-describedby="denunciaAjuda"></textarea>
+                    <p class="denuncia-ajuda" id="denunciaAjuda">Até 500 caracteres. Não escreva seus dados pessoais.
+                        A empresa não fica sabendo quem denunciou.</p>
+                </div>
+                <button type="submit" class="btn btn-danger btn-sm btn-full">
+                    <span class="i i-send" aria-hidden="true"></span> Enviar denúncia
+                </button>
+            </form>
+        </details>
+        <?php endif; ?>
+        <?php endif; ?>
+
     </aside><!-- /.detail-aside -->
 
 </div><!-- /.detail-page -->
@@ -358,7 +422,7 @@ $sql = "SELECT
         JOIN empresas e ON v.empresa_id = e.id
         LEFT JOIN favoritos f
                ON f.vaga_id = v.id AND f.jovem_id = ?
-        WHERE 1=1 {$where_sql}
+        WHERE 1=1" . jc_vagas_visiveis_sql($conn, 'v') . " {$where_sql}
         ORDER BY v.criado_em DESC";
 
 $stmt = $conn->prepare($sql);
@@ -370,7 +434,7 @@ $stmt->close();
 
 // ── Áreas distintas para o filtro lateral ────────────────────────────────────
 $areas_result = $conn->query(
-    "SELECT DISTINCT area FROM vagas WHERE area IS NOT NULL AND area != '' ORDER BY area ASC"
+    "SELECT DISTINCT v.area FROM vagas v WHERE v.area IS NOT NULL AND v.area != ''" . jc_vagas_visiveis_sql($conn, 'v') . " ORDER BY v.area ASC"
 );
 ?>
 <!DOCTYPE html>

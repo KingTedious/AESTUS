@@ -15,6 +15,7 @@ if (!isset($_SESSION['jovem_id'])) {
 }
 
 include("../includes/config.php");
+require_once dirname(__DIR__) . '/includes/conta_status.php';   // Stage 7: vaga fora do ar
 $page_title = 'Minhas Candidaturas';   // A aba mostrava só o título genérico do site
 include("../includes/header.php");
 
@@ -32,7 +33,8 @@ $sql = "SELECT
             e.nome_empresa,
             c.id            AS candidatura_id,
             c.status,
-            c.criado_em     AS data_candidatura
+            c.criado_em     AS data_candidatura,
+            " . jc_vaga_visivel_expr($conn, 'v') . " AS visivel
         FROM candidaturas c
         JOIN vagas    v ON c.vaga_id    = v.id
         JOIN empresas e ON v.empresa_id = e.id
@@ -116,19 +118,30 @@ function statusBadge(string $status): string {
             </div>
             <?php endif; ?>
 
+            <?php if (intval($row['visivel'])): ?>
             <p class="text-secondary" style="font-size:13px;line-height:1.6;margin-bottom:18px;flex:1;">
               <?= htmlspecialchars(mb_substr($row['descricao'] ?? '', 0, 130)) ?>…
             </p>
+            <?php else: ?>
+            <!-- Stage 7: vaga fora do ar (moderação ou empresa suspensa); a candidatura continua guardada -->
+            <p class="aviso-moderacao" style="margin-bottom:18px;flex:1;"><span class="i i-alert-triangle" aria-hidden="true"></span>
+              <span>Esta vaga saiu do ar (em revisão ou retirada pela moderação). Por segurança, não faça pagamentos
+              nem envie documentos ou senhas a quem pedir em nome dela.</span></p>
+            <?php endif; ?>
 
             <p class="text-muted" style="font-size:11px;margin-bottom:14px;">
               Candidatado em <?= date('d/m/Y', strtotime($row['data_candidatura'])) ?>
             </p>
 
             <div class="job-card-footer">
+              <?php if (intval($row['visivel'])): ?>
               <a href="../Vagas/listar.php?id=<?= intval($row['vaga_id']) ?>&amp;voltar=candidaturas"
                  class="btn btn-ghost btn-sm btn-full">
                 Ver Detalhes
               </a>
+              <?php else: ?>
+              <span class="badge badge-warning">Vaga indisponível</span>
+              <?php endif; ?>
             </div>
 
           </div>

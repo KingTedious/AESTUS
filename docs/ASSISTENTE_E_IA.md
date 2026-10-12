@@ -38,7 +38,7 @@ aviso "Resposta automática: o assistente com IA não está disponível agora".
 |---|---|---|
 | Nota de compatibilidade (Match) | `IA/avaliar_ajax.php` → Flask `/avaliar` | Mesmo cálculo em PHP (`includes/match.php`) |
 | Análise contextual do Match | `Vagas/avaliar.php` → Flask `/analise_contextual` | A página mostra só a composição da nota |
-| Sugestões de currículo (IA Advisor) | Flask `/curriculo` | Sugestões fixas por regras |
+| Sugestões de currículo (IA Advisor) | Flask `/curriculo` (regras fixas no Flask + sugestão da integração antiga, se ativa) | **Sem o Flask:** "IA temporariamente indisponível." (HTTP 503; não há regras em PHP) |
 
 ## Roteiro de testes manuais
 
@@ -68,6 +68,8 @@ Antes: `iniciar_ia.bat` aberto; <http://127.0.0.1:5000/ping> responde.
 9. Abra o assistente pelo teclado (Tab até ✦, Enter), digite e envie com Enter;
    Esc fecha e o foco volta ao botão ✦.
 10. Em tela de celular (375 px), o painel cabe inteiro, sem rolagem lateral.
+
+Detalhes técnicos completos (algoritmo do Match, cache, limites): [IA_E_MATCH.md](IA_E_MATCH.md).
 
 Na réplica de desenvolvimento, os testes automáticos usaram um **servidor que
 imita o Gemini** (sem internet e com chave falsa): respostas válidas, HTML

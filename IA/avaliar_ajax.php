@@ -31,6 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 require_once dirname(__DIR__) . "/includes/config.php";
 require_once dirname(__DIR__) . "/includes/match.php";   // Algoritmo em PHP + local efetivo
 require_once dirname(__DIR__) . "/includes/candidato.php";  // regra de acesso da empresa ao candidato
+require_once dirname(__DIR__) . "/includes/conta_status.php"; // Stage 7: visibilidade das vagas
 csrf_require(true);
 
 // Lê o body JSON
@@ -42,7 +43,7 @@ if (!is_array($input)) {
     exit;
 }
 
-$action = $input['action'] ?? 'match'; // 'match' ou 'curriculo'
+$action = $input['action'] ?? 'match'; // 'match' (padrão), 'analise', 'contexto' ou 'curriculo'
 
 /* ============================================================
    ACTIONS: match / analise / contexto — compatibilidade jovem ↔ vaga
@@ -65,6 +66,14 @@ if (in_array($action, ['match', 'analise', 'contexto'], true)) {
         // Jovem só pode avaliar o próprio match, mesmo que outro jovem_id seja enviado.
         $jovem_id = intval($_SESSION['jovem_id']);
         $quem     = 'jovem';
+
+        // Stage 7: vaga fora do ar pela moderação (ou de empresa suspensa) não é avaliada.
+        // Mesma resposta de vaga inexistente (não revela que a vaga existe).
+        if ($vaga_id > 0 && !jc_vaga_visivel($conn, $vaga_id)) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Jovem ou vaga não encontrados.']);
+            exit;
+        }
 
     } elseif (isset($_SESSION['empresa_id'])) {
         // Empresa escolhe QUAL candidato avaliar, mas só em uma vaga que seja dela
