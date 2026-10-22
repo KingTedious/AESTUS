@@ -193,7 +193,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 $etapa_erro = $erros ? jc_etapa_do_erro($erros, $etapa_dos_campos) : 1;
 $err  = fn(string $campo) => jc_campo_erro($erros, $campo);
-$aria = fn(string $campo) => jc_campo_aria($erros, $campo);
+$aria = fn(string $campo, string $ajuda = '') => jc_campo_aria($erros, $campo, $ajuda);   // orientação + erro num aria-describedby só
 $val  = fn(string $campo) => htmlspecialchars((string) ($campos[$campo] ?? ''), ENT_QUOTES);
 ?>
 <!DOCTYPE html>
@@ -215,7 +215,7 @@ $val  = fn(string $campo) => htmlspecialchars((string) ($campos[$campo] ?? ''), 
     <!-- Marca oficial vertical -->
     <div class="form-page-logo">
         <a href="../index.php" class="marca marca-vertical nav-logo" aria-label="JovemConnect — página inicial">
-            <img src="../assets/img/marca/jovemconnect-vertical.png" alt="JovemConnect" width="546" height="420">
+            <img class="marca-tema-escuro" src="../assets/img/marca/jovemconnect-vertical.png" alt="JovemConnect" width="878" height="689"><img class="marca-tema-claro" src="../assets/img/marca/jovemconnect-vertical-claro.png" alt="JovemConnect" width="878" height="689" loading="lazy">
         </a>
     </div>
 
@@ -265,10 +265,11 @@ $val  = fn(string $campo) => htmlspecialchars((string) ($campos[$campo] ?? ''), 
                     <input type="text" id="cnpj" name="cnpj" class="form-control" placeholder="00.000.000/0000-00"
                            maxlength="18" inputmode="numeric" value="<?= $val('cnpj') ?>" autocomplete="off" required
                            data-digitos="14" data-erro-digitos="O CNPJ tem 14 números." data-revisao="CNPJ"
-                           aria-describedby="cnpjStatus"<?= $aria('cnpj') ?>>
+                           <?= $aria('cnpj', 'cnpjAjuda cnpjStatus') ?>>
                     <button type="button" class="btn-icon" id="btnBuscarCnpj" title="Consultar CNPJ automaticamente"
                             aria-label="Buscar dados pelo CNPJ"><span class="i i-search" aria-hidden="true"></span></button>
                 </div>
+                <small id="cnpjAjuda" class="campo-ajuda">14 números (a pontuação entra sozinha). A lupa preenche os dados públicos da empresa.</small>
                 <small id="cnpjStatus" class="text-muted" style="font-size:12px;" aria-live="polite"></small>
                 <?= $err('cnpj') ?>
             </div>
@@ -276,8 +277,9 @@ $val  = fn(string $campo) => htmlspecialchars((string) ($campos[$campo] ?? ''), 
             <div class="form-group">
                 <label class="form-label" for="nomeEmpresa">Nome da empresa (razão social ou nome de exibição) *</label>
                 <input type="text" id="nomeEmpresa" name="nome_empresa" class="form-control" placeholder="Empresa LTDA"
-                       maxlength="150" value="<?= $val('nome_empresa') ?>" required data-revisao="Empresa"
-                       data-erro-vazio="Informe o nome da empresa."<?= $aria('nome_empresa') ?>>
+                       maxlength="150" value="<?= $val('nome_empresa') ?>" required data-revisao="Empresa" data-regra="nome_org"
+                       data-erro-vazio="Informe o nome da empresa."<?= $aria('nome_empresa', 'nomeEmpresaAjuda') ?>>
+                <small id="nomeEmpresaAjuda" class="campo-ajuda">Como os candidatos vão ver. Comece com uma letra ou um número.</small>
                 <?= $err('nome_empresa') ?>
             </div>
 
@@ -287,8 +289,9 @@ $val  = fn(string $campo) => htmlspecialchars((string) ($campos[$campo] ?? ''), 
                     <span class="input-icon i i-mail" aria-hidden="true"></span>
                     <input type="email" id="email" name="email" class="form-control" placeholder="rh@empresa.com.br"
                            maxlength="100" value="<?= $val('email') ?>" required autocomplete="email" data-revisao="E-mail"
-                           data-erro-vazio="Informe o e-mail de acesso."<?= $aria('email') ?>>
+                           data-erro-vazio="Informe o e-mail de acesso."<?= $aria('email', 'emailAjuda') ?>>
                 </div>
+                <small id="emailAjuda" class="campo-ajuda">Ex.: rh@empresa.com.br. É com ele que a empresa entra e recupera a senha.</small>
                 <?= $err('email') ?>
             </div>
 
@@ -298,10 +301,10 @@ $val  = fn(string $campo) => htmlspecialchars((string) ($campos[$campo] ?? ''), 
                     <div class="input-group">
                         <span class="input-icon i i-lock" aria-hidden="true"></span>
                         <input type="password" id="senha" name="senha" class="form-control" placeholder="••••••••"
-                               minlength="8" required autocomplete="new-password" aria-describedby="senhaAjuda"
-                               data-erro-vazio="Crie uma senha."<?= $aria('senha') ?>>
+                               minlength="8" required autocomplete="new-password"
+                               data-erro-vazio="Crie uma senha."<?= $aria('senha', 'senhaAjuda') ?>>
                     </div>
-                    <small id="senhaAjuda" class="text-secondary" style="font-size:12px;">Mínimo de 8 caracteres.</small>
+                    <small id="senhaAjuda" class="campo-ajuda">Mínimo de 8 caracteres.<?= $erros ? ' Por segurança, a senha não volta preenchida: digite-a de novo.' : '' ?></small>
                     <?= $err('senha') ?>
                 </div>
                 <div class="form-group">
@@ -310,8 +313,9 @@ $val  = fn(string $campo) => htmlspecialchars((string) ($campos[$campo] ?? ''), 
                         <span class="input-icon i i-lock" aria-hidden="true"></span>
                         <input type="password" id="confirmarSenha" name="confirmar_senha" class="form-control" placeholder="••••••••"
                                minlength="8" required autocomplete="new-password" data-igual-a="senha"
-                               data-erro-igual="As senhas não coincidem." data-erro-vazio="Repita a senha."<?= $aria('confirmar_senha') ?>>
+                               data-erro-igual="As senhas não coincidem." data-erro-vazio="Repita a senha."<?= $aria('confirmar_senha', 'confirmarAjuda') ?>>
                     </div>
+                    <small id="confirmarAjuda" class="campo-ajuda">Repita a senha para conferir.</small>
                     <?= $err('confirmar_senha') ?>
                 </div>
             </div>
@@ -333,7 +337,8 @@ $val  = fn(string $campo) => htmlspecialchars((string) ($campos[$campo] ?? ''), 
                     <label class="form-label" for="cep">CEP</label>
                     <input type="text" id="cep" name="cep" class="form-control" placeholder="00000-000" maxlength="9"
                            inputmode="numeric" autocomplete="postal-code" value="<?= $val('cep') ?>" data-digitos="8"
-                           data-erro-digitos="O CEP tem 8 números." aria-describedby="cepStatus"<?= $aria('cep') ?>>
+                           data-erro-digitos="O CEP tem 8 números."<?= $aria('cep', 'cepAjuda cepStatus') ?>>
+                    <small id="cepAjuda" class="campo-ajuda">Opcional: 8 números. Rua, bairro, cidade e UF são preenchidos pelo CEP.</small>
                     <small id="cepStatus" class="text-muted" style="font-size:12px;" aria-live="polite"></small>
                     <?= $err('cep') ?>
                 </div>
@@ -372,7 +377,8 @@ $val  = fn(string $campo) => htmlspecialchars((string) ($campos[$campo] ?? ''), 
                 <div class="form-group">
                     <label class="form-label" for="estado">UF</label>
                     <input type="text" id="estado" name="estado" class="form-control" maxlength="2" placeholder="SP"
-                           autocomplete="address-level1" value="<?= $val('estado') ?>" data-uf data-revisao="UF"<?= $aria('estado') ?>>
+                           autocomplete="address-level1" value="<?= $val('estado') ?>" data-uf data-revisao="UF"<?= $aria('estado', 'ufAjuda') ?>>
+                    <small id="ufAjuda" class="campo-ajuda">Opcional. Sigla com 2 letras (ex.: SP).</small>
                     <?= $err('estado') ?>
                 </div>
             </div>
@@ -399,7 +405,8 @@ $val  = fn(string $campo) => htmlspecialchars((string) ($campos[$campo] ?? ''), 
             <div class="form-group">
                 <label class="form-label" for="siteOficial">Site</label>
                 <input type="text" id="siteOficial" name="site_oficial" class="form-control" maxlength="255" inputmode="url"
-                       placeholder="www.empresa.com.br" value="<?= $val('site_oficial') ?>" data-revisao="Site"<?= $aria('site_oficial') ?>>
+                       placeholder="www.empresa.com.br" value="<?= $val('site_oficial') ?>" data-revisao="Site" data-regra="site"<?= $aria('site_oficial', 'siteAjuda') ?>>
+                <small id="siteAjuda" class="campo-ajuda">Opcional. Ex.: www.suaempresa.com.br</small>
                 <?= $err('site_oficial') ?>
             </div>
         </section>

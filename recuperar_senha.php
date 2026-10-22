@@ -324,7 +324,7 @@ $emailMascarado = jc_rec_mascara($_SESSION);
 
     <div class="auth-card">
         <!-- Marca oficial (vertical) -->
-        <h1 class="brand-marca marca marca-vertical"><img src="assets/img/marca/jovemconnect-vertical.png" alt="JovemConnect" width="546" height="420"></h1>
+        <h1 class="brand-marca marca marca-vertical"><img class="marca-tema-escuro" src="assets/img/marca/jovemconnect-vertical.png" alt="JovemConnect" width="878" height="689"><img class="marca-tema-claro" src="assets/img/marca/jovemconnect-vertical-claro.png" alt="JovemConnect" width="878" height="689" loading="lazy"></h1>
 
         <?php if ($mensagemErro): ?>
             <div class="alert-error" role="alert">

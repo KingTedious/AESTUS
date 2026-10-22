@@ -2377,10 +2377,15 @@ html[data-high-contrast] :is(.btn-primary, .btn-primary:hover, .auth-tab.active,
 .link-seta { display: inline-flex; align-items: center; gap: 6px; }
 
 /* ── Marca oficial (assets/img/marca) ───────────────────────────
-   As três versões oficiais, sem recolorir nem distorcer: a imagem só
-   muda de altura (largura automática = proporção original). O fundo
-   preto faz parte do arquivo oficial — por isso a marca funciona igual
-   nos temas claro e escuro. */
+   As três versões oficiais (horizontal, vertical e símbolo), sem recolorir
+   nem distorcer: a imagem só muda de altura (largura automática = proporção
+   original). Os arquivos têm fundo transparente e existem em duas cores:
+   jovemconnect-*.png (elementos brancos, tema escuro) e
+   jovemconnect-*-claro.png (elementos pretos, tema claro). As duas ficam no
+   HTML e o tema (data-theme no <html>) decide qual aparece — a troca de
+   tema muda a logo na hora, sem recarregar. */
+html:not([data-theme="light"]) .marca-tema-claro,
+html[data-theme="light"] .marca-tema-escuro { display: none !important; }
 .marca { display: inline-flex; align-items: center; flex-shrink: 0; line-height: 0; }
 .marca img {
   display: block;
@@ -3023,6 +3028,27 @@ html[data-high-contrast] .match-barra { border-color: var(--text-primary); }
 .form-control[aria-invalid="true"] { border-color: var(--jc-erro-texto, #f87171); }
 [data-theme="light"] .form-control[aria-invalid="true"] { border-color: #b91c1c; }
 .erros-lista { margin: 6px 0 0 22px; font-size: 13px; line-height: 1.6; list-style: disc; color: var(--text-primary); }
+
+/* Cadastros: orientação do campo e validação durante o preenchimento (includes/etapas.php).
+   Correto = borda verde + ícone de confirmação (não só a cor); erro = borda + mensagem com ícone (regras acima). */
+.campo-ajuda { display: block; margin-top: 6px; font-size: 12px; line-height: 1.5; color: var(--text-secondary); }
+.form-control.campo-ok {
+  --jc-ok-icone: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%234ade80'%20stroke-width='2.5'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Ccircle%20cx='12'%20cy='12'%20r='10'/%3E%3Cpath%20d='m8.5%2012.5%202.5%202.5%205-5.5'/%3E%3C/svg%3E");
+  border-color: #22c55e;
+  background-image: var(--jc-ok-icone);
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 18px 18px;
+  padding-right: 40px;
+}
+[data-theme="light"] .form-control.campo-ok { --jc-ok-icone: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%23166534'%20stroke-width='2.5'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Ccircle%20cx='12'%20cy='12'%20r='10'/%3E%3Cpath%20d='m8.5%2012.5%202.5%202.5%205-5.5'/%3E%3C/svg%3E"); border-color: #15803d; }
+select.form-control.campo-ok {
+  background-image: var(--jc-ok-icone), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238b8b9e' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-position: right 36px center, right 14px center;
+  background-size: 18px 18px, 14px 14px;
+  padding-right: 62px;
+}
+.form-control.campo-ok:focus { border-color: var(--accent); }
 
 .etapas-revisao {
   padding: 14px 16px;

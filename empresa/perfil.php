@@ -201,7 +201,7 @@ unset($_SESSION['erro_perfil']);
 <div class="profile-bar">
     <div class="d-flex align-center gap-12">
         <a href="../dashboard/empresa.php" class="icon-btn" title="Voltar ao painel" aria-label="Voltar ao painel"><span class="i i-arrow-left" aria-hidden="true"></span></a>
-        <span class="marca marca-compacta"><img src="../assets/img/marca/jovemconnect-simbolo.png" alt="JovemConnect" width="192" height="192"></span>
+        <span class="marca marca-compacta"><img class="marca-tema-escuro" src="../assets/img/marca/jovemconnect-simbolo.png" alt="JovemConnect" width="910" height="910"><img class="marca-tema-claro" src="../assets/img/marca/jovemconnect-simbolo-claro.png" alt="JovemConnect" width="910" height="910" loading="lazy"></span>
         <span class="profile-bar-title">Meu Perfil</span>
     </div>
     <!-- "Editar Dados" alterna o sidebar entre view e edit mode (via JS) -->

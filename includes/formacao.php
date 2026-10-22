@@ -36,6 +36,18 @@ const JC_FORMACAO_NIVEIS = [
 
 const JC_FORMACAO_ANOS = [1 => '1º ano', 2 => '2º ano', 3 => '3º ano'];
 
+// Estabilização (correção 1): na INTERFACE, a série do Ensino Médio aparece como "1ª/2ª/3ª série".
+// O texto GRAVADO continua o de JC_FORMACAO_ANOS ("Ensino Médio — 3º ano"): registros antigos, o Match
+// e o reconhecimento do formulário não mudam, e nada precisa ser convertido no banco.
+const JC_FORMACAO_SERIES = [1 => '1ª série', 2 => '2ª série', 3 => '3ª série'];
+
+/** Texto de formação para MOSTRAR: troca só o rótulo padronizado do Ensino Médio ("… — 3º ano" → "… — 3ª série"). */
+function jc_formacao_exibir(string $texto): string
+{
+    return preg_replace_callback('/^(Ensino Médio — )([123])º ano$/u',
+        fn($m) => $m[1] . JC_FORMACAO_SERIES[(int)$m[2]], $texto) ?? $texto;
+}
+
 // Ensino Técnico: as MESMAS áreas que o cadastro já oferecia (valores mantidos — o Match lê o curso)
 const JC_CURSOS_TECNICOS = [
     'Administração' => 'Administração',
@@ -174,7 +186,7 @@ function jc_formacao_ler_post(array $post, array &$erros, string $p = '', string
 
     if ($nivel === 'medio') {
         if (!isset(JC_FORMACAO_ANOS[$v['ano'] ?? 0])) {
-            $erros[] = 'Selecione o ano do Ensino Médio.';
+            $erros[] = 'Selecione a série do Ensino Médio.';
         } else {
             $r['ano'] = $v['ano'];
         }
@@ -348,7 +360,7 @@ function jc_formacao_resumo(array $j): string
     $sit = (($j['escolaridade_status'] ?? '') === 'completo') ? 'Concluído' : 'Cursando';
     $v   = jc_formacao_de_jovem($j);
     if ($v['legado'] === '' && $v['nivel'] !== '') {
-        $txt = trim((string)$j['formacao']) . ' · ' . $sit;
+        $txt = jc_formacao_exibir(trim((string)$j['formacao'])) . ' · ' . $sit;   // correção 1: "3ª série" na tela
         if ($v['nivel'] === 'medio' && ($j['escolaridade_tipo'] ?? '') === 'tecnico') {
             $txt .= ' · Curso técnico' . (!empty($j['escolaridade_curso']) ? ': ' . $j['escolaridade_curso'] : '');
         }
@@ -416,7 +428,7 @@ function jc_formacao_campos(array $o): string
     $out .= '<div class="form-group">'
           . '<label class="form-label" for="' . $id . 'Nivel">Nível de formação' . $ob . '</label>'
           . '<select class="form-control" id="' . $id . 'Nivel" name="' . $n . 'formacao_nivel" data-formacao-nivel'
-          . ($ob !== '' ? ' required' : '') . $form . '>'
+          . ($ob !== '' ? ' required data-erro-vazio="Selecione o nível de formação."' : '') . $form . '>'
           . '<option value="">' . $h($o['vazio'] ?? 'Selecione o nível') . '</option>';
     foreach (JC_FORMACAO_NIVEIS as $valor => $rotulo) {
         $out .= '<option value="' . $valor . '"' . $sel($nivel, $valor) . '>' . $h($rotulo) . '</option>';
@@ -426,10 +438,11 @@ function jc_formacao_campos(array $o): string
     // 2a. Ensino Médio: ano / série (+ curso técnico junto, opcional)
     $out .= '<div data-formacao-se="medio"' . $oculto($nivel === 'medio') . '>'
           . '<div class="form-group">'
-          . '<label class="form-label" for="' . $id . 'Ano">Ano / série *</label>'
-          . '<select class="form-control" id="' . $id . 'Ano" name="' . $n . 'formacao_ano"' . $form . '>'
-          . '<option value="">Selecione o ano</option>';
-    foreach (JC_FORMACAO_ANOS as $valor => $rotulo) {
+          . '<label class="form-label" for="' . $id . 'Ano">Série *</label>'
+          . '<select class="form-control" id="' . $id . 'Ano" name="' . $n . 'formacao_ano"'
+          . ' data-obrigatorio-visivel data-erro-vazio="Selecione a série do Ensino Médio."' . $form . '>'
+          . '<option value="">Selecione a série</option>';
+    foreach (JC_FORMACAO_SERIES as $valor => $rotulo) {   // correção 1: muda só o texto; o valor (1, 2, 3) é o mesmo
         $out .= '<option value="' . $valor . '"' . $sel($v['ano'], $valor) . '>' . $rotulo . '</option>';
     }
     $out .= '</select></div>';
@@ -450,10 +463,13 @@ function jc_formacao_campos(array $o): string
     ];
     foreach ($blocos as [$se, $campo, $sufixo, $rotulo, $lista, $ver]) {
         $escolha = $v[$campo];
+        // mesmas mensagens do servidor (jc_formacao_ler_post): "Selecione <nome>." / "Informe <nome> (campo "Qual?")."
+        $nomeMsg = jc_formacao_cursos(strtok($se, ' '))[2];
         $out .= '<div data-formacao-se="' . $se . '"' . $oculto($ver) . '>'
               . '<div class="form-group">'
               . '<label class="form-label" for="' . $id . $sufixo . '">' . $rotulo . ' *</label>'
-              . '<select class="form-control" id="' . $id . $sufixo . '" name="' . $n . $campo . '" data-formacao-curso' . $form . '>'
+              . '<select class="form-control" id="' . $id . $sufixo . '" name="' . $n . $campo . '" data-formacao-curso'
+              . ' data-obrigatorio-visivel data-erro-vazio="' . $h('Selecione ' . $nomeMsg . '.') . '"' . $form . '>'
               . '<option value="">Selecione</option>';
         foreach ($lista as $valor => $texto) {
             $out .= '<option value="' . $h($valor) . '"' . $sel($escolha, $valor) . '>' . $h($texto) . '</option>';
@@ -463,7 +479,8 @@ function jc_formacao_campos(array $o): string
               . '<div class="form-group" data-formacao-outro-de="' . $id . $sufixo . '"' . $oculto($ver && $escolha === 'Outro') . '>'
               . '<label class="form-label" for="' . $id . $sufixo . 'Outro">Qual? *</label>'
               . '<input type="text" class="form-control" id="' . $id . $sufixo . 'Outro" name="' . $n . $campo . '_outro"'
-              . ' maxlength="' . JC_FORMACAO_OUTRO_MAX . '" value="' . $h($v[$campo . '_outro']) . '" placeholder="Nome do curso"' . $form . '>'
+              . ' maxlength="' . JC_FORMACAO_OUTRO_MAX . '" value="' . $h($v[$campo . '_outro']) . '" placeholder="Nome do curso"'
+              . ' data-obrigatorio-visivel data-erro-vazio="' . $h('Informe ' . $nomeMsg . ' (campo "Qual?").') . '"' . $form . '>'
               . '</div>'
               . '</div>' . "\n";
     }
@@ -474,7 +491,8 @@ function jc_formacao_campos(array $o): string
           . '<label class="form-label" for="' . $id . 'Outro">Descreva a sua formação *</label>'
           . '<input type="text" class="form-control" id="' . $id . 'Outro" name="' . $n . 'formacao_outro"'
           . ' maxlength="' . JC_FORMACAO_LIVRE_MAX . '" value="' . $h($v['outro']) . '"'
-          . ' aria-describedby="' . $id . 'OutroAjuda" placeholder="Ex.: curso livre de idiomas"' . $form . '>'
+          . ' aria-describedby="' . $id . 'OutroAjuda" placeholder="Ex.: curso livre de idiomas"'
+          . ' data-obrigatorio-visivel data-erro-vazio="' . $h('Descreva a sua formação em "Outro".') . '"' . $form . '>'
           . '<small id="' . $id . 'OutroAjuda" class="text-secondary" style="font-size:12px;">Use só se a sua formação não estiver nas opções de nível.</small>'
           . '</div></div>' . "\n";
 

@@ -46,9 +46,13 @@ if ('IntersectionObserver' in window && !matchMedia('(prefers-reduced-motion: re
      ============================================================ -->
 <nav class="navbar" id="mainNav">
     <a href="index.php" class="nav-logo" aria-label="JovemConnect — página inicial">
-        <picture class="marca marca-nav">
-            <source media="(max-width: 480px)" srcset="assets/img/marca/jovemconnect-simbolo.png" width="192" height="192">
-            <img src="assets/img/marca/jovemconnect-horizontal.png" alt="JovemConnect" width="493" height="160">
+        <picture class="marca marca-nav marca-tema-escuro">
+            <source media="(max-width: 480px)" srcset="assets/img/marca/jovemconnect-simbolo.png" width="910" height="910">
+            <img src="assets/img/marca/jovemconnect-horizontal.png" alt="JovemConnect" width="848" height="291">
+        </picture>
+        <picture class="marca marca-nav marca-tema-claro">
+            <source media="(max-width: 480px)" srcset="assets/img/marca/jovemconnect-simbolo-claro.png" width="910" height="910">
+            <img src="assets/img/marca/jovemconnect-horizontal-claro.png" alt="JovemConnect" width="848" height="291" loading="lazy">
         </picture>
     </a>
 
@@ -142,7 +146,7 @@ if ('IntersectionObserver' in window && !matchMedia('(prefers-reduced-motion: re
      ============================================================ -->
 <footer class="site-footer">
     <div class="footer-logo marca marca-rodape">
-        <img src="assets/img/marca/jovemconnect-horizontal.png" alt="JovemConnect" width="493" height="160" loading="lazy">
+        <img class="marca-tema-escuro" src="assets/img/marca/jovemconnect-horizontal.png" alt="JovemConnect" width="848" height="291" loading="lazy"><img class="marca-tema-claro" src="assets/img/marca/jovemconnect-horizontal-claro.png" alt="JovemConnect" width="848" height="291" loading="lazy">
     </div>
     <p class="footer-tagline" data-revelar>
         Promovendo inclusão social e profissional através de tecnologia de ponta

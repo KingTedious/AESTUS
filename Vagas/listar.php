@@ -134,7 +134,7 @@ if (isset($_GET['id']) && intval($_GET['id']) > 0) {
     <div class="d-flex align-center gap-12">
         <a href="<?= htmlspecialchars($voltar_url) ?>" class="icon-btn"
            title="<?= htmlspecialchars($voltar_rotulo) ?>" aria-label="<?= htmlspecialchars($voltar_rotulo) ?>"><span class="i i-arrow-left" aria-hidden="true"></span></a>
-        <span class="marca marca-compacta"><img src="../assets/img/marca/jovemconnect-simbolo.png" alt="JovemConnect" width="192" height="192"></span>
+        <span class="marca marca-compacta"><img class="marca-tema-escuro" src="../assets/img/marca/jovemconnect-simbolo.png" alt="JovemConnect" width="910" height="910"><img class="marca-tema-claro" src="../assets/img/marca/jovemconnect-simbolo-claro.png" alt="JovemConnect" width="910" height="910" loading="lazy"></span>
         <span class="detail-bar-title">Detalhes da Vaga</span>
     </div>
     <?php if (!$ja_candidatado): ?>
@@ -453,9 +453,13 @@ $areas_result = $conn->query(
 <!-- Navbar interna -->
 <nav class="navbar-inner">
     <a href="../dashboard/jovem.php" class="nav-logo" aria-label="JovemConnect — meu painel">
-        <picture class="marca marca-nav">
-            <source media="(max-width: 480px)" srcset="../assets/img/marca/jovemconnect-simbolo.png" width="192" height="192">
-            <img src="../assets/img/marca/jovemconnect-horizontal.png" alt="JovemConnect" width="493" height="160">
+        <picture class="marca marca-nav marca-tema-escuro">
+            <source media="(max-width: 480px)" srcset="../assets/img/marca/jovemconnect-simbolo.png" width="910" height="910">
+            <img src="../assets/img/marca/jovemconnect-horizontal.png" alt="JovemConnect" width="848" height="291">
+        </picture>
+        <picture class="marca marca-nav marca-tema-claro">
+            <source media="(max-width: 480px)" srcset="../assets/img/marca/jovemconnect-simbolo-claro.png" width="910" height="910">
+            <img src="../assets/img/marca/jovemconnect-horizontal-claro.png" alt="JovemConnect" width="848" height="291" loading="lazy">
         </picture>
     </a>
 

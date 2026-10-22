@@ -478,7 +478,7 @@ $local_parts = array_filter([
 $localizacao = implode(', ', $local_parts);
 
 // Escolaridade informada no cadastro
-// Resumo pelo formato novo ("Ensino Médio — 3º ano · Cursando"); registro antigo = resumo anterior
+// Resumo pelo formato novo ("Ensino Médio — 3ª série · Cursando" na tela; gravado como "3º ano"); registro antigo = resumo anterior
 $esc_resumo = jc_formacao_resumo($jovem);
 
 // Motivo de um erro ao salvar a formação (?saved=4)
@@ -530,7 +530,7 @@ if ($eh_empresa && ($_GET['voltar'] ?? '') === 'candidatos' && intval($_GET['vag
     <div class="d-flex align-center gap-12">
         <a href="<?= htmlspecialchars($voltar_url) ?>"
            class="icon-btn" title="<?= htmlspecialchars($voltar_rotulo) ?>" aria-label="<?= htmlspecialchars($voltar_rotulo) ?>"><span class="i i-arrow-left" aria-hidden="true"></span></a>
-        <span class="marca marca-compacta"><img src="../assets/img/marca/jovemconnect-simbolo.png" alt="JovemConnect" width="192" height="192"></span>
+        <span class="marca marca-compacta"><img class="marca-tema-escuro" src="../assets/img/marca/jovemconnect-simbolo.png" alt="JovemConnect" width="910" height="910"><img class="marca-tema-claro" src="../assets/img/marca/jovemconnect-simbolo-claro.png" alt="JovemConnect" width="910" height="910" loading="lazy"></span>
         <span class="profile-bar-title">
             <?= $eh_dono ? 'Meu Perfil' : 'Perfil do Candidato' ?>
         </span>
@@ -798,7 +798,7 @@ if ($eh_empresa && ($_GET['voltar'] ?? '') === 'candidatos' && intval($_GET['vag
                 <?php foreach ($formacoes as $f): ?>
                 <div class="edu-item">
                     <div>
-                        <p class="edu-title"><?= htmlspecialchars($f['titulo']) ?></p>
+                        <p class="edu-title"><?= htmlspecialchars(jc_formacao_exibir($f['titulo'])) ?></p>
                         <p class="edu-sub"><?= jc_formacao_detalhe($f) ?></p>
                     </div>
                     <form method="POST" action="perfil.php" style="display:inline;">
@@ -806,7 +806,7 @@ if ($eh_empresa && ($_GET['voltar'] ?? '') === 'candidatos' && intval($_GET['vag
     <?= csrf_field() ?>
                         <input type="hidden" name="form_id" value="<?= intval($f['id']) ?>">
                         <button type="submit" class="edu-delete" title="Remover formação"
-                                aria-label="Remover formação: <?= htmlspecialchars($f['titulo']) ?>"><span class="i i-trash" aria-hidden="true"></span></button>
+                                aria-label="Remover formação: <?= htmlspecialchars(jc_formacao_exibir($f['titulo'])) ?>"><span class="i i-trash" aria-hidden="true"></span></button>
                     </form>
                 </div>
                 <?php endforeach; ?>
@@ -1095,7 +1095,7 @@ if ($eh_empresa && ($_GET['voltar'] ?? '') === 'candidatos' && intval($_GET['vag
                 <?php foreach ($formacoes as $f): ?>
                 <div class="edu-item">
                     <div>
-                        <p class="edu-title"><?= htmlspecialchars($f['titulo']) ?></p>
+                        <p class="edu-title"><?= htmlspecialchars(jc_formacao_exibir($f['titulo'])) ?></p>
                         <p class="edu-sub"><?= jc_formacao_detalhe($f) ?></p>
                     </div>
                 </div>

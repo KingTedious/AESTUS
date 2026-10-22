@@ -299,7 +299,7 @@ if ($action === 'curriculo') {
 
     // Busca dados completos do jovem
     $stmt_j = $conn->prepare(
-        "SELECT resumo_profissional FROM jovens WHERE id = ? LIMIT 1"
+        "SELECT resumo_profissional, formacao, escolaridade_tipo, escolaridade_curso FROM jovens WHERE id = ? LIMIT 1"
     );
     $stmt_j->bind_param("i", $jovem_id);
     $stmt_j->execute();
@@ -324,6 +324,20 @@ if ($action === 'curriculo') {
     $stmt_f->execute();
     $formacoes = $stmt_f->get_result()->fetch_all(MYSQLI_ASSOC);
     $stmt_f->close();
+
+    // Estabilização (correção 2): a formação informada no CADASTRO (jovens.formacao, lida aqui no servidor
+    // para o jovem da sessão) também entra na lista enviada à IA, para o IA Advisor não pedir de novo o que
+    // o sistema já tem. Nada é gravado (nenhum registro novo em formacao_jovem) e nada vem do navegador.
+    // Cadastro antigo só com o curso técnico conta como formação, como no perfil. Sem formação no cadastro,
+    // a lista fica como antes (só as formações adicionais) e a IA continua pedindo a formação.
+    $principal = trim((string)($jovem['formacao'] ?? ''));
+    $curso_tec = trim((string)($jovem['escolaridade_curso'] ?? ''));
+    if ($principal === '' && ($jovem['escolaridade_tipo'] ?? '') === 'tecnico' && $curso_tec !== '') {
+        $principal = 'Ensino Técnico — ' . $curso_tec;
+    }
+    if ($principal !== '' && !in_array($principal, array_column($formacoes, 'titulo'), true)) {
+        array_unshift($formacoes, ['titulo' => $principal]);
+    }
 
     // Payload para o Flask
     $payload = [

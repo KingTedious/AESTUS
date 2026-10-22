@@ -171,7 +171,7 @@ if (!$result_code && $ja_candidatado) {
     <div class="d-flex align-center gap-12">
         <a href="listar.php?id=<?= $vaga_id ?><?= htmlspecialchars($voltar_qs) ?>"
            class="icon-btn" title="Voltar para a vaga" aria-label="Voltar para a vaga"><span class="i i-arrow-left" aria-hidden="true"></span></a>
-        <span class="marca marca-compacta"><img src="../assets/img/marca/jovemconnect-simbolo.png" alt="JovemConnect" width="192" height="192"></span>
+        <span class="marca marca-compacta"><img class="marca-tema-escuro" src="../assets/img/marca/jovemconnect-simbolo.png" alt="JovemConnect" width="910" height="910"><img class="marca-tema-claro" src="../assets/img/marca/jovemconnect-simbolo-claro.png" alt="JovemConnect" width="910" height="910" loading="lazy"></span>
         <span class="detail-bar-title">
             <?= $result_code ? 'Status da Candidatura' : 'Confirmar Candidatura' ?>
         </span>

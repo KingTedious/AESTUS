@@ -34,7 +34,7 @@ if (isset($_SESSION['empresa_id'])) {
 
     <!-- Marca oficial — versão vertical (símbolo + nome embaixo) na composição empilhada do cartão -->
     <div class="auth-logo">
-        <h1 class="marca marca-vertical"><img src="../assets/img/marca/jovemconnect-vertical.png" alt="JovemConnect" width="546" height="420"></h1>
+        <h1 class="marca marca-vertical"><img class="marca-tema-escuro" src="../assets/img/marca/jovemconnect-vertical.png" alt="JovemConnect" width="878" height="689"><img class="marca-tema-claro" src="../assets/img/marca/jovemconnect-vertical-claro.png" alt="JovemConnect" width="878" height="689" loading="lazy"></h1>
     </div>
 
     <p style="font-size:20px;font-weight:700;text-align:center;margin-bottom:6px;">

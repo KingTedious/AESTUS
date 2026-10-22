@@ -74,9 +74,13 @@ $_hdr_title = !empty($page_title)
     <!-- Logo → dashboard do tipo de usuário correto -->
     <a href="../dashboard/<?= $_hdr_jovem ? 'jovem' : 'empresa' ?>.php" class="nav-logo"
        aria-label="JovemConnect — ir para o meu painel">
-        <picture class="marca marca-nav">
-            <source media="(max-width: 480px)" srcset="../assets/img/marca/jovemconnect-simbolo.png" width="192" height="192">
-            <img src="../assets/img/marca/jovemconnect-horizontal.png" alt="JovemConnect" width="493" height="160">
+        <picture class="marca marca-nav marca-tema-escuro">
+            <source media="(max-width: 480px)" srcset="../assets/img/marca/jovemconnect-simbolo.png" width="910" height="910">
+            <img src="../assets/img/marca/jovemconnect-horizontal.png" alt="JovemConnect" width="848" height="291">
+        </picture>
+        <picture class="marca marca-nav marca-tema-claro">
+            <source media="(max-width: 480px)" srcset="../assets/img/marca/jovemconnect-simbolo-claro.png" width="910" height="910">
+            <img src="../assets/img/marca/jovemconnect-horizontal-claro.png" alt="JovemConnect" width="848" height="291" loading="lazy">
         </picture>
     </a>
 
@@ -141,9 +145,13 @@ $_hdr_title = !empty($page_title)
 <nav class="navbar">
 
     <a href="../index.php" class="nav-logo" aria-label="JovemConnect — página inicial">
-        <picture class="marca marca-nav">
-            <source media="(max-width: 480px)" srcset="../assets/img/marca/jovemconnect-simbolo.png" width="192" height="192">
-            <img src="../assets/img/marca/jovemconnect-horizontal.png" alt="JovemConnect" width="493" height="160">
+        <picture class="marca marca-nav marca-tema-escuro">
+            <source media="(max-width: 480px)" srcset="../assets/img/marca/jovemconnect-simbolo.png" width="910" height="910">
+            <img src="../assets/img/marca/jovemconnect-horizontal.png" alt="JovemConnect" width="848" height="291">
+        </picture>
+        <picture class="marca marca-nav marca-tema-claro">
+            <source media="(max-width: 480px)" srcset="../assets/img/marca/jovemconnect-simbolo-claro.png" width="910" height="910">
+            <img src="../assets/img/marca/jovemconnect-horizontal-claro.png" alt="JovemConnect" width="848" height="291" loading="lazy">
         </picture>
     </a>
 

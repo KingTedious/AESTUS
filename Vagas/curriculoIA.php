@@ -145,7 +145,7 @@ $resumo_atual = htmlspecialchars(
 <div class="detail-bar">
     <div class="d-flex align-center gap-12">
         <a href="../dashboard/jovem.php" class="icon-btn" title="Voltar ao painel" aria-label="Voltar ao painel"><span class="i i-arrow-left" aria-hidden="true"></span></a>
-        <span class="marca marca-compacta"><img src="../assets/img/marca/jovemconnect-simbolo.png" alt="JovemConnect" width="192" height="192"></span>
+        <span class="marca marca-compacta"><img class="marca-tema-escuro" src="../assets/img/marca/jovemconnect-simbolo.png" alt="JovemConnect" width="910" height="910"><img class="marca-tema-claro" src="../assets/img/marca/jovemconnect-simbolo-claro.png" alt="JovemConnect" width="910" height="910" loading="lazy"></span>
         <span class="detail-bar-title" style="display:inline-flex;align-items:center;gap:8px;"><span class="i i-sparkles" aria-hidden="true"></span> Mentor de Currículo IA</span>
     </div>
     <a href="../jovem/perfil.php" class="btn btn-ghost btn-sm">Ver Meu Perfil</a>

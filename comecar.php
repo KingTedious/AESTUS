@@ -40,7 +40,7 @@ if (isset($_SESSION['empresa_id'])) {
     <!-- Marca oficial vertical (leva à página inicial) -->
     <div class="form-page-logo">
         <a href="index.php" class="marca marca-vertical nav-logo" aria-label="JovemConnect — página inicial">
-            <img src="assets/img/marca/jovemconnect-vertical.png" alt="JovemConnect" width="546" height="420">
+            <img class="marca-tema-escuro" src="assets/img/marca/jovemconnect-vertical.png" alt="JovemConnect" width="878" height="689"><img class="marca-tema-claro" src="assets/img/marca/jovemconnect-vertical-claro.png" alt="JovemConnect" width="878" height="689" loading="lazy">
         </a>
     </div>
 
