@@ -177,7 +177,8 @@ do texto e o histórico só nomes de campos e códigos).
 | 4 | `migrations/2026-10-11_stage7_admin_moderacao.sql` (requer as anteriores) | cria `administradores` (vazia), `admin_tentativas`, `admin_auditoria`, `moderacao_itens`, `denuncias`; `jovens`/`empresas`: `conta_status` (padrão `ativa`), `conta_status_em`; `vagas`: `moderacao_status` (padrão `aprovada`), `moderacao_motivo`, `moderacao_em` + índice `idx_vaga_moderacao` | `jc_stage7_disponivel()` |
 
 Todas são **aditivas** (só criam) e trazem a reversão em comentário. Como aplicar: [MIGRACOES.md](MIGRACOES.md).
-**Não há tabela de controle de migrações**: confira na aba Estrutura se as colunas já existem antes de aplicar.
+**Não há tabela de controle de migrações**: antes de aplicar, rode `database/diagnostico_somente_leitura.sql`
+(só consulta; mostra cada migração como `aplicada`, `PENDENTE` ou `PARCIAL`) ou confira na aba Estrutura.
 
 Itens do `schema.sql` que **não têm migração própria** (só existem em bancos criados a partir de um
 `schema.sql` recente) [C]: `candidaturas.etapa`, as tabelas `mensagens_chat`, `freelances`,
@@ -187,14 +188,27 @@ verificação dariam erro nas páginas de verificação e recuperação [I].
 
 ## Cuidados com o `schema.sql`
 
-- **Recria as tabelas principais** (`DROP TABLE IF EXISTS`). Nunca o importe num banco com dados.
-- Teste na réplica (SEG-11 em [SEGURANCA_E_PRIVACIDADE.md](SEGURANCA_E_PRIVACIDADE.md)): reimportar sobre um
-  banco existente apaga primeiro 6 tabelas filhas (`avaliacoes_ia`, `beneficios_vaga`, `requisitos_vaga`,
-  `experiencias_jovem`, `formacao_jovem`, `habilidades_jovem`) e depois **falha** ao apagar `candidaturas`,
-  `vagas`, `jovens` e `empresas`, porque `mensagens_chat`, `empresa_locais`, `freelances` e
-  `propostas_freelance` não estão no bloco `DROP` e continuam com chaves estrangeiras para elas.
-- Contém dados de exemplo com aparência de dados pessoais (SEG-20) e um registro com senha em texto puro que
-  não consegue fazer login [C]. Para demonstração use `database/seed_demo.sql` ([SEED_DEMO.md](SEED_DEMO.md)).
+- **Só instalação nova, em banco vazio.** Desde o Lote B da remediação (12/10/2026) o arquivo não tem nenhum
+  comando `DROP`, `DELETE`, `TRUNCATE` ou `INSERT`: cria as 20 tabelas e não grava nenhum registro.
+- **Trava "só banco vazio":** logo no início o arquivo confere se o banco escolhido tem alguma tabela. Se
+  tiver (do JovemConnect ou de outro sistema), a importação para ali com o erro
+  `#1146 … PARE - use num banco NOVO e VAZIO - nada foi alterado` e nenhum comando de estrutura é executado:
+  cada `CREATE`/`ALTER` está dentro de `SET @jc_sql = IF(@jc_banco_vazio, "…")` e só roda (por
+  `PREPARE`/`EXECUTE`) se o banco estava vazio no início — por isso nada muda nem em ferramentas que continuam
+  depois de erros (`mysql --force`). O texto de cada comando é o mesmo das migrações. Testado na réplica em
+  bancos parcialmente criados, de outro sistema, de versão anterior e completos, nos dois modos: nada mudou.
+  Atualização de banco existente = [MIGRACOES.md](MIGRACOES.md).
+- **Histórico (até a v4.50):** o arquivo começava com `DROP TABLE IF EXISTS` de 11 tabelas. Reimportado sobre
+  um banco com dados, apagava 6 tabelas filhas (`avaliacoes_ia`, `beneficios_vaga`, `requisitos_vaga`,
+  `experiencias_jovem`, `formacao_jovem`, `habilidades_jovem`) e parava ao tentar apagar `candidaturas`, porque
+  `mensagens_chat` ainda tinha chave estrangeira para ela (SEG-11/AUD-002). Uma cópia antiga do arquivo
+  continua perigosa.
+- **Sem dados de exemplo:** as linhas de exemplo antigas (uma empresa com senha conhecida, um jovem com senha em
+  texto puro e um registro com aparência de dados pessoais reais — SEG-20) foram retiradas. Para demonstração
+  use `database/seed_demo.sql` ([SEED_DEMO.md](SEED_DEMO.md)). Bancos criados com o arquivo antigo podem ainda
+  ter essas linhas: a Consulta 3 de `database/diagnostico_somente_leitura.sql` conta as duas contas de exemplo
+  (e-mails `@teste.com`); o registro com aparência de dados reais (`jovens`, id 6 no arquivo antigo) e as linhas
+  ligadas a ele precisam ser conferidos pelo proprietário.
 
 ## Observações de modelagem
 

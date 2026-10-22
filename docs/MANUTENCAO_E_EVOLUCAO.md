@@ -35,7 +35,7 @@ Mapa completo: [MATRIZ_DE_DEPENDENCIAS.md](MATRIZ_DE_DEPENDENCIAS.md). Pontos qu
 | `includes/formacao.php` | formato salvo em `jovens` e lido pelo Match | S5F, S5U |
 | `includes/etapas.php` | cadastro dos dois tipos | S6C |
 | `assets/css/style.css` | 3.153 linhas; regras sobrescritas mais adiante (ex.: `.hero-section` §12 → §27) | responsivo, a11y, identidade |
-| `schema.sql` | recria tabelas | nunca rodar em banco com dados |
+| `schema.sql` | só instalação nova (sem `DROP` e sem dados); precisa ter a mesma estrutura que um banco atualizado pelas migrações | nunca rodar em banco com dados; comparar a instalação limpa com um banco atualizado pelas migrações (teste do Lote B) |
 | `recuperar_senha.php` | falha crítica SEG-01 | T-LOG-06, T-LOG-07 |
 
 ## Como adicionar uma funcionalidade (recomendação baseada nas práticas existentes)
@@ -62,16 +62,24 @@ Prática existente (Stages 3, 5.1 e 6):
 
 1. Criar `migrations/AAAA-MM-DD_descricao.sql` **aditivo** (só `ADD COLUMN`/`CREATE TABLE IF NOT EXISTS`),
    com colunas `NULL` ou com `DEFAULT`, e a reversão em comentário.
-2. Replicar o mesmo bloco no `schema.sql` (instalação nova).
+2. Replicar o mesmo bloco no `schema.sql` (instalação nova) — sem `DROP` e sem dados, no formato da trava
+   "só banco vazio": o comando entre aspas duplas em `SET @jc_sql = IF(@jc_banco_vazio, "…", "SET @jc_nada = 0");`
+   (aspas duplas internas viram `""`), seguido de `PREPARE jc_cmd FROM @jc_sql;` e `EXECUTE jc_cmd;`, antes do
+   bloco final do arquivo. A instalação limpa e um banco atualizado pelas migrações devem terminar com a mesma
+   estrutura.
 3. No PHP, detectar a coluna/tabela antes de usar (padrão `SHOW COLUMNS … LIKE`), para o site funcionar antes e
    depois da migração.
 4. Documentar em [MIGRACOES.md](MIGRACOES.md) e [BANCO_DE_DADOS.md](BANCO_DE_DADOS.md).
+5. Acrescentar a migração nova ao `database/diagnostico_somente_leitura.sql` (uma linha na Consulta 1, com as
+   peças que ela cria), para o diagnóstico continuar mostrando `aplicada`/`PENDENTE`/`PARCIAL`.
 
 A Stage 7 seguiu a mesma prática e concentrou a detecção numa função (`jc_stage7_disponivel()`,
 `includes/esquema.php`: uma consulta ao `information_schema`, guardada por requisição).
 
-Recomendações: criar uma tabela de controle de migrações; incluir no bloco `DROP` do `schema.sql` as tabelas
-que hoje ficam de fora (SEG-11); nunca reaproveitar `schema.sql` para atualizar banco.
+Recomendações: criar uma tabela de controle de migrações; nunca reaproveitar `schema.sql` para atualizar banco.
+**Não** acrescentar `DROP` ao `schema.sql`: desde o Lote B da remediação ele não apaga nada e, num banco com
+qualquer tabela, a trava "só banco vazio" para a importação no início sem alterar nada — ampliar o `DROP` só
+aumentaria o que se perde por engano (SEG-11/AUD-002).
 
 ## Preservar compatibilidade com dados antigos
 
@@ -134,7 +142,7 @@ tratado em parte SEG-19 (salário e carga horária); **SEG-01 continua pendente*
 | 3 | IA Advisor com `textContent` | SEG-05 |
 | 3 | Segredo compartilhado PHP↔Flask; remover CORS | SEG-06 |
 | 3 | Hash dos códigos; invalidar sessões ao trocar a senha | SEG-08, SEG-09 |
-| 3 | Bloco `DROP` do `schema.sql` | SEG-11 |
+| — | `schema.sql` só para instalação nova, sem `DROP` e sem dados (feito no Lote B da remediação) | SEG-11 |
 | 4 | Caminho `Assets/` → `assets/` | — |
 | 4 | `type="url"` do site impede salvar o perfil da empresa | — |
 | 4 | Fallback de sugestões de currículo sem Flask (ou mensagem clara) | — |

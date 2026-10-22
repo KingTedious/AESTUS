@@ -39,11 +39,16 @@ Plataforma de empregabilidade que conecta jovens em busca do primeiro emprego
 3. **Configuração** — copie `.env.example` para `.env` e preencha
    (veja [docs/CONFIGURACAO.md](docs/CONFIGURACAO.md)). O `.env` nunca vai para o Git.
 4. **Banco de dados**
-   - *Instalação nova*: no phpMyAdmin, crie o banco `jovemconnect` e importe
-     `schema.sql`. **Atenção:** o `schema.sql` recria as tabelas (apaga os dados
-     existentes) — use só em banco novo.
-   - *Banco que já existe*: aplique, em ordem, as migrações de `migrations/`
-     que ainda não foram aplicadas (veja [docs/MIGRACOES.md](docs/MIGRACOES.md)).
+   - *Instalação nova*: no phpMyAdmin, crie o banco `jovemconnect` **vazio** e
+     importe `schema.sql`. Ele só cria as tabelas: não apaga nada e não grava
+     nenhum registro (nem contas de exemplo). Tem uma trava "só banco vazio": em
+     qualquer banco que já tenha alguma tabela, a importação para logo no início
+     (`… PARE - use num banco NOVO e VAZIO - nada foi alterado`) e nada é criado
+     nem alterado — também em ferramentas que continuam depois de erros.
+   - *Banco que já existe*: **não** use o `schema.sql`. Faça um backup verificado,
+     rode `database/diagnostico_somente_leitura.sql` (só consulta) para ver o que
+     falta e aplique, em ordem, só as migrações de `migrations/` pendentes
+     (veja [docs/MIGRACOES.md](docs/MIGRACOES.md)).
    - *Dados de demonstração (opcional)*: `database/seed_demo.sql`
      (veja [docs/SEED_DEMO.md](docs/SEED_DEMO.md)).
 5. **Servidor de IA** — dê dois cliques em `iniciar_ia.bat`. Ele usa o Python do
@@ -73,9 +78,9 @@ Plataforma de empregabilidade que conecta jovens em busca do primeiro emprego
 ├── uploads/    currículos (pasta protegida) e entrega controlada do PDF
 ├── logs/       registros JSON (pasta protegida, fora do Git)
 ├── migrations/ alterações aditivas do banco, em ordem de data
-├── database/   seed_demo.sql (dados fictícios)
+├── database/   seed_demo.sql (dados fictícios) e diagnostico_somente_leitura.sql
 ├── docs/       documentação técnica
-└── schema.sql  estrutura completa do banco (instalação nova)
+└── schema.sql  estrutura completa do banco (só instalação nova; sem dados)
 ```
 
 ## Documentação

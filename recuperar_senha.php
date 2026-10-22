@@ -2,191 +2,136 @@
 require_once __DIR__ . '/includes/csrf.php';   // Sessao endurecida + CSRF
 require_once __DIR__ . '/includes/config.php';
 require_once __DIR__ . '/includes/mailer.php';
+require_once __DIR__ . '/includes/documentos.php';    // JC_CONTATO_EMAIL (aviso de indisponibilidade)
+require_once __DIR__ . '/includes/recuperacao.php';   // estado do fluxo (remediação, Lote A)
+
+/* ============================================================
+   recuperar_senha.php — "Esqueci minha senha" (jovens e empresas)
+
+   Remediação, Lote A (AUD-001 / SEG-01): a autorização para trocar a
+   senha fica VINCULADA à conta cujo código foi conferido (tabela + id +
+   e-mail lidos do banco). Todo pedido novo apaga o estado anterior da
+   sessão; o código é de uso único e consumido na hora; a nova senha só é
+   gravada na conta vinculada, dentro do prazo, e encerra a autorização.
+   Regras em includes/recuperacao.php.
+
+   Falha de envio não vira "código enviado": sem e-mail instalado e
+   configurado, a página avisa que a recuperação está indisponível (vale
+   para qualquer e-mail digitado, então não revela contas); se o envio de
+   um código falhar, ele é apagado e a pessoa é avisada para tentar de novo.
+   ============================================================ */
 
 $mensagemErro = null;
-$etapa = $_SESSION['recuperacao_etapa'] ?? 1;
-$emailMascarado = $_SESSION['recuperacao_email_mascarado'] ?? '';
+$recuperacao_indisponivel = !jc_mailer_disponivel();
+jc_rec_limpar_legado($_SESSION);   // fluxo aberto na versão anterior recomeça do início
 
-// Função para mascarar o e-mail (ex: gabriel@gmail.com -> ga***el@gmail.com)
-function mascararEmail(string $email): string {
-    $partes = explode('@', $email);
-    if (count($partes) !== 2) return $email;
-    
-    $usuario = $partes[0];
-    $dominio = $partes[1];
-    $tamanho = strlen($usuario);
-
-    if ($tamanho <= 2) {
-        $mascarado = substr($usuario, 0, 1) . '***';
-    } else {
-        $mascarado = substr($usuario, 0, 2) . '***' . substr($usuario, -1);
-    }
-
-    return $mascarado . '@' . $dominio;
-}
-
-// --- ETAPA 1: ENVIAR O E-MAIL DE RECUPERAÇÃO ---
-// ATENÇÃO (auditoria de 10/10/2026, pendência SEG-01 — NÃO corrigida): esta etapa
-// não apaga $_SESSION['recuperacao_codigo_ok'] deixado por uma validação anterior,
-// e a etapa 3 confere só essa marca e a validade no banco. Assim, quem validou o
-// próprio código e depois pede um código para outro e-mail consegue trocar a senha
-// da outra conta. Ver docs/SEGURANCA_E_PRIVACIDADE.md antes de mexer aqui.
+// --- ETAPA 1: PEDIR O CÓDIGO ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_solicitar_codigo'])) {
     csrf_require();
-    $emailInput = trim($_POST['email'] ?? '');
+    jc_rec_limpar($_SESSION);   // pedido novo: nenhum pedido ou validação anterior sobrevive
+    $emailInput = trim((string) ($_POST['email'] ?? ''));
 
-    if (empty($emailInput) || !filter_var($emailInput, FILTER_VALIDATE_EMAIL)) {
+    if ($emailInput === '' || mb_strlen($emailInput) > 100 || !filter_var($emailInput, FILTER_VALIDATE_EMAIL)) {
         $mensagemErro = "Por favor, digite um e-mail válido.";
+    } elseif ($recuperacao_indisponivel) {
+        jc_log_seguranca('senha.recuperacao_indisponivel', 'aviso');
+        $mensagemErro = jc_rec_msg_indisponivel();
     } else {
-        $tabelaEncontrada = null;
-        $nomeUsuario = '';
-
-        // Busca em jovens
-        $stmt = $conn->prepare("SELECT id, nome FROM jovens WHERE email = ? LIMIT 1");
-        $stmt->bind_param("s", $emailInput);
-        $stmt->execute();
-        $res = $stmt->get_result();
-        
-        if ($res->num_rows > 0) {
-            $tabelaEncontrada = 'jovens';
-            $user = $res->fetch_assoc();
-            $nomeUsuario = $user['nome'];
-        } else {
-            $stmt->close();
-            // Busca em empresas
-            $stmt = $conn->prepare("SELECT id, nome_empresa AS nome FROM empresas WHERE email = ? LIMIT 1");
-            $stmt->bind_param("s", $emailInput);
-            $stmt->execute();
-            $res = $stmt->get_result();
-
-            if ($res->num_rows > 0) {
-                $tabelaEncontrada = 'empresas';
-                $user = $res->fetch_assoc();
-                $nomeUsuario = $user['nome'];
-            }
-        }
-        $stmt->close();
-
-        if ($tabelaEncontrada) {
+        $conta = jc_rec_buscar_conta($conn, $emailInput);
+        $envio = 'sem_conta';
+        if ($conta !== null) {
             $codigo = sprintf("%06d", random_int(0, 999999));
-            $expiracao = date('Y-m-d H:i:s', strtotime('+15 minutes'));
-
-            $update = $conn->prepare("UPDATE {$tabelaEncontrada} SET codigo_recuperacao = ?, expiracao_recuperacao = ? WHERE email = ?");
-            $update->bind_param("sss", $codigo, $expiracao, $emailInput);
-            $update->execute();
-            $update->close();
-
-            // Dispara e-mail
-            enviarCodigoVerificacao($emailInput, $nomeUsuario, $codigo);
-
-            $_SESSION['recuperacao_tabela'] = $tabelaEncontrada;
+            jc_rec_gravar_codigo($conn, $conta, $codigo, date('Y-m-d H:i:s', time() + JC_REC_VALIDADE_SEG));
+            if (enviarCodigoVerificacao($conta['email'], $conta['nome'], $codigo)) {
+                $envio = 'ok';
+            } else {
+                jc_rec_invalidar($conn, $conta);   // o código não chegou a ninguém: não pode continuar valendo
+                $envio = 'falhou';
+            }
+            unset($codigo);
         }
+        jc_log_seguranca('senha.recuperacao_solicitada', $envio === 'falhou' ? 'aviso' : 'info',
+                         ['conta_encontrada' => $conta !== null, 'envio' => $envio]);
 
-        jc_log_seguranca('senha.recuperacao_solicitada', 'info', ['conta_encontrada' => (bool) $tabelaEncontrada]);
-        // Avança a etapa mesmo se o e-mail não existir (boa prática de segurança)
-        $_SESSION['recuperacao_etapa'] = 2;
-        $_SESSION['recuperacao_email_mascarado'] = mascararEmail($emailInput);
-        $_SESSION['recuperacao_email_raw'] = $emailInput;
-        $etapa = 2;
-        $emailMascarado = $_SESSION['recuperacao_email_mascarado'];
+        if ($envio === 'falhou') {
+            $mensagemErro = "Não foi possível enviar o código agora. Tente novamente em alguns minutos.";
+        } else {
+            // Mesma tela com ou sem cadastro (não revela se o e-mail existe)
+            jc_rec_iniciar($_SESSION, $emailInput, $conta);
+        }
     }
 }
 
-// --- ETAPA 2: VALIDAR O CÓDIGO RECEBIDO ---
+// --- ETAPA 2: CONFERIR O CÓDIGO RECEBIDO ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_validar_codigo_recuperacao'])) {
     csrf_require();
-    $codigoDigitado = trim($_POST['codigo'] ?? '');
-    $tabela   = $_SESSION['recuperacao_tabela']    ?? null;
-    $emailRaw = $_SESSION['recuperacao_email_raw'] ?? null;
-    $codigoOk = false;
+    if (jc_rec_etapa($_SESSION) !== 3) {   // já validado nesta sessão (ex.: clique duplo): segue para a etapa 3
+        $codigoDigitado = trim((string) ($_POST['codigo'] ?? ''));
+        $conta = jc_rec_conta_pendente($_SESSION);
+        $agora = time();
+        $codigoOk = $conta !== null && jc_rec_consumir_codigo(
+            $conn, $conta, $codigoDigitado, date('Y-m-d H:i:s', $agora), date('Y-m-d H:i:s', $agora + JC_REC_VALIDADE_SEG)
+        );
 
-    if ($tabela && $emailRaw && !empty($codigoDigitado)) {
-        $stmtV = $conn->prepare("SELECT codigo_recuperacao, expiracao_recuperacao FROM {$tabela} WHERE email = ? LIMIT 1");
-        $stmtV->bind_param("s", $emailRaw);
-        $stmtV->execute();
-        $rowV = $stmtV->get_result()->fetch_assoc();
-        $stmtV->close();
-
-        $agora = date('Y-m-d H:i:s');
-        if ($rowV && $rowV['codigo_recuperacao'] !== null
-            && hash_equals((string) $rowV['codigo_recuperacao'], $codigoDigitado)
-            && $rowV['expiracao_recuperacao'] >= $agora) {
-            $codigoOk = true;
+        if ($codigoOk) {
+            jc_rec_autorizar($_SESSION, $agora);   // autorização SÓ para a conta deste pedido
+            jc_session_regenerate();               // nova identificação de sessão para a etapa autorizada
+            jc_log_seguranca('senha.codigo_validado', 'info', ['tipo' => $conta['tabela'] === 'jovens' ? 'jovem' : 'empresa']);
+        } else {
+            // Mesma mensagem para conta inexistente, código errado, expirado ou já usado
+            $mensagemErro = "Código incorreto ou expirado.";
+            jc_log_seguranca('senha.codigo_recusado', 'aviso');
         }
-    }
-
-    if ($codigoOk) {
-        $_SESSION['recuperacao_etapa'] = 3;
-        $_SESSION['recuperacao_codigo_ok'] = true;  // CRIT-001: etapa 2 valida o codigo e so entao autoriza a etapa 3
-        $etapa = 3;
-    } else {
-        // Mesma mensagem independentemente do motivo (conta inexistente, código
-        // errado ou expirado) — evita confirmar/negar existência da conta.
-        $mensagemErro = "Código incorreto ou expirado.";
-        jc_log_seguranca('senha.codigo_recusado', 'aviso');
     }
 }
 
 // --- ETAPA 3: DEFINIR NOVA SENHA ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_definir_nova_senha'])) {
     csrf_require();
-    $tabela   = $_SESSION['recuperacao_tabela']    ?? null;
-    $emailRaw = $_SESSION['recuperacao_email_raw'] ?? null;
-    $novaSenha = $_POST['nova_senha'] ?? '';
-    $confirmarSenha = $_POST['confirmar_senha'] ?? '';
+    $conta = jc_rec_conta_autorizada($_SESSION);
+    $novaSenha = (string) ($_POST['nova_senha'] ?? '');
+    $confirmarSenha = (string) ($_POST['confirmar_senha'] ?? '');
 
-    if (!$tabela || !$emailRaw || empty($_SESSION['recuperacao_codigo_ok'])) {
-        // Sessão perdida/expirada no meio do fluxo — recomeça do zero.
-        unset($_SESSION['recuperacao_etapa'], $_SESSION['recuperacao_email_mascarado'],
-              $_SESSION['recuperacao_email_raw'], $_SESSION['recuperacao_tabela'], $_SESSION['recuperacao_codigo_ok']);
+    if ($conta === null) {
+        // Sem código conferido nesta sessão (ou prazo vencido): recomeça do zero, nada é alterado
+        jc_log_seguranca('senha.redefinicao_recusada', 'aviso', ['motivo' => 'sem_autorizacao']);
+        jc_rec_limpar($_SESSION);
         header("Location: recuperar_senha.php");
         exit;
     } elseif (strlen($novaSenha) < 8) {
         $mensagemErro = "A nova senha precisa ter pelo menos 8 caracteres.";
-        $etapa = 3;
     } elseif ($novaSenha !== $confirmarSenha) {
         $mensagemErro = "As senhas não coincidem.";
-        $etapa = 3;
+    } elseif (jc_rec_trocar_senha($conn, $conta, password_hash($novaSenha, PASSWORD_DEFAULT), date('Y-m-d H:i:s'))) {
+        $tipoLogin = ($conta['tabela'] === 'jovens') ? 'jovem' : 'empresa';
+        jc_rec_limpar($_SESSION);
+        jc_log_seguranca('senha.redefinida', 'info', ['tipo' => $tipoLogin]);
+        $_SESSION['sucesso_login'] = "Senha redefinida com sucesso! Faça login com sua nova senha.";
+        header("Location: {$tipoLogin}/login.php");
+        exit;
     } else {
-        // Reconfirma a validade do código (defesa extra contra expiração entre etapas)
-        $stmtV = $conn->prepare("SELECT expiracao_recuperacao FROM {$tabela} WHERE email = ? LIMIT 1");
-        $stmtV->bind_param("s", $emailRaw);
-        $stmtV->execute();
-        $rowV = $stmtV->get_result()->fetch_assoc();
-        $stmtV->close();
-
-        $agora = date('Y-m-d H:i:s');
-        if (!$rowV || $rowV['expiracao_recuperacao'] === null || $rowV['expiracao_recuperacao'] < $agora) {
-            unset($_SESSION['recuperacao_etapa'], $_SESSION['recuperacao_email_mascarado'],
-                  $_SESSION['recuperacao_email_raw'], $_SESSION['recuperacao_tabela'], $_SESSION['recuperacao_codigo_ok']);
-            $mensagemErro = "O código expirou. Solicite a recuperação novamente.";
-            $etapa = 1;
-        } else {
-            $novoHash = password_hash($novaSenha, PASSWORD_DEFAULT);
-            $update = $conn->prepare("UPDATE {$tabela} SET senha = ?, codigo_recuperacao = NULL, expiracao_recuperacao = NULL WHERE email = ?");
-            $update->bind_param("ss", $novoHash, $emailRaw);
-            $update->execute();
-            $update->close();
-
-            $tipoLogin = ($tabela === 'jovens') ? 'jovem' : 'empresa';
-            unset($_SESSION['recuperacao_etapa'], $_SESSION['recuperacao_email_mascarado'],
-                  $_SESSION['recuperacao_email_raw'], $_SESSION['recuperacao_tabela'], $_SESSION['recuperacao_codigo_ok']);
-
-            jc_log_seguranca('senha.redefinida', 'info', ['tipo' => $tipoLogin]);
-            $_SESSION['sucesso_login'] = "Senha redefinida com sucesso! Faça login com sua nova senha.";
-            header("Location: {$tipoLogin}/login.php");
-            exit;
-        }
+        // Prazo vencido ou um código mais novo foi pedido para esta conta depois da validação
+        jc_rec_limpar($_SESSION);
+        jc_log_seguranca('senha.redefinicao_recusada', 'aviso', ['motivo' => 'prazo_ou_pedido_novo']);
+        $mensagemErro = "O prazo para definir a nova senha terminou ou um novo código foi pedido para esta conta. Solicite a recuperação novamente.";
     }
 }
 
 // --- REENVIAR E-MAIL / REINICIAR ---
 if (isset($_GET['reenviar'])) {
-    unset($_SESSION['recuperacao_etapa'], $_SESSION['recuperacao_email_mascarado'],
-          $_SESSION['recuperacao_email_raw'], $_SESSION['recuperacao_tabela'], $_SESSION['recuperacao_codigo_ok']);
+    jc_rec_limpar($_SESSION);
     header("Location: recuperar_senha.php");
     exit;
 }
+
+// Autorização da etapa 3 vencida (página reaberta depois do prazo): avisa e recomeça
+if ($mensagemErro === null && jc_rec_autorizacao_vencida($_SESSION)) {
+    jc_rec_limpar($_SESSION);
+    $mensagemErro = "O prazo para definir a nova senha terminou. Solicite a recuperação novamente.";
+}
+
+$etapa = jc_rec_etapa($_SESSION);
+$emailMascarado = jc_rec_mascara($_SESSION);
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -385,6 +330,11 @@ if (isset($_GET['reenviar'])) {
             <div class="alert-error" role="alert">
                 <span class="i i-alert-triangle" aria-hidden="true"></span> <?= htmlspecialchars($mensagemErro) ?>
             </div>
+        <?php elseif ($etapa === 1 && $recuperacao_indisponivel): ?>
+            <!-- Sem envio de e-mail instalado/configurado: avisa antes, em vez de fingir que mandou o código -->
+            <div class="alert-error" role="status">
+                <span class="i i-alert-triangle" aria-hidden="true"></span> <?= htmlspecialchars(jc_rec_msg_indisponivel()) ?>
+            </div>
         <?php endif; ?>
 
         <?php if ($etapa === 1): ?>
@@ -411,8 +361,10 @@ if (isset($_GET['reenviar'])) {
         <?php elseif ($etapa === 2): ?>
             <!-- ETAPA 2: DIGITAR O CÓDIGO RECEBIDO -->
             <h2 class="page-title">Verifique seu e-mail</h2>
+            <!-- Mesmo texto com ou sem cadastro: a página não revela se o e-mail existe -->
             <p class="page-desc">
-                Mandamos um código para <span class="highlight-email"><?= htmlspecialchars($emailMascarado) ?></span>. Digite-o abaixo para continuar.
+                Se houver uma conta com o e-mail <span class="highlight-email"><?= htmlspecialchars($emailMascarado) ?></span>,
+                enviamos para ele um código de 6 dígitos, válido por 15 minutos. Digite-o abaixo para continuar.
             </p>
 
             <form action="recuperar_senha.php" method="POST" data-envio-unico="Confirmando...">

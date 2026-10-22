@@ -28,7 +28,8 @@ Inicie **Apache** e **MySQL** no painel do XAMPP e abra o phpMyAdmin (`http://lo
 
 | Script | Para quê | Altera dados? | Quando usar |
 |---|---|---|---|
-| `schema.sql` | cria as 20 tabelas (15 + 5 da Stage 7) e alguns registros de exemplo; nenhum administrador | **Sim — apaga e recria tabelas** | **somente em banco novo e vazio** |
+| `schema.sql` | cria as 20 tabelas (15 + 5 da Stage 7); **nenhum registro** (sem contas de exemplo, sem administrador) | **Não** — não tem `DROP`, `DELETE` nem `INSERT`; trava "só banco vazio": em banco com qualquer tabela, para logo no início e nada é criado nem alterado | **somente em banco novo e vazio** |
+| `database/diagnostico_somente_leitura.sql` | mostra quais migrações estão aplicadas, pendentes ou parciais, quantos registros receberão colunas novas e confere backups (estrutura, registros por tabela, integridade) | **Não** — só consulta | antes de atualizar, depois de uma falha e para conferir backup/restauração |
 | `migrations/2026-10-06_stage3_endereco_empresa.sql` | colunas de endereço em `empresas` | só adiciona colunas | banco já existente, uma vez |
 | `migrations/2026-10-08_stage51_locais_trabalho.sql` | tabela `empresa_locais` + colunas em `vagas` (requer a anterior) | só adiciona | banco existente, uma vez |
 | `migrations/2026-10-10_stage6_aceite_termos.sql` | colunas do aceite dos termos | só adiciona | banco existente, uma vez |
@@ -45,19 +46,37 @@ Inicie **Apache** e **MySQL** no painel do XAMPP e abra o phpMyAdmin (`http://lo
    Guarde a senha e cadastre a chave do autenticador mostradas (aparecem uma vez só). Detalhes em
    [ADMINISTRACAO_E_MODERACAO.md](ADMINISTRACAO_E_MODERACAO.md#instalação).
 
-> Nunca importe o `schema.sql` num banco com dados: na réplica, a reimportação apagou 6 tabelas e depois
-> parou com erro de chave estrangeira, deixando o banco pela metade (SEG-11 em
-> [SEGURANCA_E_PRIVACIDADE.md](SEGURANCA_E_PRIVACIDADE.md)). Faça backup (aba **Exportar**) antes de qualquer script.
+> O `schema.sql` **não serve para atualizar** e tem uma trava "só banco vazio": num banco que já tem
+> **qualquer** tabela (do JovemConnect ou de outro sistema), a importação para logo no início com
+> `#1146 - Table '…PARE - use num banco NOVO e VAZIO - nada foi alterado' doesn't exist` e **nada é criado nem
+> alterado** — inclusive em ferramentas que continuam depois de erros (ex.: `mysql --force`). Se aparecer esse
+> erro, pare e siga a seção 5. Importe sempre o arquivo **inteiro** (trechos soltos não fazem nada). Até a v4.50
+> o arquivo começava apagando tabelas e, reimportado sobre um banco com dados, apagava 6 tabelas e parava no
+> meio (SEG-11/AUD-002); por isso **nunca use uma cópia antiga** do `schema.sql`. Faça backup (aba
+> **Exportar**) antes de qualquer script.
+>
+> **Reinstalar do zero** apaga tudo e é sempre uma decisão consciente: exporte um backup, exclua o banco
+> inteiro (Operações → Excluir o banco de dados) ou use um banco com outro nome, crie-o vazio e importe o
+> `schema.sql`. Se a importação parar no meio num banco **novo**, exclua esse banco recém-criado e comece de
+> novo (comandos de estrutura não são desfeitos automaticamente, e a trava passa a recusar esse banco).
 
 ### 5. Banco que já existe (atualização)
 
-1. Backup: banco `jovemconnect` → **Exportar**.
-2. Para cada migração, **na ordem da tabela acima**, confira na aba **Estrutura** se as colunas já existem
-   (ex.: `termos_aceitos_em` em `jovens`). Se existirem, pule. Senão: aba **SQL** → cole o arquivo → Executar.
-3. Rodar uma migração duas vezes dá erro "coluna duplicada" sem estragar dados.
-4. Depois da migração da Stage 7 (para saber se já foi aplicada: a tabela `administradores` aparece na lista),
-   crie o primeiro administrador como no passo 4 acima. A migração não cria administradores nem dá privilégio a
-   nenhuma conta existente.
+1. **Backup verificado** — passo a passo em [MIGRACOES.md](MIGRACOES.md#backup-verificado-e-restauração):
+   exportar com o site parado, copiar `uploads\curriculos`, importar a cópia num banco de teste e comparar as
+   Consultas 4, 5 e 6 do diagnóstico nos dois bancos (estrutura, registros e impressão de **cada** tabela,
+   integridade das relações). Só siga se tudo for igual.
+2. Diagnóstico: aba **SQL** → cole a Consulta 1 de `database/diagnostico_somente_leitura.sql` → Executar.
+   Ela não altera nada e mostra, para cada migração, `aplicada`, `PENDENTE` ou `PARCIAL` (a Consulta 2 mostra
+   quantos registros receberão colunas novas). Se alguma linha de "Base" aparecer como `FALTANDO`, pare: não
+   há migração pronta para esse caso.
+3. Para cada migração `PENDENTE`, **na ordem da tabela acima**: aba **SQL** → cole o arquivo → Executar.
+   Depois, rode o diagnóstico de novo: tudo deve estar `aplicada`.
+4. Rodar de novo uma migração **já aplicada** dá erro "coluna duplicada"/"já existe" sem estragar dados. Mas se
+   uma migração **falhar no meio** (`PARCIAL`), rodar o arquivo inteiro de novo **não** completa o que faltou:
+   siga [MIGRACOES.md](MIGRACOES.md#se-uma-migração-falhar-no-meio).
+5. Depois da migração da Stage 7, crie o primeiro administrador como no passo 4 acima. A migração não cria
+   administradores nem dá privilégio a nenhuma conta existente.
 
 Detalhes: [MIGRACOES.md](MIGRACOES.md). Dados de demonstração (opcional): [SEED_DEMO.md](SEED_DEMO.md).
 

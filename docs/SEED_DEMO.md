@@ -4,7 +4,7 @@ Cria dados **fictícios** para apresentar e testar a plataforma:
 
 - 15 empresas, uma em cada UF abaixo, cobrindo as 5 regiões: AM, PA, TO, PE, BA,
   CE, GO, DF, MS, SP, MG, RJ, PR, RS, SC;
-- 19 vagas (Jovem Aprendiz e Estágio) com requisitos e benefícios; 2 locais de
+- 18 vagas (Jovem Aprendiz e Estágio) com requisitos e benefícios; 2 locais de
   trabalho extras (uma filial e uma unidade) e uma vaga num desses locais;
 - 15 jovens com formações, áreas, habilidades e experiências variadas (um com
   perfil não visível para empresas);
@@ -33,7 +33,10 @@ phpMyAdmin → banco `jovemconnect` → aba **SQL** → cole o conteúdo de
   (conta pelo e-mail; vaga pelo título dentro da empresa; e assim por diante).
 - Não apaga nem altera nada que já está no banco e não usa IDs fixos.
 - Testado num banco vazio (criado pelo `schema.sql`) e num banco já com dados,
-  executando duas vezes em cada.
+  executando duas vezes em cada. Reconferido no Lote B da remediação (12/10/2026): numa
+  instalação limpa (o `schema.sql` não traz mais linhas de exemplo) cria 15 empresas,
+  15 jovens, 18 vagas, 15 candidaturas e 2 locais; a contagem antiga de 19 vagas incluía
+  a vaga de exemplo do `schema.sql` anterior.
 
 **Não use em produção** (a senha é pública). Para remover, exclua as contas de
 demonstração pelo próprio site (Perfil → Excluir conta) ou, no phpMyAdmin, apague

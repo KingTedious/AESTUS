@@ -1,12 +1,58 @@
 -- ============================================================
---  JovemConnect — schema.sql  v3.00
---  Gerado em: 2026
---  Servidor: MariaDB 10.4+ / MySQL 8.0+
---  PHP: 8.2  |  Charset: utf8mb4
+--  JovemConnect — schema.sql — INSTALAÇÃO LIMPA (banco novo e vazio)
+--  Estrutura: v4.50 (já inclui as migrações das Stages 3, 5.1, 6 e 7)
+--  Servidor: MariaDB 10.4+ / MySQL 8.0+  |  PHP 8.1+  |  Charset: utf8mb4
+--
+--  PARA QUE SERVE
+--    Cria as 20 tabelas do sistema num banco que ainda NÃO tem nenhuma
+--    tabela. Não grava nenhum registro: nenhuma conta, nenhuma vaga,
+--    nenhum administrador.
+--
+--  NÃO USE PARA ATUALIZAR UM BANCO QUE JÁ EXISTE
+--    Banco com dados (inclusive o seu banco de trabalho) se atualiza pelas
+--    migrações da pasta migrations/, uma vez cada, em ordem de data
+--    (docs/MIGRACOES.md). Faça backup antes (phpMyAdmin → Exportar).
+--
+--  TRAVA "SÓ BANCO VAZIO"
+--    Logo no início, o arquivo verifica se o banco escolhido está VAZIO
+--    (nenhuma tabela). Se não estiver, a importação para ali com o erro
+--      #1146 - Table '…PARE - use num banco NOVO e VAZIO - nada foi alterado'
+--    e NADA é criado nem alterado. Se vir esse erro: pare; os seus dados
+--    continuam intactos. Isso vale também em ferramentas que continuam
+--    depois de erros (ex.: mysql --force): cada comando abaixo só é
+--    executado se o banco estava vazio no início — por isso os comandos
+--    de estrutura estão dentro de SET @jc_sql = IF(@jc_banco_vazio, "…")
+--    seguidos de PREPARE/EXECUTE. O texto de cada CREATE/ALTER é o mesmo
+--    das migrações. Este arquivo não tem nenhum comando DROP, DELETE,
+--    TRUNCATE, INSERT ou UPDATE e não desliga FOREIGN_KEY_CHECKS.
+--    Importe o arquivo INTEIRO; não rode trechos soltos (um trecho solto,
+--    sem a trava antes, não faz nada).
+--
+--  REINSTALAR DO ZERO (apaga TUDO — decisão consciente, nunca automática)
+--    1) Exporte um backup; 2) no phpMyAdmin, exclua o banco inteiro
+--    (Operações → Excluir o banco de dados) ou crie um banco com outro
+--    nome; 3) crie o banco vazio (utf8mb4_unicode_ci) e importe este arquivo.
+--    Este arquivo nunca apaga nada sozinho.
+--
+--  SE A INSTALAÇÃO PARAR NO MEIO (banco novo)
+--    Comandos de estrutura (CREATE/ALTER) não são desfeitos por transação
+--    no MySQL/MariaDB, e a trava passa a recusar o banco (ele já não está
+--    vazio). Como o banco é novo e não tem dados, exclua esse banco
+--    recém-criado, crie-o vazio de novo e importe outra vez.
+--
+--  DEPOIS DA INSTALAÇÃO
+--    - Primeiro administrador: scripts/admin.php (linha de comando),
+--      ver docs/ADMINISTRACAO_E_MODERACAO.md.
+--    - Dados fictícios para demonstração (opcional, nunca em produção):
+--      database/seed_demo.sql (docs/SEED_DEMO.md).
+--
+--  MANUTENÇÃO (para quem cria uma migração nova)
+--    Copie o CREATE/ALTER da migração para cá no mesmo formato dos blocos
+--    abaixo: o comando entre aspas duplas (aspas duplas internas viram "")
+--    e, em seguida, PREPARE jc_cmd FROM @jc_sql; EXECUTE jc_cmd;
 -- ============================================================
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
-START TRANSACTION;
 SET time_zone = "+00:00";
 SET NAMES utf8mb4;
 
@@ -15,23 +61,24 @@ SET NAMES utf8mb4;
 /*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
 
 -- ============================================================
---  DROP (ordem reversa para respeitar FK)
+--  TRAVA: só continua se o banco estiver VAZIO (nenhuma tabela).
+--  O 1º SET zera a marca, para que um valor antigo da sessão nunca valha.
+--  Banco com tabelas (ou nenhum banco selecionado): o PREPARE abaixo falha
+--  de propósito com uma mensagem clara e nada é criado.
 -- ============================================================
-DROP TABLE IF EXISTS `avaliacoes_ia`;
-DROP TABLE IF EXISTS `beneficios_vaga`;
-DROP TABLE IF EXISTS `requisitos_vaga`;
-DROP TABLE IF EXISTS `experiencias_jovem`;
-DROP TABLE IF EXISTS `formacao_jovem`;
-DROP TABLE IF EXISTS `habilidades_jovem`;
-DROP TABLE IF EXISTS `candidaturas`;
-DROP TABLE IF EXISTS `favoritos`;
-DROP TABLE IF EXISTS `vagas`;
-DROP TABLE IF EXISTS `jovens`;
-DROP TABLE IF EXISTS `empresas`;
+SET @jc_banco_vazio = NULL;
+SET @jc_banco_vazio = (SELECT DATABASE() IS NOT NULL AND COUNT(*) = 0
+                         FROM information_schema.TABLES
+                        WHERE TABLE_SCHEMA = DATABASE());
+SET @jc_sql = IF(@jc_banco_vazio, "SET @jc_nada = 0",
+                 "SELECT 1 FROM `PARE - use num banco NOVO e VAZIO - nada foi alterado`");
+PREPARE jc_cmd FROM @jc_sql;
+EXECUTE jc_cmd;
 
 -- ============================================================
 --  TABELA: empresas
 -- ============================================================
+SET @jc_sql = IF(@jc_banco_vazio, "
 CREATE TABLE `empresas` (
   `id`               INT(11)      NOT NULL AUTO_INCREMENT,
   `nome_empresa`     VARCHAR(150) NOT NULL,
@@ -53,11 +100,15 @@ CREATE TABLE `empresas` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_email_empresa`  (`email`),
   UNIQUE KEY `uq_cnpj`          (`cnpj`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+", "SET @jc_nada = 0");
+PREPARE jc_cmd FROM @jc_sql;
+EXECUTE jc_cmd;
 
 -- ============================================================
 --  TABELA: jovens
 -- ============================================================
+SET @jc_sql = IF(@jc_banco_vazio, "
 CREATE TABLE `jovens` (
   `id`                  INT(11)      NOT NULL AUTO_INCREMENT,
   `nome`                VARCHAR(100) NOT NULL,
@@ -88,12 +139,16 @@ CREATE TABLE `jovens` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_email_jovem` (`email`),
   UNIQUE KEY `uq_cpf`         (`cpf`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+", "SET @jc_nada = 0");
+PREPARE jc_cmd FROM @jc_sql;
+EXECUTE jc_cmd;
 
 -- ============================================================
 --  TABELA: habilidades_jovem
 --  Chips de habilidades exibidos no perfil (ex: "Excel Básico")
 -- ============================================================
+SET @jc_sql = IF(@jc_banco_vazio, "
 CREATE TABLE `habilidades_jovem` (
   `id`         INT(11)     NOT NULL AUTO_INCREMENT,
   `jovem_id`   INT(11)     NOT NULL,
@@ -102,12 +157,16 @@ CREATE TABLE `habilidades_jovem` (
   KEY `idx_hab_jovem` (`jovem_id`),
   CONSTRAINT `fk_hab_jovem`
     FOREIGN KEY (`jovem_id`) REFERENCES `jovens` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+", "SET @jc_nada = 0");
+PREPARE jc_cmd FROM @jc_sql;
+EXECUTE jc_cmd;
 
 -- ============================================================
 --  TABELA: formacao_jovem
 --  Múltiplas entradas de formação acadêmica por jovem
 -- ============================================================
+SET @jc_sql = IF(@jc_banco_vazio, "
 CREATE TABLE `formacao_jovem` (
   `id`          INT(11)      NOT NULL AUTO_INCREMENT,
   `jovem_id`    INT(11)      NOT NULL,
@@ -119,12 +178,16 @@ CREATE TABLE `formacao_jovem` (
   KEY `idx_form_jovem` (`jovem_id`),
   CONSTRAINT `fk_form_jovem`
     FOREIGN KEY (`jovem_id`) REFERENCES `jovens` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+", "SET @jc_nada = 0");
+PREPARE jc_cmd FROM @jc_sql;
+EXECUTE jc_cmd;
 
 -- ============================================================
 --  TABELA: experiencias_jovem
 --  Experiências informais, voluntárias ou cursos livres
 -- ============================================================
+SET @jc_sql = IF(@jc_banco_vazio, "
 CREATE TABLE `experiencias_jovem` (
   `id`        INT(11)      NOT NULL AUTO_INCREMENT,
   `jovem_id`  INT(11)      NOT NULL,
@@ -136,11 +199,15 @@ CREATE TABLE `experiencias_jovem` (
   KEY `idx_exp_jovem` (`jovem_id`),
   CONSTRAINT `fk_exp_jovem`
     FOREIGN KEY (`jovem_id`) REFERENCES `jovens` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+", "SET @jc_nada = 0");
+PREPARE jc_cmd FROM @jc_sql;
+EXECUTE jc_cmd;
 
 -- ============================================================
 --  TABELA: vagas
 -- ============================================================
+SET @jc_sql = IF(@jc_banco_vazio, "
 CREATE TABLE `vagas` (
   `id`            INT(11)      NOT NULL AUTO_INCREMENT,
   `empresa_id`    INT(11)      NOT NULL,
@@ -162,12 +229,16 @@ CREATE TABLE `vagas` (
   KEY `idx_vaga_cidade`  (`cidade`),
   CONSTRAINT `fk_vaga_empresa`
     FOREIGN KEY (`empresa_id`) REFERENCES `empresas` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+", "SET @jc_nada = 0");
+PREPARE jc_cmd FROM @jc_sql;
+EXECUTE jc_cmd;
 
 -- ============================================================
 --  TABELA: requisitos_vaga
 --  Chips de requisitos exibidos na página de detalhes da vaga
 -- ============================================================
+SET @jc_sql = IF(@jc_banco_vazio, "
 CREATE TABLE `requisitos_vaga` (
   `id`        INT(11)      NOT NULL AUTO_INCREMENT,
   `vaga_id`   INT(11)      NOT NULL,
@@ -176,12 +247,16 @@ CREATE TABLE `requisitos_vaga` (
   KEY `idx_req_vaga` (`vaga_id`),
   CONSTRAINT `fk_req_vaga`
     FOREIGN KEY (`vaga_id`) REFERENCES `vagas` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+", "SET @jc_nada = 0");
+PREPARE jc_cmd FROM @jc_sql;
+EXECUTE jc_cmd;
 
 -- ============================================================
 --  TABELA: beneficios_vaga
 --  Chips de benefícios exibidos na página de detalhes da vaga
 -- ============================================================
+SET @jc_sql = IF(@jc_banco_vazio, "
 CREATE TABLE `beneficios_vaga` (
   `id`        INT(11)      NOT NULL AUTO_INCREMENT,
   `vaga_id`   INT(11)      NOT NULL,
@@ -190,11 +265,15 @@ CREATE TABLE `beneficios_vaga` (
   KEY `idx_ben_vaga` (`vaga_id`),
   CONSTRAINT `fk_ben_vaga`
     FOREIGN KEY (`vaga_id`) REFERENCES `vagas` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+", "SET @jc_nada = 0");
+PREPARE jc_cmd FROM @jc_sql;
+EXECUTE jc_cmd;
 
 -- ============================================================
 --  TABELA: candidaturas
 -- ============================================================
+SET @jc_sql = IF(@jc_banco_vazio, "
 CREATE TABLE `candidaturas` (
   `id`        INT(11)     NOT NULL AUTO_INCREMENT,
   `vaga_id`   INT(11)     NOT NULL,
@@ -209,14 +288,22 @@ CREATE TABLE `candidaturas` (
     FOREIGN KEY (`vaga_id`)  REFERENCES `vagas`  (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_cand_jovem`
     FOREIGN KEY (`jovem_id`) REFERENCES `jovens` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+", "SET @jc_nada = 0");
+PREPARE jc_cmd FROM @jc_sql;
+EXECUTE jc_cmd;
 
 -- 1. Atualizar candidaturas para o fluxo de etapas
+SET @jc_sql = IF(@jc_banco_vazio, "
 ALTER TABLE `candidaturas` 
 ADD COLUMN `etapa` ENUM('candidatado', 'em_analise', 'aceito_chat', 'contratado', 'recusado') 
-DEFAULT 'candidatado' AFTER `status`;
+DEFAULT 'candidatado' AFTER `status`
+", "SET @jc_nada = 0");
+PREPARE jc_cmd FROM @jc_sql;
+EXECUTE jc_cmd;
 
 -- 2. Tabela do Chat de Comunicação
+SET @jc_sql = IF(@jc_banco_vazio, "
 CREATE TABLE IF NOT EXISTS `mensagens_chat` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `candidatura_id` INT NOT NULL,
@@ -226,11 +313,15 @@ CREATE TABLE IF NOT EXISTS `mensagens_chat` (
   `tipo_mensagem` ENUM('texto', 'card_endereco') DEFAULT 'texto',
   `criado_em` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (`candidatura_id`) REFERENCES `candidaturas`(`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+", "SET @jc_nada = 0");
+PREPARE jc_cmd FROM @jc_sql;
+EXECUTE jc_cmd;
 
 -- ============================================================
 --  TABELA: favoritos
 -- ============================================================
+SET @jc_sql = IF(@jc_banco_vazio, "
 CREATE TABLE `favoritos` (
   `id`        INT(11)   NOT NULL AUTO_INCREMENT,
   `jovem_id`  INT(11)   NOT NULL,
@@ -243,13 +334,17 @@ CREATE TABLE `favoritos` (
     FOREIGN KEY (`jovem_id`) REFERENCES `jovens` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_fav_vaga`
     FOREIGN KEY (`vaga_id`)  REFERENCES `vagas`  (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+", "SET @jc_nada = 0");
+PREPARE jc_cmd FROM @jc_sql;
+EXECUTE jc_cmd;
 
 -- ============================================================
 --  TABELA: avaliacoes_ia
 --  Cache dos resultados do match calculados pelo Flask.
 --  Evita re-chamar a API a cada carregamento de página.
 -- ============================================================
+SET @jc_sql = IF(@jc_banco_vazio, "
 CREATE TABLE `avaliacoes_ia` (
   `id`         INT(11)     NOT NULL AUTO_INCREMENT,
   `jovem_id`   INT(11)     NOT NULL,
@@ -264,9 +359,13 @@ CREATE TABLE `avaliacoes_ia` (
     FOREIGN KEY (`jovem_id`) REFERENCES `jovens` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_av_vaga`
     FOREIGN KEY (`vaga_id`)  REFERENCES `vagas`  (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+", "SET @jc_nada = 0");
+PREPARE jc_cmd FROM @jc_sql;
+EXECUTE jc_cmd;
 
 -- Tabela de Anúncios de Freelance
+SET @jc_sql = IF(@jc_banco_vazio, "
 CREATE TABLE IF NOT EXISTS `freelances` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `empresa_id` INT DEFAULT NULL,
@@ -280,9 +379,13 @@ CREATE TABLE IF NOT EXISTS `freelances` (
   `criado_em` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (`empresa_id`) REFERENCES `empresas`(`id`) ON DELETE CASCADE,
   FOREIGN KEY (`jovem_contratante_id`) REFERENCES `jovens`(`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+", "SET @jc_nada = 0");
+PREPARE jc_cmd FROM @jc_sql;
+EXECUTE jc_cmd;
 
 -- Tabela de Propostas enviadas pelos Jovens
+SET @jc_sql = IF(@jc_banco_vazio, "
 CREATE TABLE IF NOT EXISTS `propostas_freelance` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `freelance_id` INT NOT NULL,
@@ -297,117 +400,94 @@ CREATE TABLE IF NOT EXISTS `propostas_freelance` (
   `criado_em` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (`freelance_id`) REFERENCES `freelances`(`id`) ON DELETE CASCADE,
   FOREIGN KEY (`jovem_id`) REFERENCES `jovens`(`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+", "SET @jc_nada = 0");
+PREPARE jc_cmd FROM @jc_sql;
+EXECUTE jc_cmd;
 
 -- ============================================================
---  DADOS DE TESTE
+--  DADOS: nenhum. A instalação limpa nasce vazia (sem contas de
+--  exemplo e sem senhas conhecidas). Demonstração: database/seed_demo.sql.
 -- ============================================================
-
--- Empresa de teste
--- Senha: 123456  →  gerada com password_hash('123456', PASSWORD_BCRYPT)
-INSERT INTO `empresas`
-  (`id`, `nome_empresa`, `email`, `senha`, `cnpj`, `cidade`, `estado`, `telefone`, `area_atuacao`, `criado_em`)
-VALUES
-  (3, 'Tech Solutions Ltda', 'empresa@teste.com',
-   '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', -- senha: "password" — troque em prod
-   '12.345.678/0001-90', 'São Paulo', 'SP', NULL, 'Tecnologia e Inovação', '2026-03-18 18:47:22');
-
--- Jovem de teste (senha em texto puro — APENAS DEV)
--- Para produção use: password_hash('123456', PASSWORD_BCRYPT)
-INSERT INTO `jovens`
-  (`id`, `nome`, `email`, `senha`, `cpf`, `data_nascimento`, `cidade`, `estado`, `cep`,
-   `escolaridade_status`, `escolaridade_tipo`, `escolaridade_curso`, `formacao`, `telefone`, `criado_em`)
-VALUES
-  (5, 'Jovem Teste', 'jovem@teste.com', '123456',
-   '123.456.789-00', '2000-01-01', 'São Paulo', 'SP', '01310-100',
-   'cursando', 'regular', NULL, 'Ensino Médio', '11999999999', '2026-03-18 18:48:14'),
-
-  (6, 'Gabriel Sassati', 'gabriel.sassati@gmail.com',
-   '$2y$10$Av2SJieFy4ITFNKpjzoN.uAlfi7mboTgbsZKNTawpYFpwzVNgV2OW',
-   '146.395.958-32', '2009-05-06', 'São Paulo', 'SP', NULL,
-   'cursando', 'regular', NULL, 'Ensino Médio Completo', '11948566681', '2026-04-08 20:41:25');
-
--- Vaga de exemplo ligada à empresa de teste
-INSERT INTO `vagas`
-  (`id`, `empresa_id`, `titulo`, `descricao`, `cidade`, `estado`, `salario`, `tipo_contrato`, `carga_horaria`, `area`)
-VALUES
-  (1, 3, 'Auxiliar Administrativo',
-   'Estamos em busca de um Jovem Aprendiz para auxiliar nas rotinas administrativas, organização de documentos e atendimento telefônico. Ótima oportunidade para quem busca o primeiro emprego.',
-   'São Paulo', 'SP', '1200.00', 'Jovem Aprendiz', '20h/semana', 'Administrativo');
-
--- Requisitos da vaga de exemplo
-INSERT INTO `requisitos_vaga` (`vaga_id`, `requisito`) VALUES
-  (1, 'Ensino Médio em curso ou completo'),
-  (1, 'Conhecimento básico em pacote Office'),
-  (1, 'Boa comunicação');
-
--- Benefícios da vaga de exemplo
-INSERT INTO `beneficios_vaga` (`vaga_id`, `beneficio`) VALUES
-  (1, 'Vale Transporte'),
-  (1, 'Seguro de Vida'),
-  (1, 'Curso de Capacitação');
-
--- Habilidades do jovem Gabriel
-INSERT INTO `habilidades_jovem` (`jovem_id`, `habilidade`) VALUES
-  (6, 'Excel Básico'),
-  (6, 'Boa Comunicação'),
-  (6, 'Organização');
-
--- Formação acadêmica do jovem Gabriel
-INSERT INTO `formacao_jovem` (`jovem_id`, `titulo`, `instituicao`, `conclusao`, `area`) VALUES
-  (6, 'Ensino Médio', 'Escola Estadual Professor José', 'Dezembro/2026', NULL);
-
-COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 
 -- Adiciona campos de verificação na tabela de jovens
+SET @jc_sql = IF(@jc_banco_vazio, "
 ALTER TABLE `jovens` 
 ADD COLUMN `email_verificado` TINYINT(1) DEFAULT 0,
 ADD COLUMN `codigo_verificacao` VARCHAR(6) DEFAULT NULL,
-ADD COLUMN `expiracao_codigo` DATETIME DEFAULT NULL;
+ADD COLUMN `expiracao_codigo` DATETIME DEFAULT NULL
+", "SET @jc_nada = 0");
+PREPARE jc_cmd FROM @jc_sql;
+EXECUTE jc_cmd;
 
 -- Adiciona campos de verificação na tabela de empresas
+SET @jc_sql = IF(@jc_banco_vazio, "
 ALTER TABLE `empresas` 
 ADD COLUMN `email_verificado` TINYINT(1) DEFAULT 0,
 ADD COLUMN `codigo_verificacao` VARCHAR(6) DEFAULT NULL,
-ADD COLUMN `expiracao_codigo` DATETIME DEFAULT NULL;
+ADD COLUMN `expiracao_codigo` DATETIME DEFAULT NULL
+", "SET @jc_nada = 0");
+PREPARE jc_cmd FROM @jc_sql;
+EXECUTE jc_cmd;
 
 -- Colunas de verificação por telefone/SMS (usadas por verificacoes/verificar_telefone.php
 -- e verificacoes/escolher_verificacao.php, mas ausentes do schema — Etapa 1 V3.10)
+SET @jc_sql = IF(@jc_banco_vazio, "
 ALTER TABLE `jovens`
 ADD COLUMN `telefone_verificado` TINYINT(1) DEFAULT 0,
 ADD COLUMN `codigo_telefone` VARCHAR(6) DEFAULT NULL,
-ADD COLUMN `expiracao_telefone` DATETIME DEFAULT NULL;
+ADD COLUMN `expiracao_telefone` DATETIME DEFAULT NULL
+", "SET @jc_nada = 0");
+PREPARE jc_cmd FROM @jc_sql;
+EXECUTE jc_cmd;
 
+SET @jc_sql = IF(@jc_banco_vazio, "
 ALTER TABLE `empresas`
 ADD COLUMN `telefone_verificado` TINYINT(1) DEFAULT 0,
 ADD COLUMN `codigo_telefone` VARCHAR(6) DEFAULT NULL,
-ADD COLUMN `expiracao_telefone` DATETIME DEFAULT NULL;
+ADD COLUMN `expiracao_telefone` DATETIME DEFAULT NULL
+", "SET @jc_nada = 0");
+PREPARE jc_cmd FROM @jc_sql;
+EXECUTE jc_cmd;
 
 -- Adiciona campos de recuperação para Jovens
+SET @jc_sql = IF(@jc_banco_vazio, "
 ALTER TABLE `jovens` 
 ADD COLUMN `codigo_recuperacao` VARCHAR(6) DEFAULT NULL,
-ADD COLUMN `expiracao_recuperacao` DATETIME DEFAULT NULL;
+ADD COLUMN `expiracao_recuperacao` DATETIME DEFAULT NULL
+", "SET @jc_nada = 0");
+PREPARE jc_cmd FROM @jc_sql;
+EXECUTE jc_cmd;
 
 -- Adiciona campos de recuperação para Empresas
+SET @jc_sql = IF(@jc_banco_vazio, "
 ALTER TABLE `empresas` 
 ADD COLUMN `codigo_recuperacao` VARCHAR(6) DEFAULT NULL,
-ADD COLUMN `expiracao_recuperacao` DATETIME DEFAULT NULL;
+ADD COLUMN `expiracao_recuperacao` DATETIME DEFAULT NULL
+", "SET @jc_nada = 0");
+PREPARE jc_cmd FROM @jc_sql;
+EXECUTE jc_cmd;
 
 -- Stage 3: endereço completo da empresa (migração aditiva — mesma de
 -- migrations/2026-10-06_stage3_endereco_empresa.sql)
+SET @jc_sql = IF(@jc_banco_vazio, "
 ALTER TABLE `empresas`
   ADD COLUMN `cep`         VARCHAR(9)   DEFAULT NULL COMMENT 'Somente dígitos'  AFTER `telefone`,
   ADD COLUMN `logradouro`  VARCHAR(150) DEFAULT NULL AFTER `cep`,
   ADD COLUMN `numero`      VARCHAR(10)  DEFAULT NULL AFTER `logradouro`,
   ADD COLUMN `complemento` VARCHAR(100) DEFAULT NULL AFTER `numero`,
-  ADD COLUMN `bairro`      VARCHAR(100) DEFAULT NULL AFTER `complemento`;
+  ADD COLUMN `bairro`      VARCHAR(100) DEFAULT NULL AFTER `complemento`
+", "SET @jc_nada = 0");
+PREPARE jc_cmd FROM @jc_sql;
+EXECUTE jc_cmd;
 
 -- Stage 5.1: locais de trabalho das vagas (migração aditiva — mesma de
 -- migrations/2026-10-08_stage51_locais_trabalho.sql)
+SET @jc_sql = IF(@jc_banco_vazio, "
 CREATE TABLE IF NOT EXISTS `empresa_locais` (
   `id`            INT(11)      NOT NULL AUTO_INCREMENT,
   `empresa_id`    INT(11)      NOT NULL,
@@ -426,31 +506,47 @@ CREATE TABLE IF NOT EXISTS `empresa_locais` (
   KEY `idx_local_empresa` (`empresa_id`),
   CONSTRAINT `fk_local_empresa`
     FOREIGN KEY (`empresa_id`) REFERENCES `empresas` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+", "SET @jc_nada = 0");
+PREPARE jc_cmd FROM @jc_sql;
+EXECUTE jc_cmd;
 
+SET @jc_sql = IF(@jc_banco_vazio, "
 ALTER TABLE `vagas`
   ADD COLUMN `local_trabalho` ENUM('empresa','local') DEFAULT NULL
       COMMENT 'empresa = endereço principal; local = vagas.local_id; NULL = vaga antiga' AFTER `cep`,
   ADD COLUMN `local_id`       INT(11) DEFAULT NULL AFTER `local_trabalho`,
   ADD KEY `idx_vaga_local` (`local_id`),
   ADD CONSTRAINT `fk_vaga_local`
-    FOREIGN KEY (`local_id`) REFERENCES `empresa_locais` (`id`) ON DELETE SET NULL;
+    FOREIGN KEY (`local_id`) REFERENCES `empresa_locais` (`id`) ON DELETE SET NULL
+", "SET @jc_nada = 0");
+PREPARE jc_cmd FROM @jc_sql;
+EXECUTE jc_cmd;
 
 
 -- Stage 6: aceite dos Termos de Uso e da Política de Privacidade (mesma migração de
 -- migrations/2026-10-10_stage6_aceite_termos.sql)
+SET @jc_sql = IF(@jc_banco_vazio, "
 ALTER TABLE `jovens`
   ADD COLUMN `termos_versao`     VARCHAR(20) DEFAULT NULL COMMENT 'Versão dos Termos/Privacidade aceita no cadastro',
-  ADD COLUMN `termos_aceitos_em` DATETIME    DEFAULT NULL COMMENT 'Quando a caixa de aceite foi marcada e enviada';
+  ADD COLUMN `termos_aceitos_em` DATETIME    DEFAULT NULL COMMENT 'Quando a caixa de aceite foi marcada e enviada'
+", "SET @jc_nada = 0");
+PREPARE jc_cmd FROM @jc_sql;
+EXECUTE jc_cmd;
 
+SET @jc_sql = IF(@jc_banco_vazio, "
 ALTER TABLE `empresas`
   ADD COLUMN `termos_versao`     VARCHAR(20) DEFAULT NULL COMMENT 'Versão dos Termos/Privacidade aceita no cadastro',
-  ADD COLUMN `termos_aceitos_em` DATETIME    DEFAULT NULL COMMENT 'Quando a caixa de aceite foi marcada e enviada';
+  ADD COLUMN `termos_aceitos_em` DATETIME    DEFAULT NULL COMMENT 'Quando a caixa de aceite foi marcada e enviada'
+", "SET @jc_nada = 0");
+PREPARE jc_cmd FROM @jc_sql;
+EXECUTE jc_cmd;
 
 -- Stage 7: central administrativa, moderação e auditoria (mesma migração de
 -- migrations/2026-10-11_stage7_admin_moderacao.sql). Nenhum administrador é criado aqui:
 -- use o provisionamento pela linha de comando (scripts/admin.php).
 -- Administradores (separados das contas de jovens e empresas)
+SET @jc_sql = IF(@jc_banco_vazio, "
 CREATE TABLE IF NOT EXISTS `administradores` (
   `id`                INT(11)      NOT NULL AUTO_INCREMENT,
   `email`             VARCHAR(100) NOT NULL,
@@ -466,9 +562,13 @@ CREATE TABLE IF NOT EXISTS `administradores` (
   `criado_em`         TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_admin_email` (`email`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+", "SET @jc_nada = 0");
+PREPARE jc_cmd FROM @jc_sql;
+EXECUTE jc_cmd;
 
 -- Tentativas de login administrativo (limite de tentativas; só hashes, nunca e-mail ou IP)
+SET @jc_sql = IF(@jc_banco_vazio, "
 CREATE TABLE IF NOT EXISTS `admin_tentativas` (
   `id`         BIGINT     NOT NULL AUTO_INCREMENT,
   `chave_hash` CHAR(64)   NOT NULL COMMENT 'SHA-256 do e-mail digitado',
@@ -478,10 +578,14 @@ CREATE TABLE IF NOT EXISTS `admin_tentativas` (
   PRIMARY KEY (`id`),
   KEY `idx_tent_chave` (`chave_hash`, `criado_em`),
   KEY `idx_tent_ip`    (`ip_hash`, `criado_em`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+", "SET @jc_nada = 0");
+PREPARE jc_cmd FROM @jc_sql;
+EXECUTE jc_cmd;
 
 -- Histórico de ações administrativas (somente inclusão; cada linha guarda o
 -- hash da anterior, o que torna alterações e remoções detectáveis)
+SET @jc_sql = IF(@jc_banco_vazio, "
 CREATE TABLE IF NOT EXISTS `admin_auditoria` (
   `id`            BIGINT       NOT NULL AUTO_INCREMENT,
   `criado_em`     DATETIME     NOT NULL,
@@ -501,14 +605,18 @@ CREATE TABLE IF NOT EXISTS `admin_auditoria` (
   KEY `idx_aud_recurso` (`recurso_tipo`, `recurso_id`),
   KEY `idx_aud_admin`   (`admin_id`, `criado_em`),
   KEY `idx_aud_acao`    (`acao`, `criado_em`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+", "SET @jc_nada = 0");
+PREPARE jc_cmd FROM @jc_sql;
+EXECUTE jc_cmd;
 
 -- Fila de moderação (o texto avaliado NÃO é copiado: fica só o hash)
+SET @jc_sql = IF(@jc_banco_vazio, "
 CREATE TABLE IF NOT EXISTS `moderacao_itens` (
   `id`            INT(11)      NOT NULL AUTO_INCREMENT,
   `recurso_tipo`  VARCHAR(20)  NOT NULL COMMENT 'vaga | jovem | empresa',
   `recurso_id`    INT(11)      NOT NULL,
-  `campo`         VARCHAR(40)  NOT NULL COMMENT 'Campo do mapa de validação (ex.: vaga.descricao) ou "denuncia"',
+  `campo`         VARCHAR(40)  NOT NULL COMMENT 'Campo do mapa de validação (ex.: vaga.descricao) ou ""denuncia""',
   `autor_tipo`    VARCHAR(10)  DEFAULT NULL,
   `autor_id`      INT(11)      DEFAULT NULL,
   `origem`        VARCHAR(20)  NOT NULL COMMENT 'regra | denuncia',
@@ -526,12 +634,16 @@ CREATE TABLE IF NOT EXISTS `moderacao_itens` (
   PRIMARY KEY (`id`),
   KEY `idx_mod_fila`    (`estado`, `risco`, `criado_em`),
   KEY `idx_mod_recurso` (`recurso_tipo`, `recurso_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+", "SET @jc_nada = 0");
+PREPARE jc_cmd FROM @jc_sql;
+EXECUTE jc_cmd;
 
 -- Denúncias de vagas feitas por jovens (uma por jovem e vaga).
 -- vaga_id SEM chave estrangeira de propósito: se a empresa excluir a vaga,
 -- a denúncia continua para a moderação (evidência). jovem_id COM chave
 -- estrangeira: se o jovem excluir a própria conta, as denúncias dele saem junto.
+SET @jc_sql = IF(@jc_banco_vazio, "
 CREATE TABLE IF NOT EXISTS `denuncias` (
   `id`        INT(11)      NOT NULL AUTO_INCREMENT,
   `vaga_id`   INT(11)      NOT NULL COMMENT 'Sem FK: a denúncia sobrevive à exclusão da vaga',
@@ -544,21 +656,42 @@ CREATE TABLE IF NOT EXISTS `denuncias` (
   UNIQUE KEY `uq_denuncia`  (`vaga_id`, `jovem_id`),
   KEY `idx_den_jovem` (`jovem_id`, `criado_em`),
   CONSTRAINT `fk_den_jovem` FOREIGN KEY (`jovem_id`) REFERENCES `jovens` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+", "SET @jc_nada = 0");
+PREPARE jc_cmd FROM @jc_sql;
+EXECUTE jc_cmd;
 
 -- Estado das contas (suspensão pela administração; padrão = como hoje)
+SET @jc_sql = IF(@jc_banco_vazio, "
 ALTER TABLE `jovens`
   ADD COLUMN `conta_status`    ENUM('ativa','suspensa') NOT NULL DEFAULT 'ativa' COMMENT 'suspensa = sem acesso, decidido pela administração',
-  ADD COLUMN `conta_status_em` DATETIME DEFAULT NULL COMMENT 'Última mudança do estado da conta';
+  ADD COLUMN `conta_status_em` DATETIME DEFAULT NULL COMMENT 'Última mudança do estado da conta'
+", "SET @jc_nada = 0");
+PREPARE jc_cmd FROM @jc_sql;
+EXECUTE jc_cmd;
 
+SET @jc_sql = IF(@jc_banco_vazio, "
 ALTER TABLE `empresas`
   ADD COLUMN `conta_status`    ENUM('ativa','suspensa') NOT NULL DEFAULT 'ativa' COMMENT 'suspensa = sem acesso, decidido pela administração',
-  ADD COLUMN `conta_status_em` DATETIME DEFAULT NULL COMMENT 'Última mudança do estado da conta';
+  ADD COLUMN `conta_status_em` DATETIME DEFAULT NULL COMMENT 'Última mudança do estado da conta'
+", "SET @jc_nada = 0");
+PREPARE jc_cmd FROM @jc_sql;
+EXECUTE jc_cmd;
 
 -- Estado de moderação das vagas (separado da publicação; padrão = visível como hoje)
+SET @jc_sql = IF(@jc_banco_vazio, "
 ALTER TABLE `vagas`
   ADD COLUMN `moderacao_status` ENUM('aprovada','pendente','sinalizada','rejeitada','suspensa') NOT NULL DEFAULT 'aprovada'
       COMMENT 'aprovada/sinalizada = visível; pendente/rejeitada/suspensa = oculta para os jovens',
   ADD COLUMN `moderacao_motivo` VARCHAR(60) DEFAULT NULL COMMENT 'Código do motivo mostrado à empresa',
   ADD COLUMN `moderacao_em`     DATETIME    DEFAULT NULL COMMENT 'Última decisão de moderação',
-  ADD KEY `idx_vaga_moderacao` (`moderacao_status`);
+  ADD KEY `idx_vaga_moderacao` (`moderacao_status`)
+", "SET @jc_nada = 0");
+PREPARE jc_cmd FROM @jc_sql;
+EXECUTE jc_cmd;
+
+-- ============================================================
+--  Fim: libera o comando preparado e apaga as marcas da sessão.
+-- ============================================================
+DEALLOCATE PREPARE jc_cmd;
+SET @jc_sql = NULL, @jc_banco_vazio = NULL, @jc_nada = NULL;

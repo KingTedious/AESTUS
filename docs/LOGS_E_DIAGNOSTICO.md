@@ -86,7 +86,7 @@ Observação: `logout.php` inclui o logger sem `env.php`; se `JC_LOG_DIR` estive
 
 ### Autenticação
 1. Procure `login.falha` em `seguranca.log`: `motivo` `campos_invalidos` ou `credenciais`.
-2. Conta do `schema.sql` que não entra: um registro de exemplo tem senha em texto puro e nunca faz login [C].
+2. Conta de exemplo que não entra (só em bancos criados com o `schema.sql` antigo, até a v4.50): um registro de exemplo tem senha em texto puro e nunca faz login [C]. O `schema.sql` atual não cria contas.
 3. "Sua sessão expirou…" → `csrf.recusado`: página aberta antes de um login/logout; recarregar.
 4. Recuperação "enviou" mas nada chegou → `senha.recuperacao_solicitada` existe, mas a falha de envio está só no
    `error_log` do PHP ("PHPMailer não encontrado" = falta `composer install`).

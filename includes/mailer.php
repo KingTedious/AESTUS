@@ -22,6 +22,21 @@ if (is_file($__vendorAutoload)) {
 }
 unset($__vendorAutoload);
 
+if (!function_exists('jc_mailer_disponivel')) {
+    /**
+     * O envio de e-mail está instalado (PHPMailer em vendor/) e configurado
+     * (SMTP_HOST, SMTP_USER e SMTP_PASS no .env)? Não abre conexão nem revela
+     * qual item falta. Usado para não fingir que um código foi enviado
+     * (remediação, Lote A — recuperar_senha.php).
+     */
+    function jc_mailer_disponivel(): bool {
+        return class_exists(\PHPMailer\PHPMailer\PHPMailer::class)
+            && (getenv('SMTP_HOST') ?: '') !== ''
+            && (getenv('SMTP_USER') ?: '') !== ''
+            && (getenv('SMTP_PASS') ?: '') !== '';
+    }
+}
+
 if (!function_exists('enviarCodigoVerificacao')) {
 
     function enviarCodigoVerificacao(string $email, string $nome, string $codigo): bool {
