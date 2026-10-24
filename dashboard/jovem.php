@@ -16,43 +16,41 @@ $jovem_id   = intval($_SESSION['jovem_id']);
 $sql_visiveis = jc_vagas_visiveis_sql($conn, 'v');   // '' sem a migração da Stage 7
 $jovem_nome = $_SESSION['jovem_nome'] ?? 'Jovem';
 
-// ── Filtro de área via GET ────────────────────────────────────────────────────
-// htmlspecialchars() no output, trim() na leitura — prepared stmt na query
-$area_filtro = !empty($_GET['area']) ? trim($_GET['area']) : null;
+// ── O painel mostra só as vagas mais recentes ─────────────────────────────────
+// A lista completa, com busca, filtros (área, cidade/UF) e favoritas, fica em
+// Vagas/listar.php — antes o painel repetia a mesma lista, sem esses recursos.
+$limite_painel = 6;
 
-// ── 1. Áreas distintas (chips de filtro do sidebar) ──────────────────────────
+// ── 1. Áreas distintas (atalhos "Explorar por Área" → lista completa filtrada) ─
 $result_areas = $conn->query(
     "SELECT DISTINCT v.area FROM vagas v
      WHERE  v.area IS NOT NULL AND v.area != ''{$sql_visiveis}
      ORDER  BY v.area ASC"
 );
 
-// ── 2. Vagas (com ou sem filtro de área) ─────────────────────────────────────
-if ($area_filtro) {
-    $stmt_vagas = $conn->prepare(
-        "SELECT v.id, v.titulo, v.descricao, v.cidade, v.estado,
-                v.salario, v.carga_horaria, v.area, v.tipo_contrato,
-                e.nome_empresa
-         FROM   vagas v
-         JOIN   empresas e ON v.empresa_id = e.id
-         WHERE  v.area = ?{$sql_visiveis}
-         ORDER  BY v.criado_em DESC"
-    );
-    $stmt_vagas->bind_param("s", $area_filtro);
-} else {
-    $stmt_vagas = $conn->prepare(
-        "SELECT v.id, v.titulo, v.descricao, v.cidade, v.estado,
-                v.salario, v.carga_horaria, v.area, v.tipo_contrato,
-                e.nome_empresa
-         FROM   vagas v
-         JOIN   empresas e ON v.empresa_id = e.id
-         WHERE  1 = 1{$sql_visiveis}
-         ORDER  BY v.criado_em DESC"
-    );
-}
+// ── 2. Total de vagas visíveis (o mesmo número que a lista completa mostra) ───
+$res_total = $conn->query(
+    "SELECT COUNT(*) AS total
+     FROM   vagas v
+     JOIN   empresas e ON v.empresa_id = e.id
+     WHERE  1 = 1{$sql_visiveis}"
+);
+$total_vagas = $res_total ? (int) $res_total->fetch_assoc()['total'] : 0;
+
+// ── 3. As mais recentes ───────────────────────────────────────────────────────
+$stmt_vagas = $conn->prepare(
+    "SELECT v.id, v.titulo, v.descricao, v.cidade, v.estado,
+            v.salario, v.carga_horaria, v.area, v.tipo_contrato,
+            e.nome_empresa
+     FROM   vagas v
+     JOIN   empresas e ON v.empresa_id = e.id
+     WHERE  1 = 1{$sql_visiveis}
+     ORDER  BY v.criado_em DESC, v.id DESC
+     LIMIT  {$limite_painel}"
+);
 $stmt_vagas->execute();
 $result_vagas = $stmt_vagas->get_result();
-$total_vagas  = $result_vagas->num_rows;
+$qtd_exibidas = $result_vagas->num_rows;
 
 // ── Notícias (estáticas por enquanto — substituir por tabela futuramente) ─────
 $noticias = [
@@ -81,7 +79,7 @@ $noticias = [
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vagas Disponíveis | JovemConnect</title>
+    <title>Meu Painel | JovemConnect</title>
     <link rel="stylesheet" href="../Assets/css/style.css">
     <link rel="icon" type="image/png" sizes="32x32" href="../assets/img/marca/jovemconnect-icone-32.png">
     <link rel="apple-touch-icon" href="../assets/img/marca/jovemconnect-icone-180.png">
@@ -105,15 +103,19 @@ $noticias = [
     </a>
 
     <div class="navbar-inner-center">
-        <div class="search-bar">
-            <span class="search-icon i i-search" aria-hidden="true"></span>
-            <input
-                type="search"
-                id="searchVagas"
-                placeholder="Buscar vagas..."
-                autocomplete="off"
-                aria-label="Buscar vagas">
-        </div>
+        <!-- A busca procura em todas as vagas, na lista completa (o painel mostra só as mais recentes) -->
+        <form method="GET" action="../Vagas/listar.php" role="search">
+            <div class="search-bar">
+                <span class="search-icon i i-search" aria-hidden="true"></span>
+                <input
+                    type="search"
+                    name="busca"
+                    id="searchVagas"
+                    placeholder="Buscar vagas..."
+                    autocomplete="off"
+                    aria-label="Buscar vagas">
+            </div>
+        </form>
     </div>
 
     <div class="navbar-inner-right">
@@ -134,20 +136,19 @@ $noticias = [
     <!-- ── SIDEBAR ESQUERDO ──────────────────────────────────────────────── -->
     <aside class="dashboard-sidebar">
 
-        <!-- Filtros de Área -->
+        <!-- Explorar por Área: atalhos para a lista completa já filtrada
+             (o filtro fica em Vagas/listar.php, junto da busca e das favoritas) -->
         <div class="sidebar-card">
-            <p class="sidebar-section-title"><span class="i i-filter" aria-hidden="true"></span> Filtros de Área</p>
+            <p class="sidebar-section-title"><span class="i i-filter" aria-hidden="true"></span> Explorar por Área</p>
             <div class="filter-wrap">
 
-                <a href="jovem.php"
-                   class="filter-chip <?= !$area_filtro ? 'active' : '' ?>">
+                <a href="../Vagas/listar.php" class="filter-chip">
                     Todos
                 </a>
 
                 <?php if ($result_areas && $result_areas->num_rows > 0):
                     while ($row = $result_areas->fetch_assoc()): ?>
-                <a href="?area=<?= urlencode($row['area']) ?>"
-                   class="filter-chip <?= $area_filtro === $row['area'] ? 'active' : '' ?>">
+                <a href="../Vagas/listar.php?area=<?= urlencode($row['area']) ?>" class="filter-chip">
                     <?= htmlspecialchars($row['area']) ?>
                 </a>
                 <?php endwhile; endif; ?>
@@ -183,15 +184,17 @@ $noticias = [
     <main class="dashboard-main">
 
         <div class="page-heading fade-up">
-            <h1>Vagas Disponíveis</h1>
+            <h1>Vagas Recentes</h1>
+            <?php if ($total_vagas > 0): ?>
             <p class="text-secondary">
-                Mostrando <?= $total_vagas ?> resultado<?= $total_vagas !== 1 ? 's' : '' ?>
-                <?php if ($area_filtro): ?>
-                    em <strong><?= htmlspecialchars($area_filtro) ?></strong>.
+                <?php if ($total_vagas > $qtd_exibidas): ?>
+                    As <?= $qtd_exibidas ?> vagas mais recentes, de <?= $total_vagas ?> disponíveis.
                 <?php else: ?>
-                    baseados no seu perfil.
+                    <?= $total_vagas ?> vaga<?= $total_vagas !== 1 ? 's disponíveis' : ' disponível' ?>.
                 <?php endif; ?>
+                Para buscar, filtrar por área ou cidade e salvar favoritas, veja todas as vagas.
             </p>
+            <?php endif; ?>
         </div>
 
         <?php if ($total_vagas > 0): ?>
@@ -200,8 +203,6 @@ $noticias = [
             <?php while ($vaga = $result_vagas->fetch_assoc()): ?>
 
             <div class="job-card"
-                 data-titulo="<?=  strtolower(htmlspecialchars($vaga['titulo'])) ?>"
-                 data-empresa="<?= strtolower(htmlspecialchars($vaga['nome_empresa'])) ?>"
                  onclick="location.href='../Vagas/listar.php?id=<?= intval($vaga['id']) ?>&amp;voltar=painel'"
                  style="cursor:pointer;"
                  title="Ver detalhes da vaga">
@@ -271,6 +272,14 @@ $noticias = [
             <?php endwhile; ?>
         </div><!-- /#gridVagas -->
 
+        <!-- Lista completa: busca, filtros por área e cidade, favoritas -->
+        <div class="fade-up" style="text-align:center;margin-top:24px;">
+            <a href="../Vagas/listar.php" class="btn btn-primary">
+                Ver todas as vagas<?= $total_vagas > $qtd_exibidas ? ' (' . $total_vagas . ')' : '' ?>
+                <span class="i i-arrow-right" aria-hidden="true"></span>
+            </a>
+        </div>
+
         <?php else: ?>
 
         <!-- Estado vazio -->
@@ -282,15 +291,8 @@ $noticias = [
             </h3>
             <p class="text-secondary"
                style="font-size:14px;line-height:1.6;margin-bottom:28px;">
-                <?php if ($area_filtro): ?>
-                    Não há vagas em <strong><?= htmlspecialchars($area_filtro) ?></strong> no momento.
-                <?php else: ?>
-                    Ainda não há vagas cadastradas na plataforma.
-                <?php endif; ?>
+                Ainda não há vagas cadastradas na plataforma.
             </p>
-            <?php if ($area_filtro): ?>
-            <a href="jovem.php" class="btn btn-primary">Ver todas as vagas</a>
-            <?php endif; ?>
         </div>
 
         <?php endif; ?>
@@ -332,16 +334,7 @@ btnTheme?.addEventListener('click', () => {
     localStorage.setItem('jc-theme', next);
 });
 
-/* ── Busca de vagas (filtro client-side) ────────────────────── */
-document.getElementById('searchVagas')?.addEventListener('input', function () {
-    const q     = this.value.toLowerCase().trim();
-    const cards = document.querySelectorAll('#gridVagas .job-card');
-    cards.forEach(card => {
-        const match = card.dataset.titulo.includes(q)
-                   || card.dataset.empresa.includes(q);
-        card.style.display = match ? '' : 'none';
-    });
-});
+/* ── Busca de vagas: o campo do topo envia para a lista completa (Vagas/listar.php?busca=...) ── */
 
 /* ── Avaliar Match com IA ───────────────────────────────────── */
 async function avaliarMatch(vagaId, btn) {
