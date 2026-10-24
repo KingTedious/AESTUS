@@ -32,15 +32,16 @@
 }
 @media (prefers-color-scheme: light) {
   :root {
-    --bg: #f5f6fa;
-    --bg-surface: #ffffff;
-    --bg-card: #ffffff;
-    --bg-input: #f0f0f6;
-    --bg-hover: #eaeaf2;
+    /* off-white levemente amarelado, como o tema claro do site (era branco puro) */
+    --bg: #faf6eb;
+    --bg-surface: #fffaf0;
+    --bg-card: #fffaf0;
+    --bg-input: #f5f0e7;
+    --bg-hover: #efeae1;
     --texto: #1a1a2e;
     --texto-2: #474764;
     --texto-3: #5d5d78;
-    --borda: #d9d9e8;
+    --borda: #dfdacd;
     --acento: #105CCB;
     --acento-texto: #0d4ea9;
     --acento-fundo: rgba(16, 92, 203, 0.09);

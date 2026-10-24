@@ -63,17 +63,20 @@
 
 /* Light mode */
 [data-theme="light"] {
-  --bg-body:    #f5f6fa;
-  --bg-surface: #ffffff;
-  --bg-card:    #ffffff;
-  --bg-input:   #f0f0f6;
-  --bg-hover:   #eaeaf2;
+  /* Off-white levemente amarelado no lugar do branco puro: menos brilho na tela.
+     Fundo, campos, hover e bordas no mesmo tom quente e com a mesma luminância
+     de antes (contraste igual); nos cartões o contraste cai ~4% e segue AA. */
+  --bg-body:    #faf6eb;   /* era #f5f6fa */
+  --bg-surface: #fffaf0;   /* era #ffffff */
+  --bg-card:    #fffaf0;   /* era #ffffff */
+  --bg-input:   #f5f0e7;   /* era #f0f0f6 */
+  --bg-hover:   #efeae1;   /* era #eaeaf2 */
 
   --text-primary:   #1a1a2e;
   --text-secondary: #5a5a78;
   --text-muted:     #65657e;   /* Era #9898b0 (2,8:1 no branco; agora 5,6:1) */
 
-  --border: #e2e2ef;
+  --border: #e8e3d6;       /* era #e2e2ef */
 
   /* No fundo claro, textos/links/badges usam um tom mais escuro do
      MESMO azul da marca (6,2:1 no branco; o azul do logo dava 3,3:1 e o
