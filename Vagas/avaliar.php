@@ -145,7 +145,7 @@ $voltarLink = ($tipo === 'empresa')
 </nav>
 
 <div class="dashboard-wrap">
-<main class="dashboard-main" style="max-width:720px;">
+<main class="dashboard-main" style="max-width:720px;margin-inline:auto;">
 
     <?php if ($erroPagina): ?>
 
