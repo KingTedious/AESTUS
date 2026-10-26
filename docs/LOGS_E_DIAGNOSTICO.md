@@ -75,7 +75,9 @@ Observação: `logout.php` inclui o logger sem `env.php`; se `JC_LOG_DIR` estive
 1. O `.env` está na raiz (mesma pasta do `index.php`) e se chama exatamente `.env`?
 2. Variáveis do Windows têm prioridade sobre o `.env` (`includes/env.php`).
 3. Depois de mudar o `.env`, o PHP lê na próxima requisição; o **Flask só ao reiniciar**.
-4. `http://127.0.0.1:5000/ping`: `"assistente"`/`"analise_contextual"` mostram se o Flask achou a chave.
+4. `http://127.0.0.1:5000/ping` (ou a porta gravada em `logs/ia_porta.json`, se a 5000 estava ocupada):
+   `"assistente"`/`"analise_contextual"` mostram se o Flask achou a chave. A inicialização da IA fica registrada em
+   `logs/iniciar_ia.log` e a dos scripts do XAMPP em `logs/iniciar_jovemconnect.log`.
 
 ### Banco de dados
 1. Mensagem "temporariamente indisponível" → `banco.indisponivel` em `app.log` com `errno`

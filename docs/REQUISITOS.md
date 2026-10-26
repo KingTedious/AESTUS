@@ -64,7 +64,7 @@ Nenhuma biblioteca JavaScript ou framework CSS. Recursos externos carregados pel
 |---|---|---|
 | Apache | `http://localhost/` (porta 80) | sim |
 | MariaDB/MySQL | `localhost:3306` (padrão do mysqli) | sim |
-| Flask (`IA/recomendar.py`) | `http://127.0.0.1:5000` | não |
+| Flask (`IA/recomendar.py`) | `http://127.0.0.1:5000` (se ocupada, a primeira livre de 5001–5010; configurável por `JC_IA_PORTA` e `JC_IA_PORTAS_EXTRAS`) | não |
 | Gemini | `generativelanguage.googleapis.com` (HTTPS) [C: base padrão em `recomendar.py`] | não |
 
 ## Variáveis de ambiente

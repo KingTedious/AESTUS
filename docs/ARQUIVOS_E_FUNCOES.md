@@ -1,6 +1,6 @@
 # Arquivos e funções
 
-> Gerado na auditoria de documentação de 10/10/2026 sobre a versão **v4.00** (tag `v4.00`). Legenda: **[C]** confirmado no código · **[I]** inferido (com a evidência indicada) · **[NC]**/**[N]** não confirmado.
+> Gerado na auditoria de documentação de 10/10/2026 sobre a versão **v4.00** (tag `v4.00`) e **atualizado para a v4.56** (26/10/2026) nos arquivos que mudaram nas versões 4.55 e 4.56: painel do jovem, lista de vagas, card de vaga, inicialização e porta da IA, scripts de iniciar/parar e configuração. Nos demais arquivos, os números de linha são os da v4.00 e podem ter mudado depois. Legenda: **[C]** confirmado no código · **[I]** inferido (com a evidência indicada) · **[NC]**/**[N]** não confirmado.
 
 Catálogo de **todos os arquivos de código e configuração** do repositório (88 arquivos versionados na v4.00; os arquivos `.env`, `geminiAPI.env` e `logs/*.log` existem só na máquina e não foram abertos). Documentos `.md` e arquivos SQL estão descritos em [README.md](README.md), [BANCO_DE_DADOS.md](BANCO_DE_DADOS.md) e [MIGRACOES.md](MIGRACOES.md).
 
@@ -704,7 +704,7 @@ Observações gerais válidas para todo o módulo **[C]**:
 - **Tipo:** ponto de entrada GET/POST com duas visões. PHP + HTML + JS.
 - **Responsabilidade:** (1) **Dono**: edição do próprio perfil (dados básicos, escolaridade, resumo, visibilidade), formações adicionais, experiências, habilidades, envio do currículo, IA Advisor e exclusão da conta. (2) **Empresa**: visão somente leitura do candidato, com contexto de candidatura, link para a compatibilidade e contato por e-mail quando permitido.
 - **Quando executa / quem usa:** `Vagas/candidatos.php:329` (`?id=…&voltar=candidatos&vaga=…`), `dashboard/empresa.php:277` (`?id=…[&vaga=…]`), links de "Meu Perfil" (`header.php:121`, `dashboard/jovem.php:117`, `Vagas/listar.php:422`, `Vagas/favoritos.php:65`, `Vagas/curriculoIA.php:132,252`, `Vagas/avaliar.php:107`), o redirecionamento de `uploads/curriculos.php` e o próprio formulário (POST).
-- **Depende de:** `csrf.php`, `config.php`, `formacao.php`, `candidato.php`, `assistente.php`. AJAX: `../IA/avaliar_ajax.php` (que chama o Flask `127.0.0.1:5000/curriculo` e, opcionalmente, o Gemini). POST de upload: `../uploads/curriculos.php`. Exclusão: `excluir_conta.php`.
+- **Depende de:** `csrf.php`, `config.php`, `formacao.php`, `candidato.php`, `assistente.php`. AJAX: `../IA/avaliar_ajax.php` (que chama o Flask `/curriculo` no endereço de `jc_ia_url()` e, opcionalmente, o Gemini). POST de upload: `../uploads/curriculos.php`. Exclusão: `excluir_conta.php`.
 - **Acesso (linhas 15-52) [C]:**
   1. Sem sessão de jovem nem de empresa → `Location: login.php` (login do jovem).
   2. `jovem_id` = `?id` (intval); senão a sessão do jovem; empresa sem `?id` → `../dashboard/empresa.php`.
@@ -863,9 +863,9 @@ Dependências comuns a quase todos os arquivos (não repetidas em cada seção):
 ### `Vagas/listar.php`
 
 - **Tipo:** ponto de entrada, página GET com dois modos (listagem e detalhes). PHP + HTML + JS inline.
-- **Responsabilidade:** (1) sem `?id` lista todas as vagas com filtros por texto, cidade, UF e área, marcando as favoritas do jovem; (2) com `?id=N` mostra os detalhes da vaga (dados, requisitos, benefícios, local efetivo, nota de match em cache, estado "já candidatado"). Na listagem, os botões disparam favoritar (AJAX) e Match IA (AJAX).
-- **Quando executa / quem usa:** links em `dashboard/jovem.php` (`listar.php?id=X&voltar=painel`), `Vagas/favoritos.php` (`?id=X&voltar=favoritos`), `candidaturas/minhas.php` (`?id=X&voltar=candidaturas`), `Vagas/candidatar.php` (seta/Cancelar → `listar.php?id=X[&voltar=..]`), `Vagas/favoritar.php` (redirect sem JS → `listar.php?id=X&favorito=added|removed`), `Vagas/avaliar.php` (linha ~110, voltar para `listar.php?id=`), `includes/header.php` (form de busca GET `../Vagas/listar.php`, campo `busca`), `includes/assistente.php` (mapa de contexto `vagas/listar.php`).
-- **Depende de:** `includes/csrf.php`, `includes/config.php`, `includes/locais.php` (`jc_local_efetivo`), `includes/assistente.php`. Externo: link para Google Maps (`https://www.google.com/maps/search/...`, só navegação). AJAX para `favoritar.php` e `../IA/avaliar_ajax.php`.
+- **Responsabilidade:** (1) sem `?id` lista todas as vagas com filtros por texto, cidade, UF e área, marcando as favoritas do jovem; (2) com `?id=N` mostra os detalhes da vaga (dados, requisitos, benefícios, local efetivo, nota de match em cache, estado "já candidatado"). Na listagem, cada vaga usa o card padrão `jc_card_vaga()` (`includes/card_vaga.php`, desde a v4.56), o mesmo do painel do jovem: estrela de favoritar (AJAX) e botão "Avaliar Match com IA" (AJAX).
+- **Quando executa / quem usa:** links em `dashboard/jovem.php` (cards → `listar.php?id=X&voltar=painel`; botão "Ver todas as vagas" → `listar.php`; chips de área → `listar.php?area=X`; busca do topo → `listar.php?busca=`), `Vagas/favoritos.php` (`?id=X&voltar=favoritos`), `candidaturas/minhas.php` (`?id=X&voltar=candidaturas`), `Vagas/candidatar.php` (seta/Cancelar → `listar.php?id=X[&voltar=..]`), `Vagas/favoritar.php` (redirect sem JS → `listar.php?id=X&favorito=added|removed`), `Vagas/avaliar.php` (linha ~110, voltar para `listar.php?id=`), `includes/header.php` (form de busca GET `../Vagas/listar.php`, campo `busca`), `includes/assistente.php` (mapa de contexto `vagas/listar.php`).
+- **Depende de:** `includes/csrf.php`, `includes/config.php`, `includes/locais.php` (`jc_local_efetivo`), `includes/card_vaga.php` (`jc_card_vaga`, `jc_card_vaga_script`), `includes/assistente.php`. Externo: link para Google Maps (`https://www.google.com/maps/search/...`, só navegação). AJAX para `favoritar.php` e `../IA/avaliar_ajax.php`.
 - **Entradas:**
   - SESSION `jovem_id` (obrigatória; `intval`).
   - Modo detalhes: GET `id` (`intval`, > 0 ativa o modo); GET `voltar` ∈ {`painel`, `favoritos`, `candidaturas`} (lista fixa `$destinos_voltar`; qualquer outro valor → `listar.php`).
@@ -887,21 +887,21 @@ Dependências comuns a quase todos os arquivos (não repetidas em cada seção):
 - **Erros:** vaga inexistente → redirect silencioso para a listagem. Lista vazia → card "Nenhuma vaga encontrada" com link `listar.php`. Erros de banco → exceção → handler global (HTTP 500).
 - **Interface:**
   - *Detalhes:* barra superior com seta (destino `$voltar_url`, rótulo `$voltar_rotulo`) e botão "Candidatar-se" (`candidatar.php?vaga=X[&voltar=..]`) ou badge "Candidatura Enviada". Coluna principal: badge de área, título, empresa, meta (SALÁRIO "R$ ..." — exibido como texto livre, CARGA HORÁRIA, LOCAL = `vagas.cidade, estado`, CONTRATO), descrição (`nl2br(htmlspecialchars)`), Requisitos (grid, se houver), Benefícios (chips, se houver). Aside: cartão de localização com `nome_empresa`, `local_vaga['rotulo']` e `local_vaga['texto']`; botão "Ver no Google Maps" (só se `nivel` ≠ `indisponivel`; consulta = endereço completo, ou nome da empresa + texto quando o nível não é `completo`); "Candidatar-se Agora" ou "Já candidatado · ver status" (→ `../candidaturas/minhas.php`); card "IA Dica": com cache mostra "Match calculado: N%" + 120 caracteres da análise + link "Ver análise completa" (`avaliar.php?vaga_id=X`); sem cache, link "Avaliar Compatibilidade" (mesmo destino). Não há botão de favoritar no modo detalhes. O parâmetro `favorito=` vindo de `favoritar.php` não é lido (nenhum aviso).
-  - *Listagem:* navbar com form `#formBusca` (GET `listar.php`, campo `busca`, preserva só `area` em hidden); atalhos para candidaturas, favoritos, perfil, sair; botão de tema `#btnTheme`. Sidebar: chips de área (link "Todos" → `listar.php[?busca=]`; cada área → `listar.php?area=X[&busca=]`) — os chips **descartam** `cidade`/`estado`; form "Localização" (GET, campos `cidade` `#filtroCidade`, `estado` `#filtroEstado` maxlength=2, preserva `busca` e `area` em hidden) e "Limpar filtro" (mantém busca/área). Contador "Mostrando N resultado(s) para ... em ...". Grid `#gridVagas` de `.job-card` com título (link `listar.php?id=X` — **sem `voltar`**), badge de área, botão estrela `#fav-X` (`toggleFavorito`), empresa, salário, carga, cidade/UF, "Ver Detalhes" e "Match IA" (`avaliarMatch`).
+  - *Listagem:* navbar com form `#formBusca` (GET `listar.php`, campo `busca`, preserva só `area` em hidden); atalhos para candidaturas, favoritos, perfil, sair; botão de tema `#btnTheme`. Sidebar: chips de área (link "Todos" → `listar.php[?busca=]`; cada área → `listar.php?area=X[&busca=]`) — os chips **descartam** `cidade`/`estado`; form "Localização" (GET, campos `cidade` `#filtroCidade`, `estado` `#filtroEstado` maxlength=2, preserva `busca` e `area` em hidden) e "Limpar filtro" (mantém busca/área). Contador "Mostrando N resultado(s) para ... em ...". Grid `#gridVagas` com um `jc_card_vaga($vaga, '')` por vaga: o card inteiro abre `listar.php?id=X` (**sem `voltar`**), o título é um link de verdade, badge de área, estrela `#fav-X` (`toggleFavorito`, não abre o detalhe), empresa, salário, carga, cidade/UF e botão "Avaliar Match com IA" (`avaliarMatch`, não abre o detalhe). O botão "Ver Detalhes" deixou de existir na v4.56 (o card inteiro é clicável).
 - **Funções:**
 
 | Nome | Linha aprox. | Parâmetros (tipos) | Retorno | O que faz / efeitos / tabelas / erros | Quem chama |
 |---|---|---|---|---|---|
-| `applyTheme` (JS) | 634 | `t` (string `'light'`/`'dark'`) | — | Aplica `data-theme` e troca o ícone do botão; preferência em `localStorage['jc-theme']` | carga da página, clique em `#btnTheme` |
-| `toggleFavorito` (JS) | 645 | `vagaId` (int), `btn` (HTMLButtonElement) | Promise | POST `FormData{vaga_id}` para `favoritar.php` com header `X-Requested-With: XMLHttpRequest` (+ `X-CSRF-Token` via `csrf_js`). Exige `res.ok` e `data.favorito` booleano; atualiza ícone (`star-cheia`/`star`), cor, `title`, `aria-label`. Erro → `jcAviso(data.error ou mensagem genérica)`. Trava o botão durante a requisição (`disabled`, `aria-busy`) | `onclick` do botão `.btn-fav` |
-| `avaliarMatch` (JS) | 677 | `vagaId` (int), `btn` | Promise | POST JSON `{action:'match', vaga_id, jovem_id}` para `../IA/avaliar_ajax.php` (o servidor ignora o `jovem_id` enviado e usa a sessão — ver `IA/avaliar_ajax.php` linha ~63). Sucesso → "Match: N%" e adiciona link `.match-link` "Ver análise detalhada" (`avaliar.php?vaga_id=X`). Erro → mostra `corpo.error` ou mensagem genérica por 3,5 s e reabilita | `onclick` do botão "Match IA" |
+| `applyTheme` (JS) | 614 | `t` (string `'light'`/`'dark'`) | — | Aplica `data-theme` e troca o ícone do botão; preferência em `localStorage['jc-theme']` | carga da página, clique em `#btnTheme` |
+| `toggleFavorito` (JS) | — | `vagaId` (int), `btn` (HTMLButtonElement) | Promise | Desde a v4.56 vem de `jc_card_vaga_script('favoritar.php')` (`includes/card_vaga.php`), com o mesmo código de antes: POST `FormData{vaga_id}` para `favoritar.php` com header `X-Requested-With: XMLHttpRequest` (+ `X-CSRF-Token` via `csrf_js`); exige `res.ok` e `data.favorito` booleano; atualiza ícone, cor, `title`, `aria-label` e `aria-pressed`; erro → `jcAviso`; ignora cliques repetidos durante a requisição | estrela do card |
+| `avaliarMatch` (JS) | 627 | `vagaId` (int), `btn` | Promise | POST JSON `{action:'match', vaga_id, jovem_id}` para `../IA/avaliar_ajax.php` (o servidor ignora o `jovem_id` enviado e usa a sessão — ver `IA/avaliar_ajax.php` linha ~63). Sucesso → "Match: N%" e adiciona link `.match-link` "Ver análise detalhada" (`avaliar.php?vaga_id=X`). Erro → mostra `corpo.error` ou mensagem genérica por 3,5 s e reabilita | `onclick` do botão "Match IA" |
 
 - **Riscos / limitações / observações:**
   - Sem paginação/limite (performance cresce com o nº de vagas) [C].
   - Filtros não se combinam totalmente: chips de área e "Todos" perdem cidade/UF; a busca do topo perde cidade/UF [C].
-  - Links "Ver Detalhes"/título na listagem não passam `voltar`, então a seta dos detalhes volta à listagem **sem os filtros** usados [C].
+  - O card e o título na listagem não passam `voltar`, então a seta dos detalhes volta à listagem **sem os filtros** usados [C].
   - Detalhes mostram LOCAL a partir de `vagas.cidade/estado` (cópia) e o aside a partir de `jc_local_efetivo` — normalmente iguais, pois `includes/locais.php` sincroniza a cópia [I: `jc_vagas_sincronizar_empresa`/`_local`].
-  - `data-titulo`/`data-empresa` são gerados, mas nenhuma função JS desta página os usa (só o painel do jovem tem busca client-side) [C].
+  - Os atributos `data-titulo`/`data-empresa` deixaram de existir com o card padrão (v4.56); nenhuma página tem mais busca só no navegador [C].
 
 ---
 
@@ -1089,24 +1089,40 @@ Dependências comuns a quase todos os arquivos (não repetidas em cada seção):
 ### `dashboard/jovem.php`
 
 - **Tipo:** página GET (painel do jovem). PHP + HTML + JS.
-- **Responsabilidade:** painel inicial do jovem: lista todas as vagas (com filtro opcional por área), notícias fixas, busca client-side por título/empresa e botão de Match IA por vaga.
-- **Quando executa / quem usa:** redirects pós-login (`jovem/processar_login.php` linha ~70, `processar_login.php`, `index.php`, `comecar.php`, `dashboard/index.php` com `?verificado=`), `includes/auth.php`, `jovem/login.php`/`cadastro.php` e `empresa/login.php`/`cadastro.php` (jovem já logado); links de volta em praticamente todas as páginas do jovem; destino de erro de `favoritar.php`/`candidatar.php`.
-- **Depende de:** `includes/csrf.php`, `includes/config.php`, `includes/assistente.php` (com `$assistente_boas_vindas`); AJAX para `../IA/avaliar_ajax.php`.
-- **Entradas:** SESSION `jovem_id`, `jovem_nome` (lido em `$jovem_nome`, **não usado**); GET `area` (`trim`, comparação exata); GET `verificado` (`email`|`telefone`, lido só no JS).
+- **Responsabilidade (v4.56):** painel inicial do jovem. Mostra só as **6 vagas mais recentes** (`$limite_painel = 6`) com o card padrão (`includes/card_vaga.php`) e um botão **"Ver todas as vagas (N)"** para `Vagas/listar.php`, onde ficam a busca, os filtros e a lista completa. Também mostra as notícias fixas.
+- **Quando executa / quem usa:** redirects pós-login (`jovem/processar_login.php`, `processar_login.php`, `index.php`, `comecar.php`, `dashboard/index.php` com `?verificado=`), `includes/auth.php`, `jovem/login.php`/`cadastro.php` e `empresa/login.php`/`cadastro.php` (jovem já logado); links de volta em praticamente todas as páginas do jovem; destino de erro de `favoritar.php`/`candidatar.php`.
+- **Depende de:** `includes/csrf.php`, `includes/config.php`, `includes/card_vaga.php`, `includes/assistente.php` (com `$assistente_boas_vindas`), `jc_vagas_visiveis_sql()` (vagas visíveis; texto vazio sem a migração da Stage 7); AJAX para `../IA/avaliar_ajax.php` (Match) e `../Vagas/favoritar.php` (estrela).
+- **Entradas:** SESSION `jovem_id`, `jovem_nome` (lido em `$jovem_nome`, **não usado**); GET `verificado` (`email`|`telefone`, lido só no JS). O painel não lê mais `?area=`: os filtros ficam na lista completa.
 - **Saídas:** HTML; sem sessão → `../jovem/login.php`.
-- **Banco:** `SELECT DISTINCT area FROM vagas ...` (`query` fixa); vagas: `SELECT v.id, titulo, descricao, cidade, estado, salario, carga_horaria, area, tipo_contrato, e.nome_empresa FROM vagas v JOIN empresas e [WHERE v.area = ?] ORDER BY v.criado_em DESC` (prepared; sem limite).
-- **O que mostra [C]:** todas as vagas (não há recomendação por perfil, apesar do texto "baseados no seu perfil"); notícias são um array PHP estático (`$noticias`, 3 itens fixos); "Mais notícias em breve" sem link.
-- **Interface:** navbar com `#searchVagas` (filtro só no navegador, sem submit), atalhos (candidaturas, favoritos, perfil, sair), tema. Sidebar: chips de área (`?area=`), notícias. Main: contador; grid `#gridVagas` com cards clicáveis (`onclick` → `../Vagas/listar.php?id=X&voltar=painel`) e link real no título; badge de área; empresa; salário; carga; local; botão "Avaliar Match com IA" (`avaliarMatch`). Estado vazio com/sem filtro. Aviso `jcAviso` de conta verificada (`?verificado=`) e limpeza da URL (`history.replaceState`). Não há botão de favoritar nesta página.
+- **Banco [C]:** `SELECT DISTINCT v.area FROM vagas v WHERE … ORDER BY v.area` (`query` fixa, só vagas visíveis); `SELECT COUNT(*) … FROM vagas v JOIN empresas e` (total de vagas visíveis, o mesmo número da lista completa); vagas: `SELECT v.id, titulo, descricao, cidade, estado, salario, carga_horaria, area, tipo_contrato, e.nome_empresa, IF(f.id IS NOT NULL,1,0) AS eh_favorito FROM vagas v JOIN empresas e LEFT JOIN favoritos f ON f.vaga_id = v.id AND f.jovem_id = ? … ORDER BY v.criado_em DESC, v.id DESC LIMIT 6` (prepared; o `jovem_id` vem da sessão).
+- **O que mostra [C]:** título **"Vagas Recentes"** e o texto "As 6 vagas mais recentes, de N disponíveis" (ou "N vaga(s) disponível(is)" quando há 6 ou menos); notícias são um array PHP estático (`$noticias`, 3 itens fixos); "Mais notícias em breve" sem link. Não há recomendação por perfil.
+- **Interface:** navbar com busca `#searchVagas` — um formulário GET para `../Vagas/listar.php` (campo `busca`), que procura em todas as vagas —, atalhos (candidaturas, favoritos, perfil, sair) e tema. Sidebar: chips "Explorar por Área" (cada um → `../Vagas/listar.php?area=X`) e notícias. Main: grid `#gridVagas` com `jc_card_vaga($vaga, '../Vagas/', 'painel')` (card clicável → `../Vagas/listar.php?id=X&voltar=painel`, estrela de favoritar e botão "Avaliar Match com IA"), botão "Ver todas as vagas"; sem vagas → card de estado vazio. `<title>`: "Meu Painel | JovemConnect".
 - **Funções:**
 
 | Nome | Linha aprox. | Parâmetros (tipos) | Retorno | O que faz / efeitos / tabelas / erros | Quem chama |
 |---|---|---|---|---|---|
-| `applyTheme` (JS) | 317 | `t` | — | Tema | carga, `#btnTheme` |
-| handler `#searchVagas` input (JS anônimo) | 329 | evento | — | Esconde cards cujo `data-titulo`/`data-empresa` não contêm o texto | digitação |
-| `avaliarMatch` (JS) | 340 | `vagaId` (int), `btn` | Promise | POST JSON `{vaga_id, jovem_id}` (**sem `action`**; o servidor assume `'match'` por padrão — `IA/avaliar_ajax.php` linha ~45) para `../IA/avaliar_ajax.php`; mostra "Match: N%", `title` = análise, link `../Vagas/avaliar.php?vaga_id=X`; erro → mensagem por 3,5 s | botão do card |
-| IIFE `verificado` (JS) | 391 | — | — | Mostra "E-mail/Telefone verificado com sucesso!" e limpa a query | carga |
+| `applyTheme` (JS) | 264 | `t` | — | Tema | carga, `#btnTheme` |
+| `avaliarMatch` (JS) | 278 | `vagaId` (int), `btn` | Promise | POST JSON `{vaga_id, jovem_id}` (**sem `action`**; o servidor assume `'match'` por padrão) para `../IA/avaliar_ajax.php`; mostra "Match: N%", `title` = análise, link `../Vagas/avaliar.php?vaga_id=X`; erro → mensagem por 3,5 s | botão do card |
+| `toggleFavorito` (JS) | — | `vagaId` (int), `btn` | Promise | Impressa por `jc_card_vaga_script('../Vagas/favoritar.php')` (ver `includes/card_vaga.php`) | estrela do card |
+| IIFE `verificado` (JS) | 329 | — | — | Mostra "E-mail/Telefone verificado com sucesso!" e limpa a query | carga |
 
-- **Riscos / observações:** sem paginação; `strtolower` (não multibyte) nos `data-*` faz a busca client-side falhar para maiúsculas acentuadas (ex.: "É") [I]; `<title>` é "Vagas Disponíveis" (igual à listagem).
+- **Riscos / observações:** o painel mostra no máximo 6 vagas por decisão de produto; a busca, os filtros e as favoritas completas ficam em `Vagas/listar.php`. A ordem usa `v.id` como desempate, então vagas criadas no mesmo segundo aparecem sempre na mesma ordem [C].
+
+---
+
+### `includes/card_vaga.php` (novo na v4.56)
+
+- **Tipo:** módulo auxiliar (include) com duas funções PHP que imprimem HTML e JS.
+- **Responsabilidade:** card de vaga único do jovem. O modelo é o card do painel, com a estrela de favoritar que antes existia só em `Vagas/listar.php`. Assim, o painel e a lista completa não divergem mais.
+- **Quem usa [C, grep]:** `dashboard/jovem.php` (`jc_card_vaga($vaga, '../Vagas/', 'painel')` e `jc_card_vaga_script('../Vagas/favoritar.php')`) e `Vagas/listar.php` (`jc_card_vaga($vaga, '')` e `jc_card_vaga_script('favoritar.php')`).
+- **Depende de:** nada no PHP. No JS, de `jcIcone()` e `window.jcAviso` (de `includes/assistente.php`), de `csrf_js()` da página (cabeçalho `X-CSRF-Token`) e da função `avaliarMatch()` de cada página, que continua a mesma.
+- **Campos esperados em `$vaga`:** `id`, `titulo`, `nome_empresa`, `area`, `salario`, `carga_horaria`, `cidade`, `estado`, `eh_favorito` (0/1).
+- **Banco:** nenhum. Favoritar reaproveita `Vagas/favoritar.php` sem mudanças (sessão do jovem, CSRF, vaga visível e `UNIQUE` no banco).
+
+| Nome | Linha | Parâmetros | Retorno | O que faz | Quem chama |
+|---|---|---|---|---|---|
+| `jc_card_vaga` | 28 | `array $vaga, string $pasta_vagas, string $voltar = ''` | void (imprime) | Card `.job-card`: o card inteiro abre `{pasta}listar.php?id=X[&voltar=...]`; o título é um link de verdade (teclado); badge de área; estrela `#fav-X` (`aria-pressed`, `title`/`aria-label` "Salvar nos favoritos"/"Remover dos favoritos", `stopPropagation`); empresa, salário, carga, cidade/UF; botão "Avaliar Match com IA" (`stopPropagation`). Tudo escapado com `htmlspecialchars`/`json_encode` | painel e lista |
+| `jc_card_vaga_script` | 129 | `string $url_favoritar` | void (imprime `<script>`) | Define `toggleFavorito(vagaId, btn)`: ignora cliques repetidos, POST `FormData{vaga_id}` com `X-Requested-With: XMLHttpRequest`, só confirma se `res.ok` e `data.favorito` for booleano; erro 500 ou queda de conexão → aviso, sem fingir sucesso | painel e lista |
 
 ---
 
@@ -1143,9 +1159,9 @@ Dependências comuns a quase todos os arquivos (não repetidas em cada seção):
 
 ### `IA/recomendar.py`
 
-- **Tipo:** servidor HTTP Flask (Python), processo separado do Apache/PHP, escuta `127.0.0.1:5000` [C] (`app.run(host="127.0.0.1", port=5000, debug=debug_mode)`, l. 781).
+- **Tipo:** servidor HTTP Flask (Python), processo separado do Apache/PHP, escuta só em `127.0.0.1`. **Porta (v4.55):** tenta `JC_IA_PORTA` (padrão 5000) e, se outro programa estiver nela, a primeira livre de `JC_IA_PORTAS_EXTRAS` (padrão 5001–5010, no máximo 50 portas). A porta escolhida é gravada em `logs/ia_porta.json`, que o PHP lê (`includes/ia_endereco.php`) [C, bloco principal, l. 1038–1090].
 - **Responsabilidade:** (1) calcular a nota de compatibilidade jovem↔vaga por regras (`/avaliar`); (2) gerar sugestões de melhoria de currículo por regras (+ opcional SDK antigo) (`/curriculo`); (3) chamar a API REST do Gemini para a análise contextual do Match (`/analise_contextual`) e para o Assistente (`/assistente`), validando/limpando a resposta; (4) health check (`/ping`); (5) log estruturado em `logs/ia.log`.
-- **Quando executa / quem usa:** iniciado por `iniciar_ia.bat` (`start ... %PY% IA\recomendar.py`) ou manualmente (`python recomendar.py`). Chamado por PHP via cURL:
+- **Quando executa / quem usa:** iniciado por `iniciar_ia.bat` (janela "JovemConnect - IA", sempre com `venv\Scripts\python.exe`) ou manualmente (`venv\Scripts\python.exe IA\recomendar.py`). Chamado por PHP via cURL, sempre no endereço devolvido por `jc_ia_url()`:
   - `/avaliar` ← `includes/match.php` → `jc_flask_post('/avaliar', …, 6)` usado em `IA/avaliar_ajax.php` action `match` (par novo).
   - `/curriculo` ← `IA/avaliar_ajax.php` action `curriculo` (cURL próprio, timeout 6 s) e `Vagas/curriculoIA.php` (cURL próprio, timeout 10 s).
   - `/analise_contextual` ← `IA/avaliar_ajax.php` action `contexto` via `jc_flask_post(…, 20)`.
@@ -1167,7 +1183,9 @@ Dependências comuns a quase todos os arquivos (não repetidas em cada seção):
 | `CTX_API` | fixo `https://generativelanguage.googleapis.com/v1beta` | substituído por `JC_GEMINI_API_BASE` **só** se começar com `http://127.0.0.1:` ou `http://localhost:` (servidor simulado de testes); lido só de `os.environ` | 429–432 |
 | `JC_LOG_DIR` | `_config` | pasta de logs; padrão `<raiz>/logs` | 362 |
 | `JC_LOG_DIAS` | `_config`, padrão 30 | `int` limitado a [1, 365]; inválido → 30 | 364–367 |
-| `FLASK_DEBUG` | só `os.environ` | `"1"` liga o modo debug do Flask; padrão desligado | 780 |
+| `FLASK_DEBUG` | só `os.environ` | `"1"` liga o modo debug do Flask (com `app.run(use_reloader=False)`, para não abrir um segundo processo que brigaria pela trava); padrão desligado | 1078 |
+| `JC_IA_PORTA` | `_config`, padrão 5000 | porta preferida; inteiro de 1024 a 65535, inválido → padrão | 953 |
+| `JC_IA_PORTAS_EXTRAS` | `_config`, padrão `5001-5010` | faixa extra `início-fim`, no máximo 50 portas; inválida → padrão | 953 |
 | CORS | `CORS(app, origins=["http://localhost", "http://127.0.0.1", "http://localhost:80"])` | vale para chamadas de navegador; o PHP (cURL) não depende de CORS | 31 |
 
 #### Logs (`logs/ia.log`)
@@ -1201,7 +1219,9 @@ Dependências comuns a quase todos os arquivos (não repetidas em cada seção):
 | `_assist_texto` | 664 | `valor, maximo` | `str` | Não-string → `""`; remove controles; `strip()`; corta | `assistente` |
 | `_assist_limpar_resposta` | 671 | `texto:str` | `str` | Remove controles, blocos ```` ``` ````, `**`, `__`, `##+`, crase; marcadores `*`/`-` de início de linha viram "• "; colapsa 3+ quebras; >1200 chars → corta na última palavra + "…" | `assistente` |
 | `assistente` → **POST `/assistente`** | 683 | JSON `mensagem:str`, `historico:[{papel,texto}]`, `contexto:{pagina,perfil}` | 200 `{"disponivel":true,"resposta":str}` ou 200 `{"disponivel":false,"motivo":…}`; 400 `entrada_invalida` (não-dict, `>12000` chars serializados, ou mensagem vazia) | `mensagem` ≤600; `pagina` ∈ `ASSIST_PAGINAS` senão `"outra"`; `perfil` ∈ {visitante, jovem, empresa} senão `"visitante"`; últimas 6 falas do histórico (cada ≤800), papel `assistente`→`model`, demais→`user`; última parte `"[Contexto: página '<pagina>', pessoa: <perfil>]\n<mensagem>"`. `systemInstruction = ASSIST_INSTRUCOES`, `temperature 0.4`, `maxOutputTokens 512`, timeout `CTX_TIMEOUT`, lê até 200 000 bytes. Motivos de falha iguais aos de `_ctx_chamar_gemini` (sem a repetição sem esquema) + `resposta_vazia` | PHP `IA/assistente_ajax.php` |
-| `ping` → **GET `/ping`** | 754 | — | `{"status":"ok","gemini":bool(SDK antigo carregado),"analise_contextual":bool(CTX_CHAVE),"assistente":bool(CTX_CHAVE),"modelo_contextual":CTX_MODELO,"versao":"3.00"}` | Nunca devolve a chave | `functions.php` → `flaskOnline()` (sem uso) / teste manual |
+| `ping` → **GET `/ping`** | 914 | — | `{"status":"ok","gemini":bool(SDK antigo carregado),"analise_contextual":bool(CTX_CHAVE),"assistente":bool(CTX_CHAVE),"moderacao":bool(CTX_CHAVE),"modelo_contextual":CTX_MODELO,"versao":"3.00","instancia":INSTANCIA}` (`instancia`: identificador aleatório desta execução, desde a v4.55) | Nunca devolve a chave | `includes/ia_endereco.php` (confirma a IA antes de cada uso), `IA/verificar_ambiente.py` (`ping`/`esperar`), `scripts/jovemconnect.php` (`ia-parar`), `functions.php` → `flaskOnline()` (sem uso) |
+
+**Porta, instância única e arquivo de estado (v4.55) [C, l. 930–1090]:** antes de abrir a porta, `_travar_instancia()` trava `logs/ia.lock` pelo sistema operacional (`msvcrt` no Windows, `fcntl` no Linux): uma segunda IA da mesma pasta sai com o código **3**. `_abrir_servidor()` tenta as portas de `portas_candidatas()` com `_ServidorIA` (o `ThreadedWSGIServer` do Werkzeug, o mesmo do `app.run`, com `SO_EXCLUSIVEADDRUSE` no Windows); a porta fica reservada no próprio bind. Sem porta livre → código **4**. `_gravar_estado()` grava `logs/ia_porta.json` (`porta`, `instancia`, `pid`, `iniciado_em`, `versao`) de forma atômica; se não conseguir gravar fora da porta preferida → código **5**. Numa saída normal (Ctrl+C, SIGTERM, Ctrl+Break) `_apagar_estado()` apaga o arquivo, só se ainda for desta execução. Nenhum processo de outro programa é encerrado.
 
 **Cache da análise contextual [C, l. 482–485, 598–618]:** dicionário em memória `_ctx_cache` protegido por `threading.Lock`; chave = SHA-256 do JSON de entrada com `sort_keys=True`; validade `6*3600` s; máximo 256 entradas — ao atingir, remove as 64 (`CTX_CACHE_MAX // 4`) com expiração mais próxima. Perdido ao reiniciar o Flask. Só guarda análises **válidas**.
 
@@ -1224,7 +1244,7 @@ Dependências comuns a quase todos os arquivos (não repetidas em cada seção):
 - **Tipo:** módulo auxiliar (include) PHP; define funções dentro de `if (!function_exists('jc_match_calcular'))`.
 - **Responsabilidade:** cópia em PHP do algoritmo `/avaliar` (fallback e cálculo para a análise detalhada), textos estáticos por faixa, composição da nota por categoria, montagem e validação da análise contextual, cliente HTTP para o Flask (`jc_flask_post`) e carga dos dados do Match no banco.
 - **Quando executa / quem usa:** `require_once` em `IA/avaliar_ajax.php` (l. 32) e `IA/assistente_ajax.php` (l. 32, só por `jc_flask_post`) [C, grep].
-- **Depende de:** `includes/locais.php` (`jc_local_efetivo`) via `require_once` (l. 22); opcionalmente `jc_req_id()` e `jc_log()` de `includes/logger.php` (checa `function_exists`); extensão `curl` e `mbstring`; PCRE com `\p{Cased}` (PCRE2 ≥ 10.40, com alternativa).
+- **Depende de:** `includes/locais.php` (`jc_local_efetivo`) via `require_once` (l. 22); `includes/ia_endereco.php` (`jc_ia_url`, l. 25, desde a v4.55); opcionalmente `jc_req_id()` e `jc_log()` de `includes/logger.php` (checa `function_exists`); extensão `curl` e `mbstring`; PCRE com `\p{Cased}` (PCRE2 ≥ 10.40, com alternativa).
 - **Entradas/Saídas:** apenas por parâmetros de função.
 - **Banco (todas com prepared statement):**
   - `jc_match_carregar`: `SELECT cidade, estado, area_interesse, escolaridade_tipo, escolaridade_curso, escolaridade_status, formacao FROM jovens WHERE id=?`; `SELECT titulo, area, tipo_contrato, carga_horaria, descricao FROM vagas WHERE id=?`; + `jc_local_efetivo` (SELECT em `vagas` JOIN `empresas` LEFT JOIN `empresa_locais`, ver módulo de locais).
@@ -1236,25 +1256,43 @@ Dependências comuns a quase todos os arquivos (não repetidas em cada seção):
 
 | Nome | Linha | Parâmetros | Retorno | O que faz | Quem chama |
 |---|---|---|---|---|---|
-| `jc_py_ws` | 29 | — | `string` | Classe de caracteres de espaço equivalente a `str.isspace()` | `jc_py_str`, `jc_py_split` |
-| `jc_py_str` | 34 | `$valor` | `string` | Equivale a `_str()`: `null/false/''/array` → `''`; `mb_strtolower` UTF-8; trim de espaços Unicode. **Sem remoção de acentos** | `jc_match_calcular` |
-| `jc_py_split` | 43 | `string` | `array` | `str.split()` do Python | `jc_match_calcular` |
-| `jc_py_title` | 48 | `string` | `string` | `str.title()` do Python (para os textos dos motivos) | `jc_match_calcular` |
-| `jc_match_pesos` | 67 | — | `array` | `localizacao 25, area 25, tecnico 25, escolaridade 15, contrato 10` | `jc_match_categorias` |
-| `jc_match_calcular` | 77 | `array $d` (9 campos) | `['score','soma','pontos'(6 chaves),'situacao','motivos','eh_aprendiz']` | Algoritmo do Match (ver seção Match) | `avaliar_ajax.php` |
-| `jc_match_texto_estatico` | 207 | `int` | `string` | Mesmos 4 textos de `analise_estatica()` | `avaliar_ajax.php` |
-| `jc_match_rotulo` | 221 | `int` | `string` | ≥80 "Excelente compatibilidade"; ≥60 "Boa compatibilidade"; ≥40 "Compatibilidade razoável"; senão "Compatibilidade baixa" | `avaliar_ajax.php` (`analise`) |
-| `jc_match_categorias` | 235 | `array $calc, array $ctx` | lista de `{id,nome,icone,pontos,maximo,percentual,explicacao}` | 5 categorias com pontos reais; `percentual = round(pontos*100/maximo)`; explicações escolhidas pela `situacao`, em 2ª pessoa (`quem=jovem`) ou 3ª (`empresa`). Ícones: `map-pin, briefcase, graduation-cap, file-text, clipboard-list` | `avaliar_ajax.php` (`analise`, `contexto`) |
-| `jc_match_ajuste` | 309 | `array $calc, string $quem` | `?array {nome:"Requisito de conclusão", pontos:-10, explicacao}` | Só existe se `pontos['ajuste'] != 0`; se `soma < 0`, acrescenta "Como a soma ficou abaixo de zero, a nota final é 0 (o mínimo)." | idem |
-| `jc_match_destaques` | 327 | `array $cats, ?array $ajuste` | `['fortes'=>[], 'reduziram'=>[]]` | Categoria com `pontos >= maximo` → forte; senão "Nome (p de máx): explicação"; ajuste entra em "reduziram" | `analise` |
-| `jc_match_categorias_ia` | 346 | — | `array` | Mesma lista de `CTX_CATEGORIAS` | `jc_match_validar_ia` |
-| `jc_match_texto_ia` | 352 | `$v, int $max` | `string` | Mesmo saneamento de `_ctx_texto` | `jc_match_validar_ia` |
-| `jc_match_validar_ia` | 367 | `$a` | `?array` | Revalida no PHP a análise do Flask com os mesmos limites de `validar_contexto` (defesa em profundidade) | `contexto` |
-| `jc_flask_post` | 418 | `string $rota, array $payload, int $timeout` | `?array` | `POST http://127.0.0.1:5000{rota}`, JSON (`JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE`), cabeçalhos `Content-Type: application/json` e `X-Request-Id: jc_req_id()`, `CURLOPT_TIMEOUT=$timeout`, `CURLOPT_CONNECTTIMEOUT=3`. Só aceita HTTP 200 | `avaliar_ajax.php`, `assistente_ajax.php` |
-| `jc_match_carregar` | 460 | `mysqli, int $jovem_id, int $vaga_id` | `?array {jovem, vaga, local, entrada}` | Carrega dados e monta `entrada` (os 9 campos do `/avaliar`); `cidade_vaga` = cidade do **local efetivo**; `null` se jovem ou vaga não existir | `avaliar_ajax.php` |
-| `jc_match_payload_ia` | 509 | `mysqli, int, int, array $dados, array $calc, array $cats, ?array $ajuste, string $leitor` | `array` | Payload mínimo para o Gemini (ver Fluxo 3) | `contexto` |
+| `jc_py_ws` | 32 | — | `string` | Classe de caracteres de espaço equivalente a `str.isspace()` | `jc_py_str`, `jc_py_split` |
+| `jc_py_str` | 37 | `$valor` | `string` | Equivale a `_str()`: `null/false/''/array` → `''`; `mb_strtolower` UTF-8; trim de espaços Unicode. **Sem remoção de acentos** | `jc_match_calcular` |
+| `jc_py_split` | 46 | `string` | `array` | `str.split()` do Python | `jc_match_calcular` |
+| `jc_py_title` | 51 | `string` | `string` | `str.title()` do Python (para os textos dos motivos) | `jc_match_calcular` |
+| `jc_match_pesos` | 70 | — | `array` | `localizacao 25, area 25, tecnico 25, escolaridade 15, contrato 10` | `jc_match_categorias` |
+| `jc_match_calcular` | 80 | `array $d` (9 campos) | `['score','soma','pontos'(6 chaves),'situacao','motivos','eh_aprendiz']` | Algoritmo do Match (ver seção Match) | `avaliar_ajax.php` |
+| `jc_match_texto_estatico` | 210 | `int` | `string` | Mesmos 4 textos de `analise_estatica()` | `avaliar_ajax.php` |
+| `jc_match_rotulo` | 224 | `int` | `string` | ≥80 "Excelente compatibilidade"; ≥60 "Boa compatibilidade"; ≥40 "Compatibilidade razoável"; senão "Compatibilidade baixa" | `avaliar_ajax.php` (`analise`) |
+| `jc_match_categorias` | 238 | `array $calc, array $ctx` | lista de `{id,nome,icone,pontos,maximo,percentual,explicacao}` | 5 categorias com pontos reais; `percentual = round(pontos*100/maximo)`; explicações escolhidas pela `situacao`, em 2ª pessoa (`quem=jovem`) ou 3ª (`empresa`). Ícones: `map-pin, briefcase, graduation-cap, file-text, clipboard-list` | `avaliar_ajax.php` (`analise`, `contexto`) |
+| `jc_match_ajuste` | 312 | `array $calc, string $quem` | `?array {nome:"Requisito de conclusão", pontos:-10, explicacao}` | Só existe se `pontos['ajuste'] != 0`; se `soma < 0`, acrescenta "Como a soma ficou abaixo de zero, a nota final é 0 (o mínimo)." | idem |
+| `jc_match_destaques` | 330 | `array $cats, ?array $ajuste` | `['fortes'=>[], 'reduziram'=>[]]` | Categoria com `pontos >= maximo` → forte; senão "Nome (p de máx): explicação"; ajuste entra em "reduziram" | `analise` |
+| `jc_match_categorias_ia` | 349 | — | `array` | Mesma lista de `CTX_CATEGORIAS` | `jc_match_validar_ia` |
+| `jc_match_texto_ia` | 355 | `$v, int $max` | `string` | Mesmo saneamento de `_ctx_texto` | `jc_match_validar_ia` |
+| `jc_match_validar_ia` | 370 | `$a` | `?array` | Revalida no PHP a análise do Flask com os mesmos limites de `validar_contexto` (defesa em profundidade) | `contexto` |
+| `jc_flask_post` | 421 | `string $rota, array $payload, int $timeout` | `?array` | `POST` em `jc_ia_url($rota)` (`includes/ia_endereco.php`: `http://127.0.0.1:<porta confirmada>{rota}`; sem IA confirmada → `null`, o cURL falha na hora e a função devolve `null`), JSON (`JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE`), cabeçalhos `Content-Type: application/json` e `X-Request-Id: jc_req_id()`, `CURLOPT_TIMEOUT=$timeout`, `CURLOPT_CONNECTTIMEOUT=3`. Só aceita HTTP 200 | `avaliar_ajax.php`, `assistente_ajax.php` |
+| `jc_match_carregar` | 463 | `mysqli, int $jovem_id, int $vaga_id` | `?array {jovem, vaga, local, entrada}` | Carrega dados e monta `entrada` (os 9 campos do `/avaliar`); `cidade_vaga` = cidade do **local efetivo**; `null` se jovem ou vaga não existir | `avaliar_ajax.php` |
+| `jc_match_payload_ia` | 512 | `mysqli, int, int, array $dados, array $calc, array $cats, ?array $ajuste, string $leitor` | `array` | Payload mínimo para o Gemini (ver Fluxo 3) | `contexto` |
 
 - **Riscos:** o comentário diz "A igualdade com o Python é conferida por um teste de paridade" — nenhum arquivo de teste existe na cópia (grep por "paridade" só acha este comentário) [C]. Diferenças sutis possíveis entre `str.lower()` do Python e `mb_strtolower` em caracteres raros [I]. A divergência é registrada em produção (`match.divergencia`).
+
+---
+
+### `includes/ia_endereco.php` (novo na v4.55)
+
+- **Tipo:** módulo auxiliar (include) PHP; funções dentro de `if (!function_exists('jc_ia_url'))`.
+- **Responsabilidade:** único lugar em que o PHP decide para onde vão as chamadas à IA. O host é sempre `127.0.0.1`; a porta é a que a IA gravou em `logs/ia_porta.json`, desde que esteja na faixa do `.env` e o `/ping` dela devolva a **mesma `instancia`** do arquivo. Se não, tenta a porta preferida, desde que nela responda uma IA do JovemConnect. Sem IA confirmada → `null` (os consumidores mostram "IA indisponível", como antes). Dados do site nunca vão para um programa desconhecido.
+- **Quem usa [C, grep]:** `includes/match.php` (`jc_flask_post`), `IA/avaliar_ajax.php` (`/curriculo`), `Vagas/curriculoIA.php` (`/curriculo`), `admin/ia_moderacao.php` (`/moderacao`), `admin/configuracoes.php` (mostra o endereço atual ou "fora do ar no momento"), `functions.php` (`chamarFlask`, `flaskOnline`).
+- **Depende de:** `includes/env.php` (`JC_IA_PORTA`, `JC_IA_PORTAS_EXTRAS`); extensão cURL.
+- **Entradas:** só o `.env` e o arquivo `logs/ia_porta.json`. Nada vem da requisição HTTP (`$_GET`, `$_POST`, `$_SERVER`, `$_COOKIE`, `$_REQUEST`).
+- **Custo:** um `/ping` local por requisição que usa a IA (cerca de 1 ms medido na réplica).
+
+| Nome | Linha | Parâmetros | Retorno | O que faz | Quem chama |
+|---|---|---|---|---|---|
+| `jc_ia_portas` | 26 | — | `array [preferida, início, fim]` | Lê e valida `JC_IA_PORTA` (1024–65535, padrão 5000) e `JC_IA_PORTAS_EXTRAS` (padrão 5001-5010, no máximo 50 portas); inválido → padrão | `jc_ia_base` |
+| `jc_ia_ping` | 44 | `int $porta` | `?array` | GET `http://127.0.0.1:<porta>/ping` (conexão 1 s, total 2 s, sem proxy); devolve o JSON só se for HTTP 200 com `status: ok` e `versao` | `jc_ia_base` |
+| `jc_ia_base` | 66 | — | `?string` | `http://127.0.0.1:<porta>` confirmada (arquivo + instância, ou a porta preferida), ou `null` | `jc_ia_url`, `admin/configuracoes.php` |
+| `jc_ia_url` | 99 | `string $rota` | `?string` | Base + rota, ou `null` (`curl_init(null)` falha com erro 3, tratado como IA fora do ar) | consumidores acima |
 
 ---
 
@@ -1396,7 +1434,7 @@ Dependências comuns a quase todos os arquivos (não repetidas em cada seção):
 - **Tipo:** biblioteca PHP de utilitários (raiz do projeto).
 - **Responsabilidade (declarada):** datas, CPF/CNPJ/CEP, texto, `h()`, chamada ao Flask e `/ping`.
 - **Quem usa:** **ninguém** — nenhum `require/include` de `functions.php` em todo o projeto; nenhuma das funções abaixo é chamada fora do próprio arquivo (grep por cada nome; o único resultado externo é um comentário em `includes/env.php` l. 7). Os `$h(...)` encontrados em `empresa/locais.php` e `includes/formacao.php` são closures locais, não a função `h()` [C].
-- **Depende de:** extensão cURL; nenhum include.
+- **Depende de:** extensão cURL; `includes/ia_endereco.php` (endereço da IA, desde a v4.55).
 - **Banco:** nenhum.
 
 | Nome | Linha | Parâmetros | Retorno | O que faz | Quem chama |
@@ -1411,8 +1449,8 @@ Dependências comuns a quase todos os arquivos (não repetidas em cada seção):
 | `formatarCep` | 172 | `string` | `string` | `00000-000` | ninguém |
 | `truncar` | 191 | `string, int=150, string='…'` | `string` | Corte UTF-8 com sufixo | ninguém |
 | `h` | 203 | `string` | `string` | `htmlspecialchars(ENT_QUOTES|ENT_SUBSTITUTE, 'UTF-8')` | ninguém |
-| `chamarFlask` | 227 | `string $rota, array $dados=[], int $timeout=6` | `array\|false` | POST JSON ao Flask; falha → `error_log` e `false` | ninguém (substituída na prática por `jc_flask_post`) |
-| `flaskOnline` | 263 | — | `bool` | GET `/ping` (timeout 2 s, conexão 1 s); `true` se HTTP 200 | ninguém |
+| `chamarFlask` | 229 | `string $rota, array $dados=[], int $timeout=6` | `array\|false` | POST JSON ao Flask em `jc_ia_url($rota)`; falha → `error_log` e `false` | ninguém (substituída na prática por `jc_flask_post`) |
+| `flaskOnline` | 265 | — | `bool` | GET `/ping` (em `jc_ia_url`) (timeout 2 s, conexão 1 s); `true` se HTTP 200 | ninguém |
 
 - **Observação:** como o arquivo não é incluído, definir aqui uma função com o mesmo nome de outra do projeto não causa conflito hoje [I]. Validações de CPF/CNPJ efetivamente usadas ficam em outros módulos (não neste arquivo) [I — grep sem chamadores].
 
@@ -1420,28 +1458,99 @@ Dependências comuns a quase todos os arquivos (não repetidas em cada seção):
 
 ### `iniciar_ia.bat`
 
-- **Tipo:** script de inicialização Windows (batch, terminações CRLF).
-- **Responsabilidade:** localizar/criar um Python com Flask, iniciar `IA\recomendar.py` numa janela minimizada e abrir a plataforma no navegador.
+- **Tipo:** script de inicialização Windows (batch, ASCII, terminações CRLF). Reescrito na v4.55.
+- **Responsabilidade:** iniciar `IA\recomendar.py` **somente** com o ambiente oficial do projeto, `<pasta do .bat>\venv`, e abrir a plataforma no navegador. Nunca roda a IA com o Python global, nunca adota outro ambiente (`venv-NOMEDOPC`, `.venv`) e nunca apaga nada.
+- **Por que mudou:** a versão antiga criava `venv-%COMPUTERNAME%` em cada computador porque o `venv` do projeto aponta para o Python do computador em que foi criado, que não existe nos PCs da escola. Era a origem da pasta "venv SPXX-XXX".
 - **Passo a passo [C]:**
-  1. `@echo off`, `setlocal`, título "Inicializador JovemConnect", mensagem inicial.
-  2. `cd /d "%~dp0"` — vai para a pasta do próprio .bat; `PASTA` = nome dessa pasta (`for %%I in ("%~dp0.") do set "PASTA=%%~nxI"`).
-  3. Se existir `venv\Scripts\python.exe`, testa-o com `:testar` (`python -c "import flask, flask_cors"`); se funcionar, `PY` = esse Python → vai para `:iniciar`.
-  4. Senão, `LOCAL=venv-%COMPUTERNAME%`; se existir `%LOCAL%\Scripts\python.exe`, testa → se ok, `:iniciar`.
-  5. Procura Python base: `py -3 -c "import sys"` → `BASE=py -3`; senão `python -c "import sys"` → `BASE=python`; nenhum → `:sem_python` (mensagem com link python.org, `pause`, `exit /b 1`).
-  6. "[0/2] Primeira vez neste computador…": cria `%LOCAL%` com `%BASE% -m venv` (se não existir), roda `pip install --disable-pip-version-check flask flask-cors` (**só esses dois pacotes**, não usa `requirements.txt`), testa de novo.
-  7. Se ainda falhar, testa o Python base diretamente (`import flask, flask_cors`) → `PY=%BASE%`.
-  8. Nada funcionou → "Nao foi possivel instalar o Flask. Verifique a internet e rode de novo.", `pause`, `exit /b 1`.
-  9. `:iniciar` — "[1/2]": `start "JovemConnect - IA" /min cmd /k %PY% IA\recomendar.py` (janela minimizada que permanece aberta).
-  10. "[2/2]": `timeout /t 2`, depois `start "" "http://localhost/%PASTA%/index.php"`; `exit /b 0`.
-- **Não faz:** não define `GEMINI_API_KEY` nem outras variáveis; a chave para as rotas novas vem do `.env` (lido pelo próprio Python); a integração antiga só ativaria se a variável já estivesse no ambiente do Windows [C]. Não instala `google-generativeai` [C]. Não verifica se o Flask subiu [C]. Não inicia Apache/MySQL [C].
+  1. Caminhos absolutos a partir da pasta do `.bat` (`RAIZ`, `VENV`, `PY=venv\Scripts\python.exe`, `IA\recomendar.py`, `IA\verificar_ambiente.py`, `IA\requirements-ia.txt`). Limpa `PYTHONHOME`, `PYTHONPATH` e `VIRTUAL_ENV` e liga `PYTHONNOUSERSITE=1`, para o Python não herdar configurações do computador.
+  2. **[1/5] Diagnóstico:** computador, pastas e ambiente oficial, na tela e em `logs\iniciar_ia.log` (sem senhas ou dados pessoais). Ambientes não oficiais encontrados (`venv-*`, `.venv`) só são avisados e ignorados.
+  3. **[2/5] Arquivos do projeto:** os três arquivos acima precisam existir.
+  4. **[3/5] Ambiente oficial:** `verificar_ambiente.py verificar` confere se o `venv` pertence a esta pasta, se o Python é 3.10+ e se as versões fixas de `IA\requirements-ia.txt` estão instaladas.
+  5. Se o `venv` estiver ausente ou inválido (por exemplo, copiado de outro PC), o `.bat` **para e explica o motivo**. Só com a confirmação **S** ele reconstrói o `venv` neste computador: renomeia o anterior para `venv.antigo-<data>`, cria um novo com o Python do computador (`py -3` ou `python`, validado por `verificar_ambiente.py base`) e instala `IA\requirements-ia.txt` (precisa de internet uma vez). Com **N**, nada é alterado.
+  6. **[4/5] A IA já está rodando?** `verificar_ambiente.py ping`: se a IA desta pasta (ou uma IA do JovemConnect na porta preferida) já responde, ela é reaproveitada e nenhuma outra é aberta.
+  7. **[5/5]** Inicia a IA na janela **"JovemConnect - IA"** (`cmd /k`; fechar a janela desliga a IA) e espera até 20 s a IA confirmar a porta (`verificar_ambiente.py esperar 20`: arquivo `logs\ia_porta.json` + `instancia` no `/ping`). Sem resposta → para com diagnóstico.
+  8. Abre `http://localhost/<pasta>/index.php` no navegador.
+- **Porta:** a 5000 ocupada deixou de ser erro: a própria IA vai para a próxima livre da faixa. O `.bat` não encerra nenhum processo.
+- **Não faz:** não define `GEMINI_API_KEY` (a chave vem do `.env`, lido pelo próprio Python); não instala `google-generativeai`; não inicia Apache/MySQL (isso é do `iniciar_jovemconnect.bat`).
+- **Testes:** a lógica de `verificar_ambiente.py` foi testada na réplica Linux (12 cenários); o `.bat` em si só pode ser executado no Windows.
+
+---
+
+### `IA/verificar_ambiente.py` (novo na v4.55)
+
+- **Tipo:** utilitário Python de linha de comando usado pelo `iniciar_ia.bat`. Só biblioteca padrão. O código de saída é a resposta (0 = ok).
+- **Modos [C, `main`, l. 221]:**
+
+| Modo | O que faz | Saída |
+|---|---|---|
+| `verificar <venv> <requirements>` | Confere se o Python que roda é o do `venv` informado e pertence a esta pasta, se é 3.10+ e se as versões fixas instaladas batem com o arquivo | 0 ok; outros códigos explicam o motivo (o `.bat` mostra a mensagem) |
+| `base` | Confere se o Python usado pode criar o `venv` (não é um `venv`, versão 3.10+) | 0 ok |
+| `onde` | Mostra qual Python está rodando (diagnóstico) | — |
+| `carimbo` | Data e hora para o nome `venv.antigo-<data>` | texto |
+| `ping` | Lê a faixa do `.env` e `logs/ia_porta.json` e consulta o `/ping` | 0 a IA do JovemConnect já responde (reaproveitar); 1 porta preferida livre (iniciar); 2 outro programa na porta preferida (a IA vai para a faixa extra) |
+| `esperar <s>` | Espera até `<s>` segundos a IA confirmar a porta (arquivo + mesma `instancia` no `/ping`) | 0 confirmada; 1 sem resposta |
+
+- **Funções:** `log` (40, grava em `logs/iniciar_ia.log` sem dados sensíveis), `norm` (52), `fixadas` (56, lê as versões fixas), `verificar` (76), `base` (110), `_config` (127, lê `JC_IA_*` do ambiente ou do `.env`), `portas` (145, mesmas regras de `ia_endereco.php`), `consultar` (156), `estado` (176), `ping` (193), `esperar` (210), `main` (221).
 
 ---
 
 ### `requirements.txt`
 
 - **Tipo:** lista de dependências Python (pip) com comentários de ambiente.
-- **Conteúdo [C]:** `flask`, `flask-cors`, `mysql-connector-python`, `pandas`, `scikit-learn` (sem versões fixadas). Comentários: Apache 2.4+, MySQL 8.0+/MariaDB, PHP 8.0+, extensões mysqli/openssl/session/json, XAMPP 3.3.0+.
+- **Conteúdo [C]:** `flask`, `flask-cors`, `mysql-connector-python`, `pandas`, `scikit-learn` (sem versões fixadas). Desde a v4.55, um comentário no topo avisa que o servidor de IA precisa só de `flask` e `flask-cors`, com as versões fixas de `IA/requirements-ia.txt` (o que o `iniciar_ia.bat` instala). Comentários: Apache 2.4+, MySQL 8.0+/MariaDB, PHP 8.0+, extensões mysqli/openssl/session/json, XAMPP 3.3.0+.
 - **Observações:** `mysql-connector-python`, `pandas` e `scikit-learn` não são importados em nenhum lugar (grep) [C]. `google-generativeai` (usado opcionalmente) não consta [C]. O comentário "flask-cors — Essencial para o PHP conseguir chamar o Flask" é impreciso: CORS só afeta navegadores; o PHP chama por cURL [I]. "PHP v8.0" é insuficiente: o código usa tipo de retorno `never` (`IA/assistente_ajax.php` → `jc_assist_sair`, `includes/candidato.php`), que exige PHP 8.1 [C/I]. Não menciona a extensão `curl` nem `mbstring`, usadas por este módulo [C]. Não indica a versão mínima do Python (≥ 3.10, ver acima) [I].
+
+
+### `IA/requirements-ia.txt` (novo na v4.55)
+
+- **Tipo:** lista de dependências do servidor de IA com **versões fixas**, as mesmas do `venv` em que o projeto foi desenvolvido e testado (Python 3.13; mínimo 3.10, exigido pelo `click 8.3`).
+- **Conteúdo [C]:** `flask==3.1.3`, `flask-cors==6.0.2`, `werkzeug==3.1.8`, `jinja2==3.1.6`, `itsdangerous==2.2.0`, `click==8.3.3`, `blinker==1.9.0`, `markupsafe==3.0.3`, `colorama==0.4.6` (só no Windows).
+- **Quem usa:** `iniciar_ia.bat` (instala só quando você confirma a reconstrução do `venv`; nunca atualiza nada sozinho) e `IA/verificar_ambiente.py verificar` (confere as versões instaladas). Instalação manual: `venv\Scripts\python.exe -m pip install -r IA\requirements-ia.txt`.
+
+
+### `iniciar_jovemconnect.bat` (novo na v4.56)
+
+- **Tipo:** script Windows (batch, ASCII, CRLF) na raiz do projeto. Diagnóstico na tela e em `logs\iniciar_jovemconnect.log`.
+- **Responsabilidade:** subir tudo num computador com XAMPP, na ordem certa, perguntando antes de criar qualquer coisa:
+  1. Procura o XAMPP duas pastas acima (`..\..`, o esperado em `C:\xampp\htdocs\<pasta>`) e usa o `php.exe` dele com `scripts/jovemconnect.php`.
+  2. `checar`: PHP, extensões, pastas graváveis e se a pasta está dentro do `htdocs`. Sem `.env`, oferece criá-lo a partir do `.env.example` (`criar-env`, que nunca sobrescreve).
+  3. **Apache (porta 80):** se a porta já responde, confere se é um Apache; se não estiver ligado, roda o `apache_start.bat` do XAMPP e espera até 25 s.
+  4. **MySQL (porta 3306):** roda o `mysql_start.bat` se precisar e espera até 40 s.
+  5. **Banco:** `banco-status`. Se o banco não existe ou está vazio, pergunta (S/N) se deve importar o `schema.sql` (`banco-instalar`) e depois se deve carregar os dados de demonstração (`banco-seed`). Um banco que já tem tabelas nunca recebe importação por cima.
+  6. Chama o `iniciar_ia.bat` (IA e navegador).
+- **Não faz:** não encerra processos de outros programas, não altera um banco que já existe e não mexe no Git.
+
+### `parar_jovemconnect.bat` (novo na v4.56)
+
+- **Tipo:** script Windows (batch, ASCII, CRLF) na raiz do projeto, para encerrar o uso num computador emprestado (por exemplo, o da escola).
+- **Passo a passo, sempre perguntando:**
+  1. Fecha **só a IA desta pasta** (`ia-parar`: confere `pid` e `instancia` de `logs/ia_porta.json` no `/ping` antes de encerrar).
+  2. Pergunta se deve **apagar o banco do XAMPP**. Com S, é preciso digitar o nome do banco (`DB_NAME`); liga o MySQL se precisar e roda `banco-apagar`, que recusa nomes diferentes do `DB_NAME` e bancos do sistema.
+  3. Pergunta se deve **desligar o XAMPP** (`apache_stop.bat` e `mysql_stop.bat`).
+  4. Pergunta se deve **apagar a pasta do projeto do `htdocs`**. Só aceita se a pasta estiver dentro de `htdocs` e tiver os arquivos do JovemConnect. Antes, avisa sobre alterações do Git que não foram salvas (commits pendentes ou que não estão no GitHub) e exige digitar o nome da pasta. A exclusão é feita por um script temporário em `%TEMP%`, 3 s depois de o `.bat` sair, e o script temporário se apaga.
+
+### `scripts/jovemconnect.php` (novo na v4.56)
+
+- **Tipo:** ajudante de linha de comando dos dois `.bat` acima. Só roda pelo terminal: pelo navegador responde **404** (`PHP_SAPI !== 'cli'`), e a pasta `scripts/` também é bloqueada pelo `.htaccess`. Lê o banco pelo `.env` (mesmas regras de `includes/config.php`) e **nunca mostra a senha**. As mensagens não têm acentos de propósito, porque o console do Windows nem sempre mostra UTF-8.
+- **Comandos [C, l. 123–296]:**
+
+| Comando | O que faz | Código de saída |
+|---|---|---|
+| `checar` | PHP, extensões (mysqli, curl, openssl, mbstring, json), `.env`, pastas graváveis, se está no `htdocs` | 0 ok; 20 sem `.env` (oferecer criar) |
+| `criar-env` | Copia `.env.example` para `.env`, **nunca** sobrescreve | 0 |
+| `porta <n>` / `esperar-porta <n> <s>` | `127.0.0.1:<n>` aceita conexão? / espera até `<s>` segundos | 0 aberta; 1 fechada |
+| `quem-usa <n>` | Mostra o programa que escuta na porta (Windows: `netstat` + `tasklist`) | — |
+| `apache [porta]` | Quem responde em `http://127.0.0.1/` é um Apache (cabeçalho `Server`)? | 0 sim; 1 não |
+| `site <pasta>` | `http://localhost/<pasta>/index.php` é o JovemConnect? | 0 sim; 1 não |
+| `banco-nome` | Imprime o `DB_NAME` | 0 |
+| `banco-status` | Situação do banco | 0 instalado; 10 não existe; 11 existe vazio; 2 MySQL inacessível |
+| `banco-instalar` | `CREATE DATABASE … utf8mb4_unicode_ci` (se não existe) e importa o `schema.sql` **só se estiver vazio** | 0 ok; 12 recusado (já tem tabelas) |
+| `banco-seed` | Importa `database/seed_demo.sql` (não duplica nada) | 0 |
+| `banco-apagar <nome>` | `DROP DATABASE`, só se `<nome>` for igual ao `DB_NAME` e não for um banco do sistema (`mysql`, `information_schema`, `performance_schema`, `sys`, `phpmyadmin`, `test`) | 0 ok (ou já não existia); 3 recusado |
+| `ia-parar` | Fecha só a IA desta pasta: confere a `instancia` de `logs/ia_porta.json` no `/ping` e, no Windows, se o `pid` é de um Python (`tasklist`) antes do `taskkill`; arquivo velho apontando para outro programa → não encerra nada | 0 |
+
+- **Funções internas:** `diz` (45), `conectar` (47), `nome_valido` (57), `tabelas` (61), `importar` (73, `multi_query` do arquivo SQL), `porta_aberta` (99), `http_get` (108).
+- **Testes:** 26/26 na réplica Linux (ver [TESTES_RESULTADOS.md](TESTES_RESULTADOS.md#v456--versões-455-e-456)).
 
 > O algoritmo exato do Match (pesos, cache e fallback) está em [IA_E_MATCH.md](IA_E_MATCH.md).
 
@@ -1646,12 +1755,14 @@ Dependências comuns a quase todos os arquivos (não repetidas em cada seção):
 | `JC_LOG_DIR` | `includes/logger.php` → `jc_log_dir()` via `jc_log_config()`; `recomendar.py` → `_pasta_logs` | `{raiz}/logs` | Não |
 | `JC_LOG_MAX_MB` | `logger.php` → `jc_log_rotacionar()` (`max(1, intval)`) | `2` | Não |
 | `JC_LOG_DIAS` | `logger.php` → `jc_log_rotacionar()`; `recomendar.py` → `_dias` (1–365, `backupCount`) | `30` | Não |
-| `FLASK_DEBUG` *(fora do `.env.example`)* | `recomendar.py` l.780 `os.environ.get("FLASK_DEBUG","0") == "1"` (só ambiente real) | `0` | Não |
+| `JC_IA_PORTA` *(v4.55)* | `includes/ia_endereco.php` → `jc_ia_portas()`; `recomendar.py` → `portas_candidatas()`; `IA/verificar_ambiente.py` → `portas()` | `5000` | Não |
+| `JC_IA_PORTAS_EXTRAS` *(v4.55)* | os mesmos três (faixa `início-fim`, no máximo 50 portas) | `5001-5010` | Não |
+| `FLASK_DEBUG` *(fora do `.env.example`)* | `recomendar.py`, bloco principal, `os.environ.get("FLASK_DEBUG","0") == "1"` (só ambiente real) | `0` | Não |
 | `JC_GEMINI_API_BASE` *(fora do `.env.example`, só testes)* | `recomendar.py` l.430 (aceito só se começar com `http://127.0.0.1:` ou `http://localhost:`) | — | Não |
 
 ### `.gitignore`
 - **Tipo:** configuração do Git.
-- **Conteúdo:** ignora `venv/`, `.venv/`, `venv-*/`, `__pycache__/`, `*.pyc`; `vendor/`; `.env` e `*.env` (o `.env.example` **não** é ignorado, pois termina em `.example`) [C]; `*.log`, `error_log`; `*.sql` com exceções `!schema.sql`, `!migrations/*.sql`, `!database/seed_demo.sql`; `uploads/curriculos/*` com exceção `!uploads/curriculos/.htaccess`.
+- **Conteúdo:** ignora `venv/`, `.venv/`, `venv-*/`, `venv.antigo-*/` (backups do `iniciar_ia.bat`, v4.55), `logs/ia_porta.json`, `logs/ia_porta.json.tmp` e `logs/ia.lock` (estado da IA, v4.55), `__pycache__/`, `*.pyc`; `vendor/`; `.env` e `*.env` (o `.env.example` **não** é ignorado, pois termina em `.example`) [C]; `*.log`, `error_log`; `*.sql` com exceções `!schema.sql`, `!migrations/*.sql`, `!database/seed_demo.sql`; `uploads/curriculos/*` com exceção `!uploads/curriculos/.htaccess`.
 - **Observações:** comentário explica que `#` no fim da linha viraria parte do padrão (correto). `logs/.htaccess` continua versionado (só `*.log` é ignorado).
 
 ### `composer.json`
@@ -1700,8 +1811,8 @@ Dependências comuns a quase todos os arquivos (não repetidas em cada seção):
 | `formatarCep` | `functions.php`:172 | `formatarCep(string $cep): string` | (próprio arquivo) |
 | `truncar` | `functions.php`:191 | `truncar(string $texto, int $limite = 150, string $sufixo = '…'): string` | (próprio arquivo) |
 | `h` | `functions.php`:203 | `h(string $texto): string` | (próprio arquivo) |
-| `chamarFlask` | `functions.php`:227 | `chamarFlask(string $rota, array $dados = [], int $timeout = 6): array\|false` | (próprio arquivo) |
-| `flaskOnline` | `functions.php`:263 | `flaskOnline(): bool` | (próprio arquivo) |
+| `chamarFlask` | `functions.php`:229 | `chamarFlask(string $rota, array $dados = [], int $timeout = 6): array\|false` | (próprio arquivo) |
+| `flaskOnline` | `functions.php`:265 | `flaskOnline(): bool` | (próprio arquivo) |
 | `registrar_log` | `includes/auth.php`:32 | `registrar_log(string $mensagem, string $nivel = 'INFO'): void` | (próprio arquivo), `includes/config.php`, `includes/logger.php` |
 | `verificar_autenticacao` | `includes/auth.php`:43 | `verificar_autenticacao(string $tipo): void` | (próprio arquivo) |
 | `jc_empresa_acesso_candidato` | `includes/candidato.php`:31 | `jc_empresa_acesso_candidato(mysqli $conn, int $empresa_id, int $jovem_id): array` | (próprio arquivo), `jovem/perfil.php` |
@@ -1768,23 +1879,23 @@ Dependências comuns a quase todos os arquivos (não repetidas em cada seção):
 | `jc_log_excecao` | `includes/logger.php`:195 | `jc_log_excecao(Throwable $e, string $evento = 'erro.inesperado'): void` | `Vagas/candidatar.php`, `empresa/cadastro.php`, `includes/config.php`, (próprio arquivo), `jovem/cadastro.php` |
 | `registrar_log` | `includes/logger.php`:211 | `registrar_log($mensagem, $nivel = 'INFO'): void` | `includes/auth.php`, `includes/config.php`, (próprio arquivo) |
 | `enviarCodigoVerificacao` | `includes/mailer.php`:27 | `enviarCodigoVerificacao(string $email, string $nome, string $codigo): bool` | (próprio arquivo), `recuperar_senha.php`, `verificacoes/verificar_email.php` |
-| `jc_py_ws` | `includes/match.php`:29 | `jc_py_ws(): string` | (próprio arquivo) |
-| `jc_py_str` | `includes/match.php`:34 | `jc_py_str($valor): string` | (próprio arquivo) |
-| `jc_py_split` | `includes/match.php`:43 | `jc_py_split(string $s): array` | (próprio arquivo) |
-| `jc_py_title` | `includes/match.php`:48 | `jc_py_title(string $s): string` | (próprio arquivo) |
-| `jc_match_pesos` | `includes/match.php`:67 | `jc_match_pesos(): array` | (próprio arquivo) |
-| `jc_match_calcular` | `includes/match.php`:77 | `jc_match_calcular(array $d): array` | `IA/avaliar_ajax.php` |
-| `jc_match_texto_estatico` | `includes/match.php`:207 | `jc_match_texto_estatico(int $score): string` | `IA/avaliar_ajax.php` |
-| `jc_match_rotulo` | `includes/match.php`:221 | `jc_match_rotulo(int $score): string` | `IA/avaliar_ajax.php` |
-| `jc_match_categorias` | `includes/match.php`:235 | `jc_match_categorias(array $calc, array $ctx): array` | `IA/avaliar_ajax.php` |
-| `jc_match_ajuste` | `includes/match.php`:309 | `jc_match_ajuste(array $calc, string $quem = 'jovem'): ?array` | `IA/avaliar_ajax.php` |
-| `jc_match_destaques` | `includes/match.php`:327 | `jc_match_destaques(array $cats, ?array $ajuste): array` | `IA/avaliar_ajax.php` |
-| `jc_match_categorias_ia` | `includes/match.php`:346 | `jc_match_categorias_ia(): array` | (próprio arquivo) |
-| `jc_match_texto_ia` | `includes/match.php`:352 | `jc_match_texto_ia($v, int $max): string` | (próprio arquivo) |
-| `jc_match_validar_ia` | `includes/match.php`:367 | `jc_match_validar_ia($a): ?array` | `IA/avaliar_ajax.php` |
-| `jc_flask_post` | `includes/match.php`:418 | `jc_flask_post(string $rota, array $payload, int $timeout): ?array` | `IA/assistente_ajax.php`, `IA/avaliar_ajax.php` |
-| `jc_match_carregar` | `includes/match.php`:460 | `jc_match_carregar(mysqli $conn, int $jovem_id, int $vaga_id): ?array` | `IA/avaliar_ajax.php` |
-| `jc_match_payload_ia` | `includes/match.php`:509 | `jc_match_payload_ia(mysqli $conn, int $jovem_id, int $vaga_id, array $dados, array $calc, array $cats, ?array $ajuste, string $leitor = 'jovem'): array` | `IA/avaliar_ajax.php` |
+| `jc_py_ws` | `includes/match.php`:32 | `jc_py_ws(): string` | (próprio arquivo) |
+| `jc_py_str` | `includes/match.php`:37 | `jc_py_str($valor): string` | (próprio arquivo) |
+| `jc_py_split` | `includes/match.php`:46 | `jc_py_split(string $s): array` | (próprio arquivo) |
+| `jc_py_title` | `includes/match.php`:51 | `jc_py_title(string $s): string` | (próprio arquivo) |
+| `jc_match_pesos` | `includes/match.php`:70 | `jc_match_pesos(): array` | (próprio arquivo) |
+| `jc_match_calcular` | `includes/match.php`:80 | `jc_match_calcular(array $d): array` | `IA/avaliar_ajax.php` |
+| `jc_match_texto_estatico` | `includes/match.php`:210 | `jc_match_texto_estatico(int $score): string` | `IA/avaliar_ajax.php` |
+| `jc_match_rotulo` | `includes/match.php`:224 | `jc_match_rotulo(int $score): string` | `IA/avaliar_ajax.php` |
+| `jc_match_categorias` | `includes/match.php`:238 | `jc_match_categorias(array $calc, array $ctx): array` | `IA/avaliar_ajax.php` |
+| `jc_match_ajuste` | `includes/match.php`:312 | `jc_match_ajuste(array $calc, string $quem = 'jovem'): ?array` | `IA/avaliar_ajax.php` |
+| `jc_match_destaques` | `includes/match.php`:330 | `jc_match_destaques(array $cats, ?array $ajuste): array` | `IA/avaliar_ajax.php` |
+| `jc_match_categorias_ia` | `includes/match.php`:349 | `jc_match_categorias_ia(): array` | (próprio arquivo) |
+| `jc_match_texto_ia` | `includes/match.php`:355 | `jc_match_texto_ia($v, int $max): string` | (próprio arquivo) |
+| `jc_match_validar_ia` | `includes/match.php`:370 | `jc_match_validar_ia($a): ?array` | `IA/avaliar_ajax.php` |
+| `jc_flask_post` | `includes/match.php`:421 | `jc_flask_post(string $rota, array $payload, int $timeout): ?array` | `IA/assistente_ajax.php`, `IA/avaliar_ajax.php` |
+| `jc_match_carregar` | `includes/match.php`:463 | `jc_match_carregar(mysqli $conn, int $jovem_id, int $vaga_id): ?array` | `IA/avaliar_ajax.php` |
+| `jc_match_payload_ia` | `includes/match.php`:512 | `jc_match_payload_ia(mysqli $conn, int $jovem_id, int $vaga_id, array $dados, array $calc, array $cats, ?array $ajuste, string $leitor = 'jovem'): array` | `IA/avaliar_ajax.php` |
 | `jc_session_start` | `includes/session.php`:17 | `jc_session_start(): void` | `IA/assistente_ajax.php`, `candidaturas/minhas.php`, `comecar.php`, `dashboard/index.php`, `includes/csrf.php`, (próprio arquivo), `index.php`, `processar_login.php`, `uploads/ver_curriculo.php` |
 | `jc_session_regenerate` | `includes/session.php`:50 | `jc_session_regenerate(): void` | `empresa/cadastro.php`, `empresa/processar_login.php`, `jovem/cadastro.php`, `jovem/processar_login.php` |
 | `normalizarTelefoneE164` | `includes/sms.php`:31 | `normalizarTelefoneE164(string $telefone): ?string` | (próprio arquivo), `verificacoes/verificar_telefone.php` |
@@ -1799,7 +1910,14 @@ Dependências comuns a quase todos os arquivos (não repetidas em cada seção):
 | `validarNomeEmpresa` | `verificacoes/validacoes_nomes.php`:98 | `validarNomeEmpresa(string $nome): array` | — (sem chamador encontrado) |
 | `gerarEEnviarCodigoEmail` | `verificacoes/verificar_email.php`:26 | `gerarEEnviarCodigoEmail(mysqli $conn, string $tabela, int $idUsuario, string $email, string $nome): bool` | (próprio arquivo) |
 
-Total: **115 funções PHP** nomeadas (closures/funções anônimas não entram). "Chamada em" foi levantado por busca textual `nome(` em todos os `.php`; chamadas dinâmicas (string) não seriam detectadas — nenhuma foi encontrada.
+| `jc_card_vaga` | `includes/card_vaga.php`:28 | `jc_card_vaga(array $vaga, string $pasta_vagas, string $voltar = ''): void` | `dashboard/jovem.php`, `Vagas/listar.php` (v4.56) |
+| `jc_card_vaga_script` | `includes/card_vaga.php`:129 | `jc_card_vaga_script(string $url_favoritar): void` | `dashboard/jovem.php`, `Vagas/listar.php` (v4.56) |
+| `jc_ia_portas` | `includes/ia_endereco.php`:26 | `jc_ia_portas(): array` | (próprio arquivo) (v4.55) |
+| `jc_ia_ping` | `includes/ia_endereco.php`:44 | `jc_ia_ping(int $porta): ?array` | (próprio arquivo) (v4.55) |
+| `jc_ia_base` | `includes/ia_endereco.php`:66 | `jc_ia_base(): ?string` | `admin/configuracoes.php`, (próprio arquivo) (v4.55) |
+| `jc_ia_url` | `includes/ia_endereco.php`:99 | `jc_ia_url(string $rota): ?string` | `includes/match.php`, `IA/avaliar_ajax.php`, `Vagas/curriculoIA.php`, `admin/ia_moderacao.php`, `functions.php` (v4.55) |
+
+Total na v4.00: **115 funções PHP** nomeadas (closures/funções anônimas não entram). As 6 linhas acima foram acrescentadas nas versões 4.55 e 4.56; os arquivos da Central administrativa (Stage 7) estão descritos em [ADMINISTRACAO_E_MODERACAO.md](ADMINISTRACAO_E_MODERACAO.md#arquitetura-dos-arquivos) e as funções do ajudante `scripts/jovemconnect.php` na entrada dele. "Chamada em" foi levantado por busca textual `nome(` em todos os `.php`; chamadas dinâmicas (string) não seriam detectadas — nenhuma foi encontrada.
 
 ## Índice de funções Python (Flask)
 
@@ -1826,4 +1944,13 @@ Arquivo: `IA/recomendar.py`.
 | `_assist_texto` | 664 | `_assist_texto(valor, maximo)` | — |
 | `_assist_limpar_resposta` | 671 | `_assist_limpar_resposta(texto)` | — |
 | `assistente` | 684 | `assistente()` | `/assistente POST` |
-| `ping` | 755 | `ping()` | `/ping GET` |
+| `validar_moderacao` | 806 | `validar_moderacao(obj)` | — (Stage 7) |
+| `_mod_chamar_gemini` | 829 | `_mod_chamar_gemini(dados, com_esquema)` | — (Stage 7) |
+| `moderacao` | 872 | `moderacao()` | `/moderacao POST` (Stage 7) |
+| `ping` | 914 | `ping()` | `/ping GET` |
+| `portas_candidatas` | 953 | `portas_candidatas()` | — (v4.55) |
+| `_ServidorIA.server_bind` | 974 | `server_bind(self)` | — (v4.55, bind exclusivo) |
+| `_travar_instancia` | 984 | `_travar_instancia()` | — (v4.55) |
+| `_gravar_estado` | 1002 | `_gravar_estado(porta)` | — (v4.55) |
+| `_apagar_estado` | 1017 | `_apagar_estado()` | `atexit` (v4.55) |
+| `_abrir_servidor` | 1027 | `_abrir_servidor(candidatas)` | — (v4.55) |

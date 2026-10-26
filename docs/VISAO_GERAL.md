@@ -1,6 +1,7 @@
 # Visão geral do JovemConnect
 
-> Documento da auditoria de 10/10/2026 sobre a versão **v4.00**. Afirmações marcadas com **[C]** foram
+> Documento da auditoria de 10/10/2026 sobre a versão **v4.00**, atualizado para a **v4.56** (26/10/2026) nas
+> funcionalidades e tecnologias; a tabela "Números do código" continua sendo a medição da v4.00. Afirmações marcadas com **[C]** foram
 > confirmadas no código; **[T]** foram verificadas por teste na réplica de desenvolvimento; **[I]** são
 > inferências com a evidência indicada; **[NC]** não puderam ser confirmadas.
 
@@ -19,7 +20,7 @@ Aprendiz, Estágio, CLT e PJ) e para as empresas que os contratam. É um projeto
 | **Jovem** | Cria a conta em 4 etapas, completa o perfil (formação, habilidades, experiências, currículo em PDF), procura vagas, favorita, candidata-se, acompanha o status e vê a compatibilidade (Match) com cada vaga. |
 | **Empresa** | Cria a conta em 4 etapas (com busca de CNPJ e CEP), cadastra locais de trabalho, publica e remove vagas, acompanha candidatos, muda o status das candidaturas e vê o Match de cada candidato. |
 
-Não existe perfil de administrador [C: nenhuma chave de sessão ou tabela de administração].
+Na v4.00 não existia perfil de administrador. Desde a Stage 7 existe a Central administrativa, com contas criadas pela linha de comando — ver [ADMINISTRACAO_E_MODERACAO.md](ADMINISTRACAO_E_MODERACAO.md).
 
 ## Funcionalidades principais
 
@@ -33,12 +34,14 @@ Não existe perfil de administrador [C: nenhuma chave de sessão ou tabela de ad
 | Perfil da empresa e locais de trabalho | `empresa/perfil.php`, `empresa/locais.php` | [C] [T] |
 | Vagas: listar, filtrar, detalhar, publicar, remover | `Vagas/` | [C] [T]; não há edição nem encerramento de vaga |
 | Candidaturas e status (Recebido, Visualizado, Em análise, Aprovado, Reprovado) | `Vagas/candidatar.php`, `Vagas/candidatos.php`, `candidaturas/minhas.php` | [C] [T] |
-| Favoritos | `Vagas/favoritar.php`, `Vagas/favoritos.php` | [C] [T] |
+| Favoritos (estrela em todos os cards de vaga do jovem, desde a v4.56) | `Vagas/favoritar.php`, `Vagas/favoritos.php`, `includes/card_vaga.php` | [C] [T] |
+| Painel do jovem com as 6 vagas mais recentes e "Ver todas as vagas" (v4.56) | `dashboard/jovem.php` → `Vagas/listar.php` | [C] [T] |
 | Match (nota 0–100 por regras fixas) | `IA/avaliar_ajax.php` → Flask `/avaliar` ou cálculo em PHP | [C] [T] — ver [IA_E_MATCH.md](IA_E_MATCH.md) |
 | Análise contextual do Match (texto gerado por IA, não altera a nota) | `Vagas/avaliar.php` | [C] [T com Gemini simulado] |
 | Assistente com IA e respostas prontas | botão ✦ em quase todas as páginas | [C] [T com Gemini simulado] |
 | Acessibilidade (tamanho do texto, fonte para dislexia, filtros de cor, alto contraste, tema claro/escuro) | painel ♿ | [C] [T] |
 | Logs JSON de aplicação, segurança e IA | `logs/` | [C] [T] |
+| Iniciar e parar tudo no XAMPP (Apache, MySQL, banco, IA; apagar banco e pasta no fim) (v4.56) | `iniciar_jovemconnect.bat`, `parar_jovemconnect.bat`, `scripts/jovemconnect.php` | [C]; ajudante [T] 26/26; os `.bat` só rodam no Windows |
 
 ## Tecnologias
 
@@ -48,7 +51,7 @@ Não existe perfil de administrador [C: nenhuma chave de sessão ou tabela de ad
 | Aplicação | PHP ≥ 8.1 na prática (usa o tipo de retorno `never`), `mysqli` | `composer.json` declara `>=8.0` [C divergência] |
 | Banco | MariaDB 10.4+ / MySQL 8.0+, InnoDB, `utf8mb4` | cabeçalho do `schema.sql` |
 | Dependências PHP opcionais | PHPMailer 6.9, Twilio SDK 8.3 (via Composer) | `composer.json`; pasta `vendor/` não versionada |
-| Serviço de IA | Python 3 + Flask + flask-cors, porta 5000 (só `127.0.0.1`) | `IA/recomendar.py`, `requirements.txt` |
+| Serviço de IA | Python 3.10+ + Flask + flask-cors (versões fixas), porta 5000 por padrão (ou a próxima livre de 5001–5010), só `127.0.0.1` | `IA/recomendar.py`, `IA/requirements-ia.txt` |
 | IA generativa (opcional) | Google Gemini via REST (`GEMINI_MODEL`, padrão `gemini-3.5-flash-lite`) | `IA/recomendar.py` |
 | Front-end | HTML gerado pelo PHP, CSS único (`assets/css/style.css`, 3.153 linhas), JavaScript sem framework | — |
 | Serviços de terceiros no navegador | ViaCEP, BrasilAPI (CNPJ), Google Fonts, link do Google Maps | `jovem/cadastro.php`, `empresa/cadastro.php`, `style.css`, `Vagas/listar.php` |

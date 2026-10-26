@@ -10,7 +10,7 @@ Todas as entradas HTTP do sistema: páginas PHP (GET/POST), endpoints AJAX (JSON
 - **Autenticação**: sessão PHP com `jovem_id` ou `empresa_id` (`includes/session.php`). Sem sessão, as páginas redirecionam (302) para o login; os endpoints JSON respondem 401.
 - **Erro inesperado**: exceção não tratada em qualquer página que inclua `includes/config.php` → HTTP 500 genérico (HTML ou `{"error": ...}`), detalhes só em `logs/app.log` (`erro.inesperado`).
 - **Banco indisponível**: `includes/config.php` responde 503 em texto.
-- **Flask**: escuta só em `127.0.0.1:5000`; o navegador nunca o chama diretamente (só o PHP, via cURL).
+- **Flask**: escuta só em `127.0.0.1`, na porta 5000 por padrão (ou a próxima livre de 5001–5010); o navegador nunca o chama diretamente (só o PHP, via cURL, no endereço de `jc_ia_url()`).
 
 ## Resumo por área
 
@@ -63,7 +63,7 @@ Não há rotas Flask neste módulo.
 | `jovem/perfil.php` | POST `add_formacao` / `del_formacao` | jovem | dono (`AND jovem_id=?`) | `form_*` / `form_id` | estrutura; ano 4 dígitos | INSERT/DELETE formacao_jovem | — | 302 `#formacao` / `?saved=4#formacao` | 403 | — |
 | `jovem/perfil.php` | POST `add_habilidade` / `del_habilidade` | jovem | dono | `habilidade` / `hab_id` | 80 caracteres; sem repetir | SELECT+INSERT IGNORE / DELETE habilidades_jovem | — | 302 `#habilidades` | 403 | — |
 | `jovem/perfil.php` | POST `add_experiencia` / `del_experiencia` | jovem | dono | `exp_*` / `exp_id` | título obrigatório | INSERT/DELETE experiencias_jovem | — | 302 `#experiencias` | 403 | — |
-| `../IA/avaliar_ajax.php` (chamado pelo perfil) | POST JSON | jovem | só a sessão do jovem (ignora o `jovem_id` do corpo) | `{action:'curriculo'}` | CSRF via cabeçalho (`csrf_js`) | SELECT resumo, habilidades, formações | Flask `127.0.0.1:5000/curriculo` (+ Gemini) | JSON `{mensagem, sugestoes[]}` | 403; 503 "Servidor de IA indisponível." | — (endpoint de outro módulo) |
+| `../IA/avaliar_ajax.php` (chamado pelo perfil) | POST JSON | jovem | só a sessão do jovem (ignora o `jovem_id` do corpo) | `{action:'curriculo'}` | CSRF via cabeçalho (`csrf_js`) | SELECT resumo, habilidades, formações | Flask `/curriculo` no endereço de `jc_ia_url()` (+ Gemini) | JSON `{mensagem, sugestoes[]}` | 403; 503 "Servidor de IA indisponível." | — (endpoint de outro módulo) |
 | `empresa/perfil.php` | GET | empresa | própria | `saved` | — | SELECT empresas, vagas; `jc_locais_da_empresa` | — | HTML | 302 login | — |
 | `empresa/perfil.php` | POST | empresa | própria | campos listados em [ARQUIVOS_E_FUNCOES.md](ARQUIVOS_E_FUNCOES.md) | CSRF; nome/e-mail/CNPJ/CEP; e-mail/CNPJ únicos | UPDATE empresas (2x); UPDATE vagas (sincronização) | ViaCEP (navegador) | 302 `?saved=1/2/3` | 403; exceção → 500 | zera `email_verificado`; sessão `empresa_nome`; altera cidade/UF/CEP das vagas `local_trabalho='empresa'` |
 | `empresa/locais.php` | GET | empresa | própria | `editar`, `ok` | — | SELECT empresas, empresa_locais (+ COUNT vagas) | — | HTML | 302 login | — |

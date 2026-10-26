@@ -13,7 +13,7 @@ flowchart LR
     subgraph SRV["Servidor (XAMPP)"]
         A["Apache + PHP 8<br/>páginas e endpoints AJAX"]
         DB[("MariaDB / MySQL<br/>banco jovemconnect")]
-        F["Flask — IA/recomendar.py<br/>127.0.0.1:5000"]
+        F["Flask — IA/recomendar.py<br/>127.0.0.1:5000 (ou 5001–5010)"]
         L[/"logs/<br/>app.log · seguranca.log · ia.log"/]
         UP[/"uploads/curriculos/<br/>PDFs"/]
     end
@@ -277,12 +277,16 @@ flowchart LR
     subgraph W["Computador Windows (XAMPP)"]
         AP["Apache :80<br/>htdocs/JovemConnect"]
         MY[("MariaDB :3306")]
-        PY["Python + venv<br/>Flask :5000 (iniciar_ia.bat)"]
+        PY["Python + venv do projeto<br/>Flask :5000 ou 5001–5010<br/>(iniciar_ia.bat)"]
     end
     AP --- MY
     AP --- PY
     PY -. "internet (opcional)" .-> GEM["Gemini API"]
 ```
+
+Desde a v4.56, `iniciar_jovemconnect.bat` liga o Apache e o MySQL do XAMPP, cria o banco se precisar e chama o
+`iniciar_ia.bat`; `parar_jovemconnect.bat` desfaz isso no fim do uso (ver
+[INSTALACAO_E_EXECUCAO.md](INSTALACAO_E_EXECUCAO.md#início-rápido-v456)).
 
 O ambiente de referência é **Windows + XAMPP** [I: `iniciar_ia.bat`, caminhos `C:\xampp\htdocs`, uso de
 `Assets/` com maiúscula que só funciona em sistema de arquivos sem distinção de maiúsculas]. Publicar em

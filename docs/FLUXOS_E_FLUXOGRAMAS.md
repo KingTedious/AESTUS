@@ -682,7 +682,7 @@ sequenceDiagram
     autonumber
     participant N as Navegador
     participant P as IA/avaliar_ajax.php
-    participant F as Flask :5000
+    participant F as Flask (5000 ou 5001–5010)
     participant G as Gemini
     N->>P: POST action=contexto<br/>(+ X-CSRF-Token)
     Note over P: sessão, CSRF, dono da vaga,<br/>jc_empresa_pode_ver_candidato,<br/>limite de 20 chamadas / 600 s

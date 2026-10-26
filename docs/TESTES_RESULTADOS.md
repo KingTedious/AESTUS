@@ -1147,3 +1147,25 @@ Arquivo de resultado: `../doc/testes/t_doc_result.json` · 6/7 aprovados.
 | DOC-006 | MATCH-05 descrição com "concluído" + jovem cursando aplica −10 | aprovado | sem=75 com=65 |
 | DOC-007 | IA-01 /ping não devolve a chave | aprovado | {"analise_contextual":false,"assistente":false,"gemini":false,"modelo_contextual":"gemini-3.5-flash-lite","status":"ok","versao":"3.00"}  |
 
+## V456 — Versões 4.55 e 4.56
+
+Executados em 26/10/2026 na réplica Linux (PHP embutido, banco compatível com MySQL, Flask real, Gemini simulado
+e navegador automatizado). Resultados reais; os scripts `.bat` e o código exclusivo do Windows não podem ser
+executados nesse ambiente.
+
+| ID | Mudança | Resultado | Observação |
+|---|---|---|---|
+| V456-001 | Tema claro off-white (`style.css` e `admin.css`) | 119 verificações; 117 na primeira rodada | as 2 falhas eram do próprio teste (um ícone `currentColor` contado como superfície e uma página medida antes de carregar); corrigido o teste, reexecutado sem falhas. Tema escuro e alto contraste idênticos aos de antes |
+| V456-002 | Card do Match centralizado (`Vagas/avaliar.php`) | sem teste, a pedido | mudança de uma linha de estilo (`max-width:720px; margin-inline:auto`) |
+| V456-003 | Painel do jovem: 6 vagas mais recentes + "Ver todas as vagas" | coberto por V456-004 e pela regressão | — |
+| V456-004 | Card de vaga padrão com estrela (`t_cards.py`) | **32/33** | estrela com o estado do banco, favoritar sem navegar, cliques rápidos sem duplicar, erro 500 e queda de conexão sem fingir sucesso, teclado, botão de IA sem navegar, card abre a vaga certa, filtros, `favoritos.php`, celular sem rolagem horizontal, permissões (401, 403, outra conta, empresa, vaga inválida). A única falha foi o registro no console dos erros simulados pelo próprio teste; num teste separado, em uso normal, o console ficou sem erros |
+| V456-005 | Verificação do ambiente da IA (`IA/verificar_ambiente.py`) | **12/12 cenários** | `venv` válido com espaço e parênteses no caminho; `venv` de outra pasta, Python global e `venv` sem Flask recusados; criação do `venv`; ping (IA no ar, porta livre, outro programa); espera; data do backup; log sem dados sensíveis |
+| V456-006 | Porta da IA com alternativa (`t_portas.py`) | **37/37** | 5000 livre; outro programa na 5000 (IA na 5001 e o site usa a 5001); IA morta e arquivo velho (PHP não fala com outro programa); faixa toda ocupada (código 4); duas IAs ao mesmo tempo (só uma fica); arquivo adulterado ignorado; `JC_IA_PORTA` personalizado; sem IA, "indisponível" |
+| V456-007 | Regressão completa com a IA forçada para a 5001 | todas as suítes no padrão | só as 7 falhas que já existiam antes (3 na formação original, 4 no cadastro) |
+| V456-008 | Regressão completa com a IA na 5000 | todas as suítes no padrão | as mesmas 7 falhas preexistentes |
+| V456-009 | Ajudante dos scripts (`scripts/jovemconnect.php`) | **26/26** | `checar`; `criar-env` nunca sobrescreve; portas; Apache identificado pelo cabeçalho; banco de teste: instalar (20 tabelas), recusar importar por cima, seed sem duplicar, apagar só com o nome certo, recusar banco do sistema; banco real com dados intocado; MySQL inacessível sem mostrar senha; `ia-parar` fecha só a IA desta pasta e não encerra outro programa; 404 pelo navegador |
+
+**Pendentes no Windows e na escola:** executar `iniciar_ia.bat` (primeira vez, reaproveitamento, porta 5000
+ocupada, janela fechada, dois cliques seguidos), `iniciar_jovemconnect.bat` e `parar_jovemconnect.bat`, e guardar
+`logs\iniciar_ia.log`, `logs\ia_porta.json` e `logs\iniciar_jovemconnect.log`. Também não foram testados aqui
+`SO_EXCLUSIVEADDRUSE`, `msvcrt.locking` e os scripts de parada do XAMPP.

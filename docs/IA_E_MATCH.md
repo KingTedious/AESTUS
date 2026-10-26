@@ -33,7 +33,7 @@ flowchart LR
         MP["includes/match.php<br/>cálculo local + cliente Flask"]
         CA[("avaliacoes_ia<br/>cache da nota")]
     end
-    subgraph FL["Flask 127.0.0.1:5000"]
+    subgraph FL["Flask 127.0.0.1 (porta 5000 ou 5001–5010)"]
         R1["/avaliar"]
         R2["/curriculo"]
         R3["/analise_contextual"]

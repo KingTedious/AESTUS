@@ -5,6 +5,14 @@ mais a **Stage 7** (11/10/2026: Central administrativa, moderação e auditoria 
 [ADMINISTRACAO_E_MODERACAO.md](ADMINISTRACAO_E_MODERACAO.md)).
 O `README.md` da raiz do projeto continua sendo o guia rápido de instalação.
 
+> **Atualização v4.56 (26/10/2026).** Os documentos foram revistos para as versões 4.55 e 4.56: tema claro
+> off-white, card do Match centralizado, painel do jovem com as 6 vagas mais recentes, card de vaga padrão com
+> estrela de favoritar (`includes/card_vaga.php`), inicialização da IA só com o `venv` oficial (versões fixas em
+> `IA/requirements-ia.txt`), porta da IA com alternativa automática (`includes/ia_endereco.php`) e os scripts
+> `iniciar_jovemconnect.bat` / `parar_jovemconnect.bat`. Os resultados dos testes estão em
+> [TESTES_RESULTADOS.md](TESTES_RESULTADOS.md#v456--versões-455-e-456). Contagens como "135 funções" e "962
+> verificações" são da auditoria da v4.00.
+
 ## O projeto em poucas linhas
 
 **JovemConnect** é uma plataforma web de empregabilidade que conecta **jovens em busca do primeiro emprego**
@@ -17,7 +25,7 @@ Projeto acadêmico (TCC).
 |---|---|
 | Público-alvo | jovens (candidatos) e empresas (contratantes); visitantes para conhecer e tirar dúvidas |
 | Tecnologias | PHP 8.1+ (mysqli, sem framework), MariaDB/MySQL, HTML/CSS/JS sem bibliotecas, Python 3.10+ com Flask, Google Gemini (opcional), PHPMailer/Twilio (opcionais) |
-| Arquitetura | navegador → Apache/PHP → MariaDB; PHP → Flask local (`127.0.0.1:5000`) → Gemini |
+| Arquitetura | navegador → Apache/PHP → MariaDB; PHP → Flask local (`127.0.0.1:5000`, ou a próxima porta livre) → Gemini |
 | Requisitos básicos | XAMPP no Windows com PHP 8.1+; Python 3.10+ só para a IA; Composer só para e-mail/SMS |
 
 ```mermaid

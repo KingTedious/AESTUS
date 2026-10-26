@@ -135,4 +135,4 @@ Gravidade: **Crítica** (exploração simples com dano grave) · **Alta** · **M
 3. `display_errors` desligado em produção (para que warnings não apareçam na página).
 4. `session.gc_maxlifetime` (tempo real de sessão ociosa).
 5. Se `GEMINI_API_KEY` está definida como variável de ambiente do Windows (ativaria a integração antiga
-   `google-generativeai`): conferir `"gemini": true` em `http://127.0.0.1:5000/ping`.
+   `google-generativeai`): conferir `"gemini": true` em `http://127.0.0.1:5000/ping` (ou na porta de `logs/ia_porta.json`).

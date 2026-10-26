@@ -5,6 +5,20 @@
 > Windows/XAMPP **não foram executados nesta auditoria** (o ambiente de testes foi uma réplica em Linux); os
 > comandos citados são os que estão no projeto.
 
+## Início rápido (v4.56)
+
+Num computador com XAMPP e o projeto em `C:\xampp\htdocs\<pasta>`:
+
+1. Dê dois cliques em **`iniciar_jovemconnect.bat`**. Ele confere o PHP, oferece criar o `.env`, liga o Apache e o
+   MySQL do XAMPP, oferece criar o banco com o `schema.sql` (só se ele não existir ou estiver vazio) e os dados de
+   demonstração, e por fim chama o `iniciar_ia.bat` (IA e navegador). Tudo o que cria, ele pergunta antes.
+2. Ao terminar, dê dois cliques em **`parar_jovemconnect.bat`**. Ele fecha a IA desta pasta e pergunta, um de cada
+   vez, se deve apagar o banco do XAMPP, desligar o XAMPP e apagar a pasta do projeto do `htdocs` (útil em
+   computadores emprestados, como os da escola). Para apagar o banco ou a pasta, é preciso digitar o nome; antes de
+   apagar a pasta, ele avisa sobre alterações do Git que ainda não foram enviadas.
+
+Os passos abaixo explicam o que esses scripts fazem e como fazer tudo à mão.
+
 ## 1. Preparar o ambiente
 
 1. Instale o **XAMPP** (Apache + MariaDB + PHP). O PHP precisa ser **8.1 ou mais novo** (ver
@@ -18,9 +32,11 @@
    será `http://localhost/<nome-da-pasta>/`.
 2. Opcional (e-mail/SMS), na pasta do projeto: `composer install` — cria `vendor/` (não versionada).
    **Sem isso, verificação de e-mail, verificação de telefone e recuperação de senha não enviam nada.**
-3. Dependências Python: o `iniciar_ia.bat` instala sozinho `flask` e `flask-cors` na primeira execução
-   (precisa de internet uma vez). Não é preciso instalar o `requirements.txt` inteiro — ele lista pacotes que o
-   código não usa (`pandas`, `scikit-learn`, `mysql-connector-python`).
+3. Dependências Python: na primeira vez em cada computador, o `iniciar_ia.bat` avisa que o `venv` não pode ser
+   usado e, se você responder **S**, cria o `venv` deste computador com as versões fixas de
+   `IA/requirements-ia.txt` (precisa de internet uma vez). Não copie a pasta `venv` de um computador para outro.
+   Não é preciso instalar o `requirements.txt` inteiro — ele lista pacotes que o código não usa (`pandas`,
+   `scikit-learn`, `mysql-connector-python`).
 
 ## 3. Configurar o banco de dados
 
@@ -98,12 +114,16 @@ Lista completa: [CONFIGURACAO.md](CONFIGURACAO.md).
 ## 8. Iniciar os serviços
 
 1. XAMPP: **Apache** e **MySQL** em "Running".
-2. Dê dois cliques em `iniciar_ia.bat`. Ele:
-   - procura um Python que tenha Flask (`venv` do projeto → `venv-<NOME-DO-PC>` → Python do sistema);
-   - na primeira vez cria `venv-<NOME-DO-PC>` e instala `flask flask-cors`;
-   - abre a janela minimizada **"JovemConnect - IA"** com `IA\recomendar.py`;
-   - abre `http://localhost/<pasta>/index.php` no navegador.
-3. Sem o Windows: `python IA/recomendar.py` na pasta do projeto (comando equivalente ao que o `.bat` executa).
+2. Dê dois cliques em `iniciar_ia.bat` (ou use o `iniciar_jovemconnect.bat`, que faz o passo 1 e chama este). Ele:
+   - usa **só** o ambiente oficial `venv` da pasta do projeto (nunca o Python global nem `venv-<NOME-DO-PC>`);
+   - se o `venv` não existir ou tiver vindo de outro computador, para e explica; com **S**, guarda o antigo como
+     `venv.antigo-<data>` e cria um novo com as versões fixas de `IA/requirements-ia.txt`;
+   - se a IA desta pasta já estiver no ar, reaproveita-a em vez de abrir outra;
+   - abre a janela **"JovemConnect - IA"** com `IA\recomendar.py` (fechar a janela desliga a IA) e espera a IA
+     confirmar a porta (5000 ou a próxima livre de 5001–5010, gravada em `logs\ia_porta.json`);
+   - abre `http://localhost/<pasta>/index.php` no navegador;
+   - grava o diagnóstico em `logs\iniciar_ia.log`.
+3. Sem o Windows: `venv/bin/python IA/recomendar.py` na pasta do projeto (comando equivalente ao que o `.bat` executa).
 
 ## 9. Endereços locais
 
@@ -111,7 +131,7 @@ Lista completa: [CONFIGURACAO.md](CONFIGURACAO.md).
 |---|---|
 | `http://localhost/JovemConnect/` | site (troque pelo nome da sua pasta) |
 | `http://localhost/phpmyadmin` | administração do banco (XAMPP) |
-| `http://127.0.0.1:5000/ping` | estado do Flask (não mostra a chave) |
+| `http://127.0.0.1:5000/ping` | estado do Flask (não mostra a chave); se a 5000 estiver ocupada, a porta em uso está em `logs/ia_porta.json` |
 | `http://localhost/JovemConnect/admin/login.php` | Central administrativa (Stage 7; exige a migração e um administrador criado pela linha de comando) |
 
 ## 10. Verificar o funcionamento

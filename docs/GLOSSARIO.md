@@ -27,7 +27,7 @@
 | **Mentor de Currículo** | Página `Vagas/curriculoIA.php`, sem link no site. | — |
 | **Assistente** | Chat ✦ que responde dúvidas sobre o site com o Gemini ou respostas prontas; não executa ações. | `includes/assistente.php` |
 | **Respostas prontas** | Lista fixa `RESPOSTAS` em JavaScript usada quando a IA não responde. | `includes/assistente.php` |
-| **Serviço de IA** | Aplicação Flask `IA/recomendar.py` em `127.0.0.1:5000`, chamada só pelo PHP. Inclui o Match e a ponte para o Gemini. | `iniciar_ia.bat` |
+| **Serviço de IA** | Aplicação Flask `IA/recomendar.py` em `127.0.0.1` (porta 5000 por padrão ou a próxima livre de 5001–5010, gravada em `logs/ia_porta.json`), chamada só pelo PHP. Inclui o Match e a ponte para o Gemini. | `iniciar_ia.bat` |
 | **Gemini** | API de IA generativa do Google, opcional (`GEMINI_API_KEY`). | `IA/recomendar.py` |
 | **Integração antiga** | Uso do pacote `google-generativeai` com `gemini-1.5-flash`; só ativa com variável de ambiente real e o pacote instalado. | `IA/recomendar.py` |
 | **Endpoint** | Arquivo PHP ou rota do Flask que responde JSON para chamadas `fetch` (não uma página). | `IA/avaliar_ajax.php`, `Vagas/favoritar.php` |

@@ -42,7 +42,7 @@ aviso "Resposta automática: o assistente com IA não está disponível agora".
 
 ## Roteiro de testes manuais
 
-Antes: `iniciar_ia.bat` aberto; <http://127.0.0.1:5000/ping> responde.
+Antes: `iniciar_ia.bat` aberto; <http://127.0.0.1:5000/ping> responde (se a 5000 estava ocupada, use a porta de `logs/ia_porta.json`).
 
 **Com chave configurada** (`"assistente": true` no `/ping`)
 1. Página inicial → ✦ → "Como eu me candidato a uma vaga?" → aparece

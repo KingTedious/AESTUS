@@ -386,7 +386,7 @@ Botão "Pedir análise complementar por IA" na ficha da vaga e na ficha da conta
 1. O PHP monta só os **textos públicos** (vaga: título, descrição, salário, requisitos, benefícios; jovem: área de
    interesse, resumo, habilidades, experiências; empresa: área de atuação e descrição), **mascara** e-mails,
    números longos (telefone, CPF, cartão) e reduz links ao domínio.
-2. Envia ao Flask local (`POST http://127.0.0.1:5000/moderacao`), que consulta o Gemini **se** houver chave no
+2. Envia ao Flask local (`POST /moderacao` no endereço de `jc_ia_url()`: `127.0.0.1`, porta 5000 ou a escolhida ao iniciar), que consulta o Gemini **se** houver chave no
    servidor. As instruções mandam tratar o texto como **dado** (proteção contra "prompt injection").
 3. A resposta é **validada**: risco e categorias só de listas fechadas, resumo curto sem marcação; fora do
    formato é descartada. A análise do mesmo texto é reaproveitada por até 1 hora (o administrador é avisado).
