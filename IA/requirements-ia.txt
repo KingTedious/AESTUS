@@ -1,0 +1,14 @@
+# Dependencias do servidor de IA (IA/recomendar.py) - versoes FIXAS.
+# Sao exatamente as versoes do venv em que o projeto foi desenvolvido e testado
+# (Python 3.13; minimo 3.10, exigido pelo click 8.3). O iniciar_ia.bat so instala
+# isto quando VOCE confirma a reconstrucao do venv; nao atualiza nada sozinho.
+# Instalacao manual:  venv\Scripts\python.exe -m pip install -r IA\requirements-ia.txt
+flask==3.1.3
+flask-cors==6.0.2
+werkzeug==3.1.8
+jinja2==3.1.6
+itsdangerous==2.2.0
+click==8.3.3
+blinker==1.9.0
+markupsafe==3.0.3
+colorama==0.4.6; platform_system == "Windows"

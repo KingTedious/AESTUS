@@ -11,6 +11,7 @@ if (!isset($_SESSION['jovem_id'])) {
 
 require_once dirname(__DIR__) . "/includes/config.php";
 require_once dirname(__DIR__) . "/includes/conta_status.php";   // Stage 7: só vagas visíveis
+require_once dirname(__DIR__) . "/includes/card_vaga.php";      // card de vaga padrão (com favorito)
 
 $jovem_id   = intval($_SESSION['jovem_id']);
 $sql_visiveis = jc_vagas_visiveis_sql($conn, 'v');   // '' sem a migração da Stage 7
@@ -41,13 +42,17 @@ $total_vagas = $res_total ? (int) $res_total->fetch_assoc()['total'] : 0;
 $stmt_vagas = $conn->prepare(
     "SELECT v.id, v.titulo, v.descricao, v.cidade, v.estado,
             v.salario, v.carga_horaria, v.area, v.tipo_contrato,
-            e.nome_empresa
+            e.nome_empresa,
+            IF(f.id IS NOT NULL, 1, 0) AS eh_favorito
      FROM   vagas v
      JOIN   empresas e ON v.empresa_id = e.id
+     LEFT JOIN favoritos f
+            ON f.vaga_id = v.id AND f.jovem_id = ?
      WHERE  1 = 1{$sql_visiveis}
      ORDER  BY v.criado_em DESC, v.id DESC
      LIMIT  {$limite_painel}"
 );
+$stmt_vagas->bind_param("i", $jovem_id);   // estrela: favoritos DESTE jovem (sessão)
 $stmt_vagas->execute();
 $result_vagas = $stmt_vagas->get_result();
 $qtd_exibidas = $result_vagas->num_rows;
@@ -200,76 +205,9 @@ $noticias = [
         <?php if ($total_vagas > 0): ?>
 
         <div class="items-grid fade-up" id="gridVagas">
-            <?php while ($vaga = $result_vagas->fetch_assoc()): ?>
-
-            <div class="job-card"
-                 onclick="location.href='../Vagas/listar.php?id=<?= intval($vaga['id']) ?>&amp;voltar=painel'"
-                 style="cursor:pointer;"
-                 title="Ver detalhes da vaga">
-
-                <!-- Título + badge de área -->
-                <div class="job-card-top">
-                    <h3 class="job-card-title">
-                        <!-- Link de verdade — antes só o clique do mouse no card abria a vaga
-                             (pelo teclado não havia como chegar aos detalhes) -->
-                        <a href="../Vagas/listar.php?id=<?= intval($vaga['id']) ?>&amp;voltar=painel"
-                           onclick="event.stopPropagation()"
-                           style="color:inherit;text-decoration:none;">
-                            <?= htmlspecialchars($vaga['titulo']) ?>
-                        </a>
-                    </h3>
-                    <?php if (!empty($vaga['area'])): ?>
-                    <span class="badge badge-area"><?= htmlspecialchars($vaga['area']) ?></span>
-                    <?php endif; ?>
-                </div>
-
-                <!-- Empresa -->
-                <div class="job-card-company">
-                    <span class="i i-building" aria-hidden="true"></span>
-                    <?= htmlspecialchars($vaga['nome_empresa']) ?>
-                </div>
-
-                <!-- Salário + carga horária -->
-                <div class="job-card-meta">
-                    <?php if (!empty($vaga['salario'])): ?>
-                    <div class="job-card-meta-item">
-                        <span class="i i-banknote" aria-hidden="true"></span>
-                        <span>R$ <?= htmlspecialchars($vaga['salario']) ?></span>
-                    </div>
-                    <?php endif; ?>
-
-                    <?php if (!empty($vaga['carga_horaria'])): ?>
-                    <div class="job-card-meta-item">
-                        <span class="i i-clock" aria-hidden="true"></span>
-                        <span><?= htmlspecialchars($vaga['carga_horaria']) ?></span>
-                    </div>
-                    <?php endif; ?>
-                </div>
-
-                <!-- Localização -->
-                <?php if (!empty($vaga['cidade'])): ?>
-                <div class="job-card-location">
-                    <span class="i i-map-pin" aria-hidden="true"></span>
-                    <span>
-                        <?= htmlspecialchars($vaga['cidade']) ?>
-                        <?= !empty($vaga['estado']) ? ', ' . htmlspecialchars($vaga['estado']) : '' ?>
-                    </span>
-                </div>
-                <?php endif; ?>
-
-                <!-- Botão IA (rodapé do card) -->
-                <div class="job-card-footer" onclick="event.stopPropagation()">
-                    <button
-                        class="btn btn-ia"
-                        onclick="avaliarMatch(<?= intval($vaga['id']) ?>, this)"
-                        data-vaga="<?= intval($vaga['id']) ?>">
-                        <span class="i i-sparkles" aria-hidden="true"></span> Avaliar Match com IA
-                    </button>
-                </div>
-
-            </div><!-- /.job-card -->
-
-            <?php endwhile; ?>
+            <?php while ($vaga = $result_vagas->fetch_assoc()):
+                jc_card_vaga($vaga, '../Vagas/', 'painel');   // includes/card_vaga.php
+            endwhile; ?>
         </div><!-- /#gridVagas -->
 
         <!-- Lista completa: busca, filtros por área e cidade, favoritas -->
@@ -397,6 +335,7 @@ async function avaliarMatch(vagaId, btn) {
 
 </script>
 
+<?php jc_card_vaga_script('../Vagas/favoritar.php'); ?>
 <?php $stmt_vagas->close(); ?>
 </body>
 </html>

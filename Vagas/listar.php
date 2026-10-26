@@ -15,6 +15,7 @@ require_once dirname(__DIR__) . "/includes/config.php";
 require_once dirname(__DIR__) . "/includes/locais.php";   // Local efetivo da vaga
 require_once dirname(__DIR__) . "/includes/conta_status.php";   // Stage 7: visibilidade (moderação/suspensão)
 require_once dirname(__DIR__) . "/includes/moderacao.php";      // Stage 7: motivos de denúncia
+require_once dirname(__DIR__) . "/includes/card_vaga.php";      // card de vaga padrão (modelo do painel)
 
 $jovem_id = intval($_SESSION['jovem_id']);
 
@@ -576,97 +577,8 @@ $areas_result = $conn->query(
 
         <div class="items-grid fade-up" id="gridVagas">
             <?php while ($vaga = $result->fetch_assoc()):
-                $vaga_id     = intval($vaga['id']);
-                $eh_favorito = (bool)$vaga['eh_favorito'];
-            ?>
-
-            <div class="job-card"
-                 data-titulo="<?= strtolower(htmlspecialchars($vaga['titulo'])) ?>"
-                 data-empresa="<?= strtolower(htmlspecialchars($vaga['nome_empresa'])) ?>">
-
-                <!-- Título + badge + favorito -->
-                <div class="job-card-top">
-                    <h3 class="job-card-title">
-                        <a href="listar.php?id=<?= $vaga_id ?>"
-                           style="color:inherit;text-decoration:none;">
-                            <?= htmlspecialchars($vaga['titulo']) ?>
-                        </a>
-                    </h3>
-                    <div class="d-flex align-center gap-8">
-                        <?php if (!empty($vaga['area'])): ?>
-                        <span class="badge badge-area"><?= htmlspecialchars($vaga['area']) ?></span>
-                        <?php endif; ?>
-                        <!-- Botão de favorito (AJAX POST) -->
-                        <button
-                            type="button"
-                            class="btn-fav"
-                            id="fav-<?= $vaga_id ?>"
-                            onclick="toggleFavorito(<?= $vaga_id ?>, this)"
-                            title="<?= $eh_favorito ? 'Remover dos favoritos' : 'Salvar nos favoritos' ?>"
-                            aria-label="<?= $eh_favorito ? 'Remover dos favoritos' : 'Salvar nos favoritos' ?>"
-                            style="
-                                background:none;border:none;cursor:pointer;
-                                font-size:18px;line-height:1;
-                                color:<?= $eh_favorito ? 'var(--jc-favorito, #facc15)' : 'var(--text-muted)' ?>;
-                                transition:color var(--dur),transform var(--dur);
-                            ">
-                            <span class="i <?= $eh_favorito ? 'i-star-cheia' : 'i-star' ?>" aria-hidden="true"></span>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Empresa -->
-                <div class="job-card-company">
-                    <span class="i i-building" aria-hidden="true"></span>
-                    <?= htmlspecialchars($vaga['nome_empresa']) ?>
-                </div>
-
-                <!-- Salário + carga horária -->
-                <div class="job-card-meta">
-                    <?php if (!empty($vaga['salario'])): ?>
-                    <div class="job-card-meta-item">
-                        <span class="i i-banknote" aria-hidden="true"></span>
-                        <span>R$ <?= htmlspecialchars($vaga['salario']) ?></span>
-                    </div>
-                    <?php endif; ?>
-                    <?php if (!empty($vaga['carga_horaria'])): ?>
-                    <div class="job-card-meta-item">
-                        <span class="i i-clock" aria-hidden="true"></span>
-                        <span><?= htmlspecialchars($vaga['carga_horaria']) ?></span>
-                    </div>
-                    <?php endif; ?>
-                </div>
-
-                <!-- Localização -->
-                <?php if (!empty($vaga['cidade'])): ?>
-                <div class="job-card-location">
-                    <span class="i i-map-pin" aria-hidden="true"></span>
-                    <span>
-                        <?= htmlspecialchars($vaga['cidade']) ?>
-                        <?= !empty($vaga['estado']) ? ', ' . htmlspecialchars($vaga['estado']) : '' ?>
-                    </span>
-                </div>
-                <?php endif; ?>
-
-                <!-- Rodapé do card: botão de match IA -->
-                <div class="job-card-footer">
-                    <div style="display:flex;gap:8px;">
-                        <a href="listar.php?id=<?= $vaga_id ?>"
-                           class="btn btn-ghost btn-sm" style="flex:1;justify-content:center;">
-                            Ver Detalhes
-                        </a>
-                        <button
-                            class="btn btn-ia"
-                            style="flex:1;"
-                            onclick="avaliarMatch(<?= $vaga_id ?>, this)">
-                            <span class="i i-sparkles" aria-hidden="true"></span> Match IA
-                        </button>
-                    </div>
-                </div>
-
-            </div><!-- /.job-card -->
-
-            <?php endwhile; ?>
+                jc_card_vaga($vaga, '');   // includes/card_vaga.php (detalhe volta para esta lista)
+            endwhile; ?>
         </div><!-- /#gridVagas -->
 
         <?php else: ?>
@@ -709,37 +621,7 @@ btnTheme?.addEventListener('click', () => {
     applyTheme(next); localStorage.setItem('jc-theme', next);
 });
 
-/* ── Toggle favorito (AJAX POST) ───────────────────────────── */
-async function toggleFavorito(vagaId, btn) {
-    if (btn.disabled) return;                  // Ignora cliques repetidos durante a requisição
-    btn.disabled = true;
-    btn.setAttribute('aria-busy', 'true');
-    btn.style.transform = 'scale(.8)';
-    const fd = new FormData();
-    fd.append('vaga_id', vagaId);
-    try {
-        const res = await fetch('favoritar.php', {
-            method: 'POST',
-            headers: { 'X-Requested-With': 'XMLHttpRequest' },
-            body: fd,
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || typeof data.favorito !== 'boolean')   // resposta inesperada também é erro
-            throw Object.assign(new Error(data.error || ''), { amigavel: !!data.error });
-        const rotulo = data.favorito ? 'Remover dos favoritos' : 'Salvar nos favoritos';
-        btn.replaceChildren(jcIcone(data.favorito ? 'star-cheia' : 'star'));   // Ícone
-        btn.style.color = data.favorito ? 'var(--jc-favorito, #facc15)' : 'var(--text-muted)';
-        btn.title       = rotulo;
-        btn.setAttribute('aria-label', rotulo);  // O leitor de tela acompanha o estado
-    } catch (err) {
-        console.error('Erro ao favoritar:', err);
-        window.jcAviso?.(err?.amigavel ? err.message : 'Não foi possível atualizar os favoritos. Tente de novo.');
-    } finally {
-        btn.style.transform = '';
-        btn.disabled = false;
-        btn.removeAttribute('aria-busy');
-    }
-}
+/* Toggle favorito: agora vem de includes/card_vaga.php (jc_card_vaga_script) */
 
 /* ── Avaliar Match IA ──────────────────────────────────────── */
 async function avaliarMatch(vagaId, btn) {
@@ -776,10 +658,11 @@ async function avaliarMatch(vagaId, btn) {
         // Erro de rede/resposta inválida não aparece em inglês ("Failed to fetch")
         btn.replaceChildren(jcIcone('sparkles'), err?.amigavel ? err.message : 'Não foi possível avaliar agora. Tente de novo.');
         btn.title       = 'Clique para tentar novamente';
-        setTimeout(() => { btn.innerHTML = '<span class="i i-sparkles" aria-hidden="true"></span> Match IA'; btn.title = ''; }, 3500);
+        setTimeout(() => { btn.innerHTML = '<span class="i i-sparkles" aria-hidden="true"></span> Avaliar Match com IA'; btn.title = ''; }, 3500);
     }
 }
 </script>
+<?php jc_card_vaga_script('favoritar.php'); ?>
 
 </body>
 </html>

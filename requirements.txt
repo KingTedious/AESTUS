@@ -1,6 +1,7 @@
 # Requisitos do Sistema - JovemConnect
 # (linhas com "#" são comentários; "pip install -r requirements.txt" ignora)
-# O servidor de IA precisa só de flask e flask-cors (é o que o iniciar_ia.bat instala).
+# O servidor de IA precisa só de flask e flask-cors, com as versões fixas de
+# IA/requirements-ia.txt (é o que o iniciar_ia.bat instala ao reconstruir o venv).
 #
 # [Ambiente]
 # - Servidor: Apache 2.4+
