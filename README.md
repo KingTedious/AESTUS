@@ -32,6 +32,16 @@ Plataforma de empregabilidade que conecta jovens em busca do primeiro emprego
 
 ## Como instalar (XAMPP)
 
+**Jeito rápido (computador novo, escola, apresentação):** com a pasta em
+`C:\xampp\htdocs\`, dê dois cliques em **`iniciar_jovemconnect.bat`**. Ele confere o PHP,
+liga o Apache e o MySQL do XAMPP (se ainda não estiverem ligados), pergunta se pode
+criar o banco e instalar o `schema.sql` (só em banco vazio; oferece os dados de
+demonstração), inicia a IA e abre o site. Para desligar, use
+**`parar_jovemconnect.bat`**: ele fecha a IA e **pergunta** se deve apagar o banco do
+projeto, desligar o XAMPP e excluir a pasta deste computador (cada exclusão pede
+`S` e que você digite o nome). Não use a limpeza no seu computador principal.
+Os passos abaixo são o jeito manual.
+
 1. **Arquivos** — coloque a pasta do projeto em `C:\xampp\htdocs\` (ex.:
    `C:\xampp\htdocs\JovemConnect`) e inicie Apache e MySQL no XAMPP.
 2. **Dependências PHP** — na pasta do projeto: `composer install`
