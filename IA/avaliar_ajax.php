@@ -30,6 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 require_once dirname(__DIR__) . "/includes/config.php";
 require_once dirname(__DIR__) . "/includes/match.php";   // Algoritmo em PHP + local efetivo
+require_once dirname(__DIR__) . "/includes/ia_endereco.php"; // porta da IA (5000 ou a escolhida ao iniciar)
 require_once dirname(__DIR__) . "/includes/candidato.php";  // regra de acesso da empresa ao candidato
 require_once dirname(__DIR__) . "/includes/conta_status.php"; // Stage 7: visibilidade das vagas
 csrf_require(true);
@@ -347,7 +348,7 @@ if ($action === 'curriculo') {
     ];
 
     // Chama Flask
-    $ch = curl_init("http://127.0.0.1:5000/curriculo");
+    $ch = curl_init(jc_ia_url('/curriculo'));
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_POST           => true,

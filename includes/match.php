@@ -22,6 +22,7 @@
    ============================================================ */
 
 require_once __DIR__ . '/locais.php';   // local efetivo da vaga
+require_once __DIR__ . '/ia_endereco.php';   // porta da IA (5000 ou a escolhida ao iniciar)
 
 if (!function_exists('jc_match_calcular')) {
 
@@ -426,7 +427,7 @@ if (!function_exists('jc_match_calcular')) {
             return null;
         }
         $inicio = microtime(true);
-        $ch = curl_init('http://127.0.0.1:5000' . $rota);
+        $ch = curl_init(jc_ia_url($rota));
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_POST           => true,

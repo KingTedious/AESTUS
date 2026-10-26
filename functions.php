@@ -224,8 +224,10 @@ function h(string $texto): string {
  *   if ($resultado === false) { // Flask offline }
  *   $score = $resultado['score'] ?? 0;
  */
+require_once __DIR__ . '/includes/ia_endereco.php';   // porta da IA (5000 ou a escolhida ao iniciar)
+
 function chamarFlask(string $rota, array $dados = [], int $timeout = 6): array|false {
-    $url = "http://127.0.0.1:5000/" . ltrim($rota, '/');
+    $url = jc_ia_url($rota);
 
     $ch = curl_init($url);
     curl_setopt_array($ch, [
@@ -261,7 +263,7 @@ function chamarFlask(string $rota, array $dados = [], int $timeout = 6): array|f
  * @return bool true se online, false se offline
  */
 function flaskOnline(): bool {
-    $ch = curl_init("http://127.0.0.1:5000/ping");
+    $ch = curl_init(jc_ia_url('/ping'));
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT        => 2,

@@ -194,7 +194,7 @@ Os fluxos com diagramas estão em [FLUXOS_E_FLUXOGRAMAS.md](FLUXOS_E_FLUXOGRAMAS
 |---|---|
 | PHP → banco | `DB_*` do `.env` (lido por `includes/env.php`; variáveis do sistema têm prioridade) |
 | PHP → e-mail/SMS | `SMTP_*`, `TWILIO_*` no `.env` + `composer install` |
-| PHP → Flask | endereço fixo `http://127.0.0.1:5000` em `jc_flask_post` (`includes/match.php`) e nos cURL de `IA/avaliar_ajax.php`/`Vagas/curriculoIA.php` |
+| PHP → Flask | `jc_ia_url()` (`includes/ia_endereco.php`): `127.0.0.1` + a porta que a IA gravou em `logs/ia_porta.json` (5000 ou a primeira livre de `JC_IA_PORTAS_EXTRAS`), conferida no `/ping` (sem IA confirmada: `null`, tratado como IA fora do ar); usado por `jc_flask_post`, `chamarFlask`/`flaskOnline`, `IA/avaliar_ajax.php`, `Vagas/curriculoIA.php` e `admin/ia_moderacao.php` |
 | Flask → Gemini | `GEMINI_API_KEY`, `GEMINI_MODEL`, `GEMINI_TIMEOUT` (ambiente ou `.env`, lido por `_config`) |
 | Logs | `JC_LOG_DIR`, `JC_LOG_MAX_MB`, `JC_LOG_DIAS` (PHP e Flask) |
 | Contato | constante `JC_CONTATO_EMAIL` no código (`includes/documentos.php`) |

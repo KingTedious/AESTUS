@@ -14,6 +14,7 @@
    - Sem JavaScript, responde com uma página simples; com fetch, JSON.
    ============================================================ */
 require_once dirname(__DIR__) . '/includes/admin/nucleo.php';
+require_once dirname(__DIR__) . '/includes/ia_endereco.php';   // porta da IA (5000 ou a escolhida ao iniciar)
 
 $json = ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'fetch';
 if (!jc_admin_post()) {
@@ -142,7 +143,7 @@ $corpo = json_encode(['tipo' => $tipo_ia, 'campos' => $campos], JSON_UNESCAPED_U
 $resp = null;
 $do_cache = false;
 $motivo = 'indisponivel';
-$ch = curl_init('http://127.0.0.1:5000/moderacao');
+$ch = curl_init(jc_ia_url('/moderacao'));
 curl_setopt_array($ch, [
     CURLOPT_POST => true,
     CURLOPT_POSTFIELDS => $corpo,

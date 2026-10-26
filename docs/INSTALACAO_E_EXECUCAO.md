@@ -144,9 +144,11 @@ Lista completa: [CONFIGURACAO.md](CONFIGURACAO.md).
 | Erro de sintaxe em páginas com `never` | PHP 8.0 | atualizar para PHP 8.1+ |
 | Página sem estilo | servidor diferencia maiúsculas (`Assets/` × `assets/`) | ver [MANUTENCAO_E_EVOLUCAO.md](MANUTENCAO_E_EVOLUCAO.md#publicar-fora-do-xampp) |
 | E-mail/SMS não chega | sem `composer install` ou credenciais | `composer install`; preencher `SMTP_*`/`TWILIO_*`; ver o `error_log` do PHP (`C:\xampp\php\logs` ou `C:\xampp\apache\logs\error.log`, conforme o php.ini) |
-| `iniciar_ia.bat`: "Python 3 nao encontrado" | Python ausente do PATH | instalar marcando "Add python.exe to PATH" |
-| `iniciar_ia.bat`: "Nao foi possivel instalar o Flask" | sem internet na 1ª vez | conectar e rodar de novo |
-| `/ping` não abre | Flask fechado ou porta 5000 ocupada | reabrir o `.bat`; ver a janela "JovemConnect - IA" |
+| `iniciar_ia.bat`: "o ambiente oficial (venv) nao pode ser usado" | `venv` ausente ou criado em outro PC | responder **S** para reconstruir o `venv` deste PC (o anterior vira `venv.antigo-<data>`) |
+| `iniciar_ia.bat`: "nenhum Python 3.10+ utilizavel" | Python ausente do PATH | instalar o Python 3.13 marcando "Add python.exe to PATH" |
+| `iniciar_ia.bat`: "a instalacao das dependencias falhou" | sem internet/proxy na reconstrução | conectar e rodar de novo (o backup é mantido) |
+| `iniciar_ia.bat`: "a IA nao confirmou a porta" | nenhuma porta livre na faixa ou erro na IA | ver a janela "JovemConnect - IA" e `logs/iniciar_ia.log`; liberar uma porta ou ajustar `JC_IA_PORTAS_EXTRAS` |
+| `/ping` não abre | Flask fechado, ou rodando em outra porta (5000 ocupada) | a porta em uso está em `logs/ia_porta.json` e na janela da IA; reabrir o `.bat` |
 | `"assistente": false` com chave no `.env` | Flask iniciado antes de editar o `.env` | fechar a janela do Flask e rodar o `.bat` de novo |
 | Análise contextual sempre "não disponível" | chave inválida, modelo inexistente, limite | ver `gemini.falha` em `logs/ia.log` (`motivo`) |
 | "Sua sessão expirou ou a página está desatualizada" | token CSRF de outra sessão | recarregar a página |

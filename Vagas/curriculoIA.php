@@ -11,6 +11,7 @@ if (!isset($_SESSION['jovem_id'])) {
 
 require_once dirname(__DIR__) . "/includes/config.php";
 require_once dirname(__DIR__) . "/includes/moderacao.php";   // Stage 7: validação + moderação centrais
+require_once dirname(__DIR__) . "/includes/ia_endereco.php"; // porta da IA (5000 ou a escolhida ao iniciar)
 
 $jovem_id = intval($_SESSION['jovem_id']);
 
@@ -81,7 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $erro_ia === null) {
     ];
 
     // ── Chama Flask via cURL ─────────────────────────────────────────────────
-    $ch = curl_init("http://127.0.0.1:5000/curriculo");
+    $ch = curl_init(jc_ia_url('/curriculo'));
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_POST           => true,

@@ -921,21 +921,170 @@ def ping():
         "assistente": bool(CTX_CHAVE),
         "moderacao": bool(CTX_CHAVE),
         "modelo_contextual": CTX_MODELO,
-        "versao": "3.00"
+        "versao": "3.00",
+        # Identifica ESTA execução: o PHP e o iniciar_ia.bat conferem se a porta
+        # gravada em logs/ia_porta.json é mesmo desta IA (arquivo desatualizado).
+        "instancia": INSTANCIA,
     })
+
+
+# ── PORTA, INSTÂNCIA ÚNICA E ARQUIVO DE ESTADO ──────────────────────────────
+# A IA tenta a porta preferida (JC_IA_PORTA, padrão 5000) e, se outro programa
+# estiver nela, uma faixa limitada (JC_IA_PORTAS_EXTRAS, padrão 5001-5010).
+# - A porta é RESERVADA no próprio bind (sem intervalo entre "verificar" e "usar");
+#   no Windows o bind é exclusivo (SO_EXCLUSIVEADDRUSE), ninguém divide a porta.
+# - logs/ia.lock (trava do sistema operacional) garante uma só IA por pasta do
+#   projeto; a trava some sozinha quando o processo termina.
+# - A porta escolhida vai para logs/ia_porta.json (escrita atômica), lido pelo PHP
+#   (includes/ia_endereco.php) e pelo iniciar_ia.bat. A pasta logs/ é bloqueada
+#   para o navegador. Nenhum processo de outro programa é encerrado.
+import sys
+from werkzeug.serving import ThreadedWSGIServer
+
+INSTANCIA = uuid.uuid4().hex
+_RAIZ_PROJETO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_DIR_ESTADO = os.path.join(_RAIZ_PROJETO, "logs")
+ARQ_PORTA = os.path.join(_DIR_ESTADO, "ia_porta.json")
+ARQ_TRAVA = os.path.join(_DIR_ESTADO, "ia.lock")
+_PORTA_PADRAO, _FAIXA_PADRAO = 5000, (5001, 5010)
+_FAIXA_MAX = 50   # mesma regra de includes/ia_endereco.php e IA/verificar_ambiente.py
+
+
+def portas_candidatas() -> list:
+    """Porta preferida + faixa extra, validadas (1024–65535, faixa de no máximo 50 portas)."""
+    def numero(texto, padrao):
+        texto = (texto or "").strip()
+        return int(texto) if texto.isdigit() and 1024 <= int(texto) <= 65535 else padrao
+    preferida = numero(_config("JC_IA_PORTA"), _PORTA_PADRAO)
+    inicio, fim = _FAIXA_PADRAO
+    faixa = re.fullmatch(r"\s*(\d{4,5})\s*-\s*(\d{4,5})\s*", _config("JC_IA_PORTAS_EXTRAS") or "")
+    if faixa:
+        a, b = int(faixa.group(1)), int(faixa.group(2))
+        if 1024 <= a <= b <= 65535 and b - a < _FAIXA_MAX:
+            inicio, fim = a, b
+    return [preferida] + [p for p in range(inicio, fim + 1) if p != preferida]
+
+
+class _PortaOcupada(Exception):
+    pass
+
+
+class _ServidorIA(ThreadedWSGIServer):
+    """Servidor do Werkzeug (o mesmo do app.run) com bind exclusivo e erro tratável."""
+    def server_bind(self):
+        try:
+            if os.name == "nt":
+                self.allow_reuse_address = False
+                self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+            super().server_bind()
+        except OSError as erro:
+            raise _PortaOcupada(str(erro)) from erro
+
+
+def _travar_instancia():
+    """Trava logs/ia.lock (sem esperar). Devolve o arquivo aberto, ou None se outra IA desta pasta já tem a trava."""
+    os.makedirs(_DIR_ESTADO, exist_ok=True)
+    arquivo = open(ARQ_TRAVA, "a+")
+    try:
+        if os.name == "nt":
+            import msvcrt
+            arquivo.seek(0)
+            msvcrt.locking(arquivo.fileno(), msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(arquivo.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        arquivo.close()
+        return None
+    return arquivo
+
+
+def _gravar_estado(porta: int) -> None:
+    dados = {"porta": porta, "instancia": INSTANCIA, "pid": os.getpid(),
+             "iniciado_em": int(time.time()), "versao": "3.00"}
+    temporario = ARQ_PORTA + ".tmp"
+    with open(temporario, "w", encoding="utf-8") as arquivo:
+        json.dump(dados, arquivo)
+    for tentativa in range(20):          # no Windows o PHP pode estar lendo o arquivo naquele instante
+        try:
+            os.replace(temporario, ARQ_PORTA)
+            return
+        except PermissionError:
+            time.sleep(0.05)
+    os.replace(temporario, ARQ_PORTA)
+
+
+def _apagar_estado() -> None:
+    """Na saída normal, apaga o arquivo SE ainda for desta execução."""
+    try:
+        with open(ARQ_PORTA, encoding="utf-8") as arquivo:
+            if json.load(arquivo).get("instancia") == INSTANCIA:
+                os.remove(ARQ_PORTA)
+    except (OSError, ValueError, AttributeError):
+        pass
+
+
+def _abrir_servidor(candidatas: list):
+    for porta in candidatas:
+        try:
+            return _ServidorIA("127.0.0.1", porta, app), porta
+        except _PortaOcupada as erro:
+            print(f"[IA] Porta {porta} indisponível ({erro}); tentando a próxima da faixa...", flush=True)
+    return None, None
 
 
 # ── INICIALIZAÇÃO ─────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
+    import atexit
+
+    trava = _travar_instancia()
+    if trava is None:
+        print("[IA] Outra IA desta pasta já está rodando ou iniciando (logs/ia.lock).")
+        print("[IA] Nada foi aberto; use a que já está no ar.")
+        sys.exit(3)
+
+    candidatas = portas_candidatas()
+    faixa_txt = f"{candidatas[0]}" + (f", {candidatas[1]}–{candidatas[-1]}" if len(candidatas) > 1 else "")
+    servidor, porta = _abrir_servidor(candidatas)
+    if servidor is None:
+        print(f"[IA] ERRO: nenhuma porta livre em {faixa_txt}. Nenhum programa foi encerrado.")
+        print("[IA] Libere uma dessas portas ou ajuste JC_IA_PORTA / JC_IA_PORTAS_EXTRAS no .env.")
+        sys.exit(4)
+    try:
+        _gravar_estado(porta)
+    except OSError as erro:
+        if porta != candidatas[0]:
+            servidor.server_close()
+            print(f"[IA] ERRO: não consegui gravar logs/ia_porta.json ({erro}); sem ele o site não acharia a porta {porta}.")
+            sys.exit(5)
+        print(f"[IA] Aviso: não consegui gravar logs/ia_porta.json ({erro}); o site usa a porta padrão {porta}.")
+    atexit.register(_apagar_estado)
+    # Pedido de encerramento (SIGTERM; no Windows também Ctrl+Break) = saída normal: fecha a porta e apaga o arquivo
+    import signal
+    for _nome in ("SIGTERM", "SIGBREAK"):
+        if hasattr(signal, _nome):
+            signal.signal(getattr(signal, _nome), lambda *_: sys.exit(0))
+
     print("=" * 50)
     print("  JovemConnect — Servidor de IA  v3.00")
-    print("  http://127.0.0.1:5000")
+    print(f"  http://127.0.0.1:{porta}" + ("" if porta == candidatas[0] else f"  (porta {candidatas[0]} ocupada por outro programa)"))
     print(f"  Gemini: {'✓ Ativo' if gemini_model else '✗ Inativo (sem GEMINI_API_KEY)'}")
     print(f"  Análise contextual (Stage 5.1): {'✓ ' + CTX_MODELO if CTX_CHAVE else '✗ sem GEMINI_API_KEY no .env'}")
-    print("=" * 50)
+    print("=" * 50, flush=True)
     # Debug nunca fica ligado por padrão no fluxo normal de
     # execução (iniciar_ia.bat). Para depuração local, defina a variável de
     # ambiente FLASK_DEBUG=1 antes de rodar "python IA/recomendar.py".
     debug_mode = os.environ.get("FLASK_DEBUG", "0") == "1"
-    app.run(host="127.0.0.1", port=5000, debug=debug_mode)
+    if debug_mode:
+        # Depuração local: o app.run do Flask (sem recarregador, que reabriria o processo e a trava)
+        servidor.server_close()
+        app.run(host="127.0.0.1", port=porta, debug=True, use_reloader=False)
+    else:
+        servidor.log_startup()
+        try:
+            servidor.serve_forever()
+        except KeyboardInterrupt:
+            pass
+        finally:
+            servidor.server_close()

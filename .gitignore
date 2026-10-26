@@ -2,6 +2,12 @@
 venv/
 .venv/
 venv-*/
+venv.antigo-*/
+
+# Estado da IA em execução (porta escolhida e trava de instância única)
+logs/ia_porta.json
+logs/ia_porta.json.tmp
+logs/ia.lock
 __pycache__/
 *.pyc
 

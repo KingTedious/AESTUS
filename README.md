@@ -51,10 +51,18 @@ Plataforma de empregabilidade que conecta jovens em busca do primeiro emprego
      (veja [docs/MIGRACOES.md](docs/MIGRACOES.md)).
    - *Dados de demonstração (opcional)*: `database/seed_demo.sql`
      (veja [docs/SEED_DEMO.md](docs/SEED_DEMO.md)).
-5. **Servidor de IA** — dê dois cliques em `iniciar_ia.bat`. Ele usa o Python do
-   computador, cria um ambiente só para aquele PC na primeira vez (instala
-   `flask` e `flask-cors`) e abre o site no navegador. Funciona a partir de
-   qualquer pasta ou pen drive. Teste: <http://127.0.0.1:5000/ping>.
+5. **Servidor de IA** — dê dois cliques em `iniciar_ia.bat`. Ele usa **só** o
+   ambiente oficial `venv` da pasta do projeto (nunca o Python global nem outro
+   ambiente), confere se ele funciona neste computador e abre o site no navegador.
+   Se o `venv` estiver ausente ou tiver vindo de outro PC, o `.bat` para, explica
+   e, se você responder **S**, reconstrói o `venv` deste computador com as versões
+   fixas de `IA/requirements-ia.txt` (precisa de internet nessa vez), guardando o
+   anterior como `venv.antigo-<data>`. **Não copie a pasta `venv` entre
+   computadores.** Diagnóstico em `logs/iniciar_ia.log`.
+   A IA usa a porta 5000; se outro programa estiver nela, escolhe a primeira livre
+   entre 5001 e 5010 (configurável no `.env`: `JC_IA_PORTA`, `JC_IA_PORTAS_EXTRAS`)
+   e grava em `logs/ia_porta.json` — o site lê dali, sem configurar nada.
+   Teste: <http://127.0.0.1:5000/ping> (ou a porta mostrada pelo `.bat`).
 6. Acesse `http://localhost/JovemConnect/` (o nome da pasta do projeto).
 7. **Central administrativa (opcional)** — com a migração da Stage 7 aplicada (ou
    instalação nova), crie o primeiro administrador no terminal, na pasta do projeto:

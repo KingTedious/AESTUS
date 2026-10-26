@@ -41,6 +41,8 @@ de e-mail não funciona (o resto do site sim).
 | `GEMINI_API_KEY` | vazio | Chave da API do Google Gemini. Sem ela: Match tradicional e assistente com respostas prontas |
 | `GEMINI_MODEL` | `gemini-3.5-flash-lite` | Modelo usado pela análise contextual e pelo assistente |
 | `GEMINI_TIMEOUT` | `12` | Espera máxima por resposta, em segundos (3 a 30) |
+| `JC_IA_PORTA` | `5000` | Porta preferida do servidor de IA (1024 a 65535) |
+| `JC_IA_PORTAS_EXTRAS` | `5001-5010` | Faixa usada se outro programa estiver na porta preferida (no máximo 50 portas). A IA grava a escolhida em `logs/ia_porta.json`; o PHP lê dali (`includes/ia_endereco.php`) e só aceita portas desta faixa, depois de conferir no `/ping` que é a IA do JovemConnect (senão trata como IA fora do ar) |
 
 Depois de mudar o `.env`, feche a janela "JovemConnect - IA" e rode
 `iniciar_ia.bat` de novo. Confira em <http://127.0.0.1:5000/ping>: `"assistente": true`

@@ -10,6 +10,7 @@
    comando (scripts/admin.php) — não há tela para isso, de propósito.
    ============================================================ */
 require_once dirname(__DIR__) . '/includes/admin/nucleo.php';
+require_once dirname(__DIR__) . '/includes/ia_endereco.php';   // endereço atual da IA (só exibição)
 $admin = jc_admin_exigir('configuracoes.ver');
 $id = intval($admin['id']);
 $erro = null;
@@ -79,7 +80,7 @@ echo '<div class="adm-grade-2"><section class="adm-cartao" aria-labelledby="t-am
    . '<dt>Confirmação de senha vale por</dt><dd>' . intdiv(jc_admin_reauth_seg(), 60) . ' min</dd>'
    . '<dt>Limite de tentativas</dt><dd>5 por e-mail e 20 por IP a cada 15 min</dd>'
    . '<dt>Administradores ativos</dt><dd>' . jc_admin_num($ativos) . ($sem_mfa ? ' ' . jc_admin_selo('aviso', $sem_mfa . ' sem segundo fator') : '') . '</dd>'
-   . '<dt>Análise complementar por IA</dt><dd>Serviço Flask local (<code>127.0.0.1:5000</code>, rota /moderacao) '
+   . '<dt>Análise complementar por IA</dt><dd>Serviço Flask local (<code>' . htmlspecialchars(($ia_base = jc_ia_base()) !== null ? preg_replace('#^http://#', '', $ia_base) : '127.0.0.1 — fora do ar no momento') . '</code>, rota /moderacao) '
    . '<span class="adm-fraco">(a chave do Gemini fica só no servidor e nunca aparece aqui)</span></dd>'
    . '</dl></section>';
 
