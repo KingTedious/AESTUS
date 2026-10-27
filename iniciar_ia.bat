@@ -29,6 +29,10 @@ set "REQ=%RAIZ%\IA\requirements-ia.txt"
 set "LOGDIR=%RAIZ%\logs"
 set "LOG=%RAIZ%\logs\iniciar_ia.log"
 for %%I in ("%RAIZ%") do set "PASTA=%%~nxI"
+rem Pasta de trabalho da janela da IA: FORA do projeto (htdocs). Uma janela aberta
+rem "dentro" da pasta impedia o parar_jovemconnect.bat de exclui-la. A IA usa
+rem caminhos absolutos, entao nao depende da pasta atual.
+for %%I in ("%RAIZ%\..") do set "FORA=%%~fI"
 set "REFEITO="
 set "ANTIGO="
 
@@ -77,7 +81,7 @@ if "%RC%"=="0" goto ja_rodando
 if "%RC%"=="1" call :log "  Nao: a porta preferida esta livre."
 
 call :log "[5/5] Iniciando a IA na janela 'JovemConnect - IA' (feche-a para desligar a IA)"
-start "JovemConnect - IA" /D "%RAIZ%" cmd /k ""%PY%" "%APP%""
+start "JovemConnect - IA" /D "%FORA%" cmd /k ""%PY%" "%APP%""
 "%PY%" "%CHK%" esperar 20
 if errorlevel 1 goto nao_respondeu
 goto abrir_site

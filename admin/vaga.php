@@ -15,11 +15,9 @@ require_once dirname(__DIR__) . '/includes/admin/nucleo.php';
 
 $id = jc_admin_post() ? (ctype_digit((string) ($_POST['id'] ?? '')) ? intval($_POST['id']) : 0) : jc_admin_get_int('id');
 $acao = jc_admin_post() ? (string) ($_POST['acao'] ?? '') : '';
-$admin = jc_admin_exigir(match ($acao) {
-    'moderar' => 'vagas.moderar',
-    'editar'  => 'vagas.editar',
-    default   => 'vagas.ver',
-});
+// (sem "match", que só existe no PHP 8.0+: o projeto também roda no PHP 7.4)
+$permissoes_acao = ['moderar' => 'vagas.moderar', 'editar' => 'vagas.editar'];
+$admin = jc_admin_exigir($permissoes_acao[$acao] ?? 'vagas.ver');
 if ($id <= 0) {
     jc_admin_pagina_erro(404, 'Vaga não encontrada', 'Informe uma vaga válida.');
 }

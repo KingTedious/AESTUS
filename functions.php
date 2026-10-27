@@ -40,7 +40,7 @@ function calcularIdade(?string $dataNascimento): ?int {
 
         return (int) $hoje->diff($nascimento)->y;
 
-    } catch (Exception) {
+    } catch (Exception $e) {   // (com variável: o PHP 7.4 exige)
         // Data malformada (ex: "0000-00-00" que o MySQL retorna às vezes)
         return null;
     }
@@ -226,7 +226,7 @@ function h(string $texto): string {
  */
 require_once __DIR__ . '/includes/ia_endereco.php';   // porta da IA (5000 ou a escolhida ao iniciar)
 
-function chamarFlask(string $rota, array $dados = [], int $timeout = 6): array|false {
+function chamarFlask(string $rota, array $dados = [], int $timeout = 6) {   // array|false (sem o tipo: PHP 7.4)
     $url = jc_ia_url($rota);
 
     $ch = curl_init($url);

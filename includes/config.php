@@ -78,6 +78,11 @@ if (!defined('DB_HOST')) {
 }
 
 // ── Conexão mysqli ────────────────────────────────────────────────────────────
+// O código conta com o mysqli lançando mysqli_sql_exception (padrão desde o PHP 8.1:
+// duplicidades, transações, handler acima). No PHP 7.4/8.0 o padrão era só devolver false,
+// então o modo é ligado aqui explicitamente; no 8.1+ isto não muda nada.
+mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+
 // Uma única instância. Nenhum PDO. Nenhuma duplicata.
 try {
     $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);

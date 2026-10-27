@@ -1169,3 +1169,22 @@ executados nesse ambiente.
 ocupada, janela fechada, dois cliques seguidos), `iniciar_jovemconnect.bat` e `parar_jovemconnect.bat`, e guardar
 `logs\iniciar_ia.log`, `logs\ia_porta.json` e `logs\iniciar_jovemconnect.log`. Também não foram testados aqui
 `SO_EXCLUSIVEADDRUSE`, `msvcrt.locking` e os scripts de parada do XAMPP.
+
+## V458 — PHP 7.4 e 8.0 e exclusão da pasta
+
+Executados em 27/10/2026 na réplica Linux (PHP 8.3.6). Não havia PHP 7.4 nem 8.0 disponível para rodar o site
+nessas versões, e os `.bat` só rodam no Windows; o que dependia disso foi verificado por análise do código.
+
+| ID | Verificação | Resultado | Observação |
+|---|---|---|---|
+| V458-001 | `php -l` em todos os arquivos PHP | **91/91** sem erro | — |
+| V458-002 | Varredura de recursos exclusivos do PHP 8.0+ (tokenizer do PHP; o detector foi testado antes num arquivo com cada recurso) | nenhum restante | só sobram `str_contains`/`str_starts_with`, cobertas por `includes/compat.php`, e o retorno `never`, que não dá erro no 7.4/8.0. Funções e constantes nativas usadas: todas existem no 7.4 |
+| V458-003 | `includes/compat.php` × funções nativas do PHP 8.3 | **36/36** iguais | vazios, `null`, números, acentos, maiúsculas |
+| V458-004 | Regressão completa no PHP 8.3 (com `mysqli_report` explícito, sem `match`, com `compat.php`) | todas as suítes no padrão | só as 7 falhas que já existiam (3 na formação original, 4 no cadastro); Central administrativa (onde estavam os `match`): 51, 7, 13, 48, 39, 74 e 46, todas sem falhas |
+| V458-005 | Ajudante dos scripts (`t_scripts.py`) | **26/26** | `checar` mostra "PHP 8.3.6 (ok)" |
+| V458-006 | `.bat` (`iniciar_jovemconnect`, `parar_jovemconnect`, `iniciar_ia`, `scripts/excluir_pasta`) | revisão estática | ASCII, CRLF, todos os rótulos de `goto`/`call` existem |
+
+**Pendente no Windows / na escola:** rodar o `iniciar_jovemconnect.bat` com o PHP da escola e responder **S** ao
+aviso; navegar pelo site (cadastro, vagas, favoritos, Match, Central administrativa); rodar o
+`parar_jovemconnect.bat` até a exclusão da pasta e, se algo sobrar, guardar `%TEMP%\jovemconnect_limpeza.log`.
+

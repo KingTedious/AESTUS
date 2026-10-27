@@ -19,6 +19,7 @@
 | Migrações aditivas com data no nome e reversão em comentário | `migrations/` |
 | Logs por `jc_log`/`jc_log_seguranca` com nomes `area.acao` | `includes/logger.php` |
 | Textos de interface e comentários em português | — |
+| Código compatível com PHP 7.4 (desde a v4.58): nada de `match`, tipos de união, `?->`, argumentos nomeados ou `enum`; funções do PHP 8 só com `require_once` de `includes/compat.php` | `admin/conta.php`, `includes/env.php` |
 | Evolução por "Stages" com relatórios | relatórios `RELATORIO_STAGE*.md` guardados fora do repositório; comentários "Stage N" no código |
 
 ## Dependências entre módulos e áreas de maior risco de regressão

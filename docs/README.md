@@ -12,6 +12,11 @@ O `README.md` da raiz do projeto continua sendo o guia rápido de instalação.
 > `iniciar_jovemconnect.bat` / `parar_jovemconnect.bat`. Os resultados dos testes estão em
 > [TESTES_RESULTADOS.md](TESTES_RESULTADOS.md#v456--versões-455-e-456). Contagens como "135 funções" e "962
 > verificações" são da auditoria da v4.00.
+>
+> **Atualização v4.58 (27/10/2026).** Compatibilidade com PHP 7.4 e 8.0 (`includes/compat.php`), checagem do
+> `iniciar_jovemconnect.bat` que pergunta se continua em vez de parar, e exclusão da pasta pelo
+> `parar_jovemconnect.bat` corrigida (`scripts/excluir_pasta.bat`). Testes em
+> [TESTES_RESULTADOS.md](TESTES_RESULTADOS.md#v458--php-74-e-80-e-exclusão-da-pasta).
 
 ## O projeto em poucas linhas
 
@@ -24,9 +29,9 @@ Projeto acadêmico (TCC).
 | | |
 |---|---|
 | Público-alvo | jovens (candidatos) e empresas (contratantes); visitantes para conhecer e tirar dúvidas |
-| Tecnologias | PHP 8.1+ (mysqli, sem framework), MariaDB/MySQL, HTML/CSS/JS sem bibliotecas, Python 3.10+ com Flask, Google Gemini (opcional), PHPMailer/Twilio (opcionais) |
+| Tecnologias | PHP 8.1+, ou 7.4/8.0 em modo de compatibilidade (mysqli, sem framework), MariaDB/MySQL, HTML/CSS/JS sem bibliotecas, Python 3.10+ com Flask, Google Gemini (opcional), PHPMailer/Twilio (opcionais) |
 | Arquitetura | navegador → Apache/PHP → MariaDB; PHP → Flask local (`127.0.0.1:5000`, ou a próxima porta livre) → Gemini |
-| Requisitos básicos | XAMPP no Windows com PHP 8.1+; Python 3.10+ só para a IA; Composer só para e-mail/SMS |
+| Requisitos básicos | XAMPP no Windows com PHP 8.1+ (7.4 e 8.0 também rodam); Python 3.10+ só para a IA; Composer só para e-mail/SMS |
 
 ```mermaid
 flowchart LR

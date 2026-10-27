@@ -1,6 +1,6 @@
 # Arquivos e funções
 
-> Gerado na auditoria de documentação de 10/10/2026 sobre a versão **v4.00** (tag `v4.00`) e **atualizado para a v4.56** (26/10/2026) nos arquivos que mudaram nas versões 4.55 e 4.56: painel do jovem, lista de vagas, card de vaga, inicialização e porta da IA, scripts de iniciar/parar e configuração. Nos demais arquivos, os números de linha são os da v4.00 e podem ter mudado depois. Legenda: **[C]** confirmado no código · **[I]** inferido (com a evidência indicada) · **[NC]**/**[N]** não confirmado.
+> Gerado na auditoria de documentação de 10/10/2026 sobre a versão **v4.00** (tag `v4.00`) e **atualizado para a v4.56** (26/10/2026) nos arquivos que mudaram nas versões 4.55 e 4.56: painel do jovem, lista de vagas, card de vaga, inicialização e porta da IA, scripts de iniciar/parar e configuração; na **v4.58** (27/10/2026), compatibilidade com PHP 7.4/8.0 e a exclusão da pasta pelo `parar_jovemconnect.bat`. Nos demais arquivos, os números de linha são os da v4.00 e podem ter mudado depois. Legenda: **[C]** confirmado no código · **[I]** inferido (com a evidência indicada) · **[NC]**/**[N]** não confirmado.
 
 Catálogo de **todos os arquivos de código e configuração** do repositório (88 arquivos versionados na v4.00; os arquivos `.env`, `geminiAPI.env` e `logs/*.log` existem só na máquina e não foram abertos). Documentos `.md` e arquivos SQL estão descritos em [README.md](README.md), [BANCO_DE_DADOS.md](BANCO_DE_DADOS.md) e [MIGRACOES.md](MIGRACOES.md).
 
@@ -95,6 +95,7 @@ Chaves de sessão do módulo (confirmadas):
 - **Responsabilidade:** carrega logger e `.env`, instala o tratador global de exceções e abre a conexão `mysqli` única (`$conn`) com charset utf8mb4.
 - **Quando executa / quem usa:** incluído por ~30 arquivos (todas as páginas com banco: `jovem/*`, `empresa/*`, `Vagas/*`, `dashboard/jovem.php`, `dashboard/empresa.php`, `candidaturas/minhas.php`, `uploads/*`, `IA/avaliar_ajax.php`, `recuperar_senha.php`, `verificacoes/*`). Observação: o comentário de `empresa/login.php` diz “Sem include de config.php”, e o grep o lista apenas por causa desse comentário — [C] a página não inclui config.php.
 - **Depende de:** `includes/logger.php`, `includes/env.php`, MariaDB/MySQL.
+- **Modo de erro do mysqli (v4.58) [C]:** chama `mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT)` antes de conectar. É o padrão do PHP 8.1+, e o código conta com ele (duplicidades, transações, tratador global); no PHP 7.4/8.0 o padrão era só devolver `false`, então agora o modo é o mesmo em qualquer versão.
 - **Entradas:** variáveis de ambiente `DB_HOST` (padrão `localhost`), `DB_USER` (padrão `root`), `DB_PASS` (padrão vazio), `DB_NAME` (padrão `jovemconnect`), `DB_CHARSET` (padrão `utf8mb4`), definidas como constantes com `define()` (somente se `DB_HOST` ainda não definido).
 - **Saídas:** variável global `$conn`; em falha de conexão: HTTP 503 + texto puro “O sistema está temporariamente indisponível…” (`die`).
 - **Banco:** só conecta.
@@ -112,7 +113,7 @@ Chaves de sessão do módulo (confirmadas):
 
 ### `includes/env.php`
 - **Tipo:** módulo auxiliar (include), PHP.
-- **Responsabilidade:** carregador mínimo do arquivo `.env` da raiz para `putenv()`/`$_ENV`, sem sobrescrever variáveis já existentes no ambiente.
+- **Responsabilidade:** carregador mínimo do arquivo `.env` da raiz para `putenv()`/`$_ENV`, sem sobrescrever variáveis já existentes no ambiente. Desde a v4.58 inclui `includes/compat.php` na primeira linha (usa `str_contains`).
 - **Quando executa / quem usa:** `includes/config.php:70`, `includes/mailer.php:17`, `includes/sms.php:16`, `IA/assistente_ajax.php`. Chama `carregarEnv()` ao ser incluído. **`includes/logger.php` não o inclui** (só o menciona em comentário).
 - **Depende de:** arquivo `.env` (não existe na cópia; há `.env.example` com as chaves `DB_*`, `SMTP_*`, `TWILIO_*`, `GEMINI_*`, `JC_LOG_*`).
 - **Entradas:** linhas `CHAVE=valor`; ignora vazias, `#` e linhas sem `=`; remove aspas simples/duplas envolventes.
@@ -125,6 +126,15 @@ Chaves de sessão do módulo (confirmadas):
 | `carregarEnv` | 14 | — | `void` | Idempotente (`static $carregado`). `putenv` + `$_ENV` apenas se `getenv($chave) === false`. | o próprio env.php ao ser incluído |
 
 - **Riscos / limitações:** [C] não trata `export`, comentários no fim da linha nem escapes. [I] **Não há `.htaccess` na raiz** (únicos: `logs/.htaccess` e `uploads/curriculos/.htaccess`); se a raiz do projeto estiver dentro do DocumentRoot do Apache, `/.env` pode ser servido como texto, a depender da configuração do servidor (o padrão do Apache bloqueia só `.ht*`).
+
+
+### `includes/compat.php` (novo na v4.58)
+- **Tipo:** módulo auxiliar (include), PHP.
+- **Responsabilidade:** deixar o projeto rodar num XAMPP com **PHP 7.4 ou 8.0** (por exemplo, os computadores da escola). Define `str_contains`, `str_starts_with` e `str_ends_with` (funções do PHP 8.0) **só se não existirem** (`function_exists`); no PHP 8.0+ nada é definido e as nativas continuam valendo. Os parâmetros não têm tipo de propósito: as nativas aceitam qualquer escalar (inclusive `null`), e uma função do usuário com `string $x` daria `TypeError` com `null` no 7.4.
+- **Quem usa [C]:** `require_once` na primeira linha de todo arquivo que chama essas funções: `includes/env.php`, `logger.php`, `match.php`, `validacao.php`, `sms.php`, `assistente.php`, `moderacao.php`, `includes/admin/servicos.php`, `autorizacao.php`, `layout.php` e `verificacoes/validacoes_nomes.php`.
+- **Testes [T]:** as três funções foram comparadas com as nativas do PHP 8.3 em 36 casos (vazios, `null`, números, acentos, maiúsculas): nenhuma diferença.
+- **O que mais mudou para o PHP 7.4 (v4.58) [C]:** as 4 expressões `match` (`admin/conta.php`, `admin/vaga.php`, `includes/admin/servicos.php`, `includes/admin/layout.php`) viraram tabela/`switch` com o mesmo resultado; em `functions.php`, `chamarFlask` perdeu o tipo de retorno `array|false` e o `catch (Exception)` ganhou variável. Uma varredura pelo tokenizer do PHP não encontrou mais nenhum recurso exclusivo do PHP 8.0+ no código (`match`, tipos de união, `?->`, argumentos nomeados, `throw` como expressão, vírgula final em parâmetros, atributos, `enum`, `readonly`); todas as funções e constantes nativas usadas existem no 7.4.
+- **Limite:** não havia PHP 7.4 nem 8.0 para executar o site; a compatibilidade foi verificada por análise do código e pela regressão completa no PHP 8.3. Diferenças de comportamento entre versões (comparação de texto com número no 7.4, por exemplo) não foram exercitadas.
 
 ### `includes/logger.php`
 - **Tipo:** módulo auxiliar (include), PHP.
@@ -399,7 +409,7 @@ Chaves de sessão do módulo (confirmadas):
 ## Módulo B — Cadastro, perfis, locais de trabalho e currículo
 
 Observações gerais válidas para todo o módulo **[C]**:
-- O `includes/config.php` não chama `mysqli_report()`. Então vale o padrão do PHP ≥ 8.1: o mysqli **lança `mysqli_sql_exception`** quando algo dá errado. O `config.php` registra `set_exception_handler('jc_excecao_nao_tratada')`: a exceção vai para o log (`jc_log_excecao`) e a pessoa vê uma página 500 genérica ("Ocorreu um erro inesperado…"), ou JSON `{"error": ...}` quando a requisição é AJAX. Por isso, todo teste `if (!$stmt->execute())` / `$ok = $stmt->execute()` que aparece adiante é, na prática, um caminho que nunca roda (ver os achados em [SEGURANCA_E_PRIVACIDADE.md](SEGURANCA_E_PRIVACIDADE.md) e [MANUTENCAO_E_EVOLUCAO.md](MANUTENCAO_E_EVOLUCAO.md)).
+- O `includes/config.php` liga `mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT)` (desde a v4.58; antes valia o padrão do PHP ≥ 8.1, que é o mesmo): o mysqli **lança `mysqli_sql_exception`** quando algo dá errado, em qualquer versão do PHP. O `config.php` registra `set_exception_handler('jc_excecao_nao_tratada')`: a exceção vai para o log (`jc_log_excecao`) e a pessoa vê uma página 500 genérica ("Ocorreu um erro inesperado…"), ou JSON `{"error": ...}` quando a requisição é AJAX. Por isso, todo teste `if (!$stmt->execute())` / `$ok = $stmt->execute()` que aparece adiante é, na prática, um caminho que nunca roda (ver os achados em [SEGURANCA_E_PRIVACIDADE.md](SEGURANCA_E_PRIVACIDADE.md) e [MANUTENCAO_E_EVOLUCAO.md](MANUTENCAO_E_EVOLUCAO.md)).
 - `includes/csrf.php` inicia a sessão endurecida (`session.php`) e oferece `csrf_field()`, `csrf_require()` (falha: HTTP 403, página "Não foi possível concluir", log `csrf.recusado`) e `csrf_js()`.
 - O envio único (`data-envio-unico="Texto..."`) é implementado em `includes/assistente.php` (listener `submit` no `document`, linhas ~665-693). Ele trava o botão depois do primeiro envio válido e destrava no `pageshow` quando a página volta do cache do navegador.
 - `jcIcone(nome)` (ícone em SVG/span) é definida em `includes/assistente.php` (~linha 611).
@@ -698,7 +708,7 @@ Observações gerais válidas para todo o módulo **[C]**:
 - **Riscos:**
   - `perfil_publico` tem DEFAULT 1 (`schema.sql:81`), e o cadastro não pergunta nada sobre isso. Ou seja, todo jovem novo já está acessível a **qualquer** empresa logada, inclusive o PDF do currículo (ver os achados em [SEGURANCA_E_PRIVACIDADE.md](SEGURANCA_E_PRIVACIDADE.md) e [MANUTENCAO_E_EVOLUCAO.md](MANUTENCAO_E_EVOLUCAO.md)). **[C]**
   - A regra não verifica se a empresa confirmou o e-mail/telefone. **[NC]**: não foi verificado se outra camada exige isso.
-  - O tipo de retorno `never` exige PHP ≥ 8.1. **[C]**
+  - O tipo de retorno `never` só é verificado a partir do PHP 8.1. No 7.4/8.0 ele é lido como um nome de classe e não causa erro, porque a função sempre termina com `exit` (nunca retorna) **[I, semântica do PHP]**.
 
 ### `jovem/perfil.php`
 - **Tipo:** ponto de entrada GET/POST com duas visões. PHP + HTML + JS.
@@ -1449,7 +1459,7 @@ Dependências comuns a quase todos os arquivos (não repetidas em cada seção):
 | `formatarCep` | 172 | `string` | `string` | `00000-000` | ninguém |
 | `truncar` | 191 | `string, int=150, string='…'` | `string` | Corte UTF-8 com sufixo | ninguém |
 | `h` | 203 | `string` | `string` | `htmlspecialchars(ENT_QUOTES|ENT_SUBSTITUTE, 'UTF-8')` | ninguém |
-| `chamarFlask` | 229 | `string $rota, array $dados=[], int $timeout=6` | `array\|false` | POST JSON ao Flask em `jc_ia_url($rota)`; falha → `error_log` e `false` | ninguém (substituída na prática por `jc_flask_post`) |
+| `chamarFlask` | 229 | `string $rota, array $dados=[], int $timeout=6` | `array\|false` (sem declarar o tipo desde a v4.58, por causa do PHP 7.4) | POST JSON ao Flask em `jc_ia_url($rota)`; falha → `error_log` e `false` | ninguém (substituída na prática por `jc_flask_post`) |
 | `flaskOnline` | 265 | — | `bool` | GET `/ping` (em `jc_ia_url`) (timeout 2 s, conexão 1 s); `true` se HTTP 200 | ninguém |
 
 - **Observação:** como o arquivo não é incluído, definir aqui uma função com o mesmo nome de outra do projeto não causa conflito hoje [I]. Validações de CPF/CNPJ efetivamente usadas ficam em outros módulos (não neste arquivo) [I — grep sem chamadores].
@@ -1468,7 +1478,7 @@ Dependências comuns a quase todos os arquivos (não repetidas em cada seção):
   4. **[3/5] Ambiente oficial:** `verificar_ambiente.py verificar` confere se o `venv` pertence a esta pasta, se o Python é 3.10+ e se as versões fixas de `IA\requirements-ia.txt` estão instaladas.
   5. Se o `venv` estiver ausente ou inválido (por exemplo, copiado de outro PC), o `.bat` **para e explica o motivo**. Só com a confirmação **S** ele reconstrói o `venv` neste computador: renomeia o anterior para `venv.antigo-<data>`, cria um novo com o Python do computador (`py -3` ou `python`, validado por `verificar_ambiente.py base`) e instala `IA\requirements-ia.txt` (precisa de internet uma vez). Com **N**, nada é alterado.
   6. **[4/5] A IA já está rodando?** `verificar_ambiente.py ping`: se a IA desta pasta (ou uma IA do JovemConnect na porta preferida) já responde, ela é reaproveitada e nenhuma outra é aberta.
-  7. **[5/5]** Inicia a IA na janela **"JovemConnect - IA"** (`cmd /k`; fechar a janela desliga a IA) e espera até 20 s a IA confirmar a porta (`verificar_ambiente.py esperar 20`: arquivo `logs\ia_porta.json` + `instancia` no `/ping`). Sem resposta → para com diagnóstico.
+  7. **[5/5]** Inicia a IA na janela **"JovemConnect - IA"** (`cmd /k`; fechar a janela desliga a IA). Desde a v4.58 a pasta de trabalho dessa janela é o `htdocs` (fora do projeto): uma janela "dentro" da pasta impedia o `parar_jovemconnect.bat` de excluí-la. A IA usa caminhos absolutos, então isso não muda nada para ela e espera até 20 s a IA confirmar a porta (`verificar_ambiente.py esperar 20`: arquivo `logs\ia_porta.json` + `instancia` no `/ping`). Sem resposta → para com diagnóstico.
   8. Abre `http://localhost/<pasta>/index.php` no navegador.
 - **Porta:** a 5000 ocupada deixou de ser erro: a própria IA vai para a próxima livre da faixa. O `.bat` não encerra nenhum processo.
 - **Não faz:** não define `GEMINI_API_KEY` (a chave vem do `.env`, lido pelo próprio Python); não instala `google-generativeai`; não inicia Apache/MySQL (isso é do `iniciar_jovemconnect.bat`).
@@ -1513,8 +1523,8 @@ Dependências comuns a quase todos os arquivos (não repetidas em cada seção):
 - **Tipo:** script Windows (batch, ASCII, CRLF) na raiz do projeto. Diagnóstico na tela e em `logs\iniciar_jovemconnect.log`.
 - **Responsabilidade:** subir tudo num computador com XAMPP, na ordem certa, perguntando antes de criar qualquer coisa:
   1. Procura o XAMPP duas pastas acima (`..\..`, o esperado em `C:\xampp\htdocs\<pasta>`) e usa o `php.exe` dele com `scripts/jovemconnect.php`.
-  2. `checar`: PHP, extensões, pastas graváveis e se a pasta está dentro do `htdocs`. Sem `.env`, oferece criá-lo a partir do `.env.example` (`criar-env`, que nunca sobrescreve).
-  3. **Apache (porta 80):** se a porta já responde, confere se é um Apache; se não estiver ligado, roda o `apache_start.bat` do XAMPP e espera até 25 s.
+  2. `checar`: versão do PHP, extensões, pastas graváveis e se a pasta está dentro do `htdocs`. **Desde a v4.58, nada disso bloqueia sozinho:** se alguma verificação não bater, o `.bat` mostra o motivo e pergunta "Continuar mesmo assim? [S/N]" (N para com o diagnóstico). PHP 7.4 e 8.0 já passam como "modo de compatibilidade"; abaixo do 7.4 a checagem avisa que é antigo demais. Sem `.env`, oferece criá-lo a partir do `.env.example` (`criar-env`, que nunca sobrescreve).
+  3. **Apache (porta 80):** se a porta já responde, confere se é um Apache; se não estiver ligado, roda o `apache_start.bat` do XAMPP (com a pasta do XAMPP como pasta de trabalho) e espera até 25 s.
   4. **MySQL (porta 3306):** roda o `mysql_start.bat` se precisar e espera até 40 s.
   5. **Banco:** `banco-status`. Se o banco não existe ou está vazio, pergunta (S/N) se deve importar o `schema.sql` (`banco-instalar`) e depois se deve carregar os dados de demonstração (`banco-seed`). Um banco que já tem tabelas nunca recebe importação por cima.
   6. Chama o `iniciar_ia.bat` (IA e navegador).
@@ -1524,10 +1534,11 @@ Dependências comuns a quase todos os arquivos (não repetidas em cada seção):
 
 - **Tipo:** script Windows (batch, ASCII, CRLF) na raiz do projeto, para encerrar o uso num computador emprestado (por exemplo, o da escola).
 - **Passo a passo, sempre perguntando:**
-  1. Fecha **só a IA desta pasta** (`ia-parar`: confere `pid` e `instancia` de `logs/ia_porta.json` no `/ping` antes de encerrar).
-  2. Pergunta se deve **apagar o banco do XAMPP**. Com S, é preciso digitar o nome do banco (`DB_NAME`); liga o MySQL se precisar e roda `banco-apagar`, que recusa nomes diferentes do `DB_NAME` e bancos do sistema.
+  1. Fecha **só a IA desta pasta** (`ia-parar`: confere `pid` e `instancia` de `logs/ia_porta.json` no `/ping` antes de encerrar) e, desde a v4.58, também a janela "JovemConnect - IA" dela.
+  2. Pergunta se deve **apagar o banco do XAMPP**. Com S, é preciso digitar o nome do banco (`DB_NAME`; maiúsculas e minúsculas tanto faz desde a v4.58); liga o MySQL se precisar e roda `banco-apagar`, que recusa nomes diferentes do `DB_NAME` e bancos do sistema.
   3. Pergunta se deve **desligar o XAMPP** (`apache_stop.bat` e `mysql_stop.bat`).
-  4. Pergunta se deve **apagar a pasta do projeto do `htdocs`**. Só aceita se a pasta estiver dentro de `htdocs` e tiver os arquivos do JovemConnect. Antes, avisa sobre alterações do Git que não foram salvas (commits pendentes ou que não estão no GitHub) e exige digitar o nome da pasta. A exclusão é feita por um script temporário em `%TEMP%`, 3 s depois de o `.bat` sair, e o script temporário se apaga.
+  4. Pergunta se deve **apagar a pasta do projeto do `htdocs`**. Só aceita se a pasta estiver dentro de `htdocs` e tiver os arquivos do JovemConnect. Antes, avisa sobre alterações do Git que não foram salvas (commits pendentes ou que não estão no GitHub) e exige digitar o nome da pasta (maiúsculas e minúsculas tanto faz desde a v4.58). A exclusão é feita por uma cópia de `scripts\excluir_pasta.bat` em `%TEMP%`, numa janela "JovemConnect - limpeza", depois que o `.bat` sai (um `.bat` não consegue apagar a pasta em que está).
+- **Exclusão da pasta (v4.58):** na v4.56/4.57 ela falhava na escola. As causas encontradas no código e corrigidas: (a) o nome digitado era comparado diferenciando maiúsculas (`jovemconnect` ≠ `JovemConnect`); (b) a janela "JovemConnect - IA" ficava aberta com a pasta do projeto como pasta de trabalho, o que impede o Windows de apagá-la; (c) arquivos somente leitura (objetos do `.git`) não eram tratados e não havia nova tentativa. Não foi possível confirmar qual delas aconteceu na escola, porque o script antigo não guardava diagnóstico.
 
 ### `scripts/jovemconnect.php` (novo na v4.56)
 
@@ -1536,7 +1547,7 @@ Dependências comuns a quase todos os arquivos (não repetidas em cada seção):
 
 | Comando | O que faz | Código de saída |
 |---|---|---|
-| `checar` | PHP, extensões (mysqli, curl, openssl, mbstring, json), `.env`, pastas graváveis, se está no `htdocs` | 0 ok; 20 sem `.env` (oferecer criar) |
+| `checar` | Versão do PHP (8.1+ ok; 7.4–8.0 ok em modo de compatibilidade; abaixo de 7.4 falha), extensões (mysqli, curl, openssl, mbstring, json), `.env`, pastas graváveis, se está no `htdocs` | 0 ok; 20 sem `.env`; 1 algo não bateu (o `.bat` pergunta se continua mesmo assim) |
 | `criar-env` | Copia `.env.example` para `.env`, **nunca** sobrescreve | 0 |
 | `porta <n>` / `esperar-porta <n> <s>` | `127.0.0.1:<n>` aceita conexão? / espera até `<s>` segundos | 0 aberta; 1 fechada |
 | `quem-usa <n>` | Mostra o programa que escuta na porta (Windows: `netstat` + `tasklist`) | — |
@@ -1547,10 +1558,16 @@ Dependências comuns a quase todos os arquivos (não repetidas em cada seção):
 | `banco-instalar` | `CREATE DATABASE … utf8mb4_unicode_ci` (se não existe) e importa o `schema.sql` **só se estiver vazio** | 0 ok; 12 recusado (já tem tabelas) |
 | `banco-seed` | Importa `database/seed_demo.sql` (não duplica nada) | 0 |
 | `banco-apagar <nome>` | `DROP DATABASE`, só se `<nome>` for igual ao `DB_NAME` e não for um banco do sistema (`mysql`, `information_schema`, `performance_schema`, `sys`, `phpmyadmin`, `test`) | 0 ok (ou já não existia); 3 recusado |
-| `ia-parar` | Fecha só a IA desta pasta: confere a `instancia` de `logs/ia_porta.json` no `/ping` e, no Windows, se o `pid` é de um Python (`tasklist`) antes do `taskkill`; arquivo velho apontando para outro programa → não encerra nada | 0 |
+| `ia-parar` | Fecha só a IA desta pasta: confere a `instancia` de `logs/ia_porta.json` no `/ping` e, no Windows, se o `pid` é de um Python (`tasklist`) antes do `taskkill`; arquivo velho apontando para outro programa → não encerra nada. Desde a v4.58, se o processo pai do Python for a janela `cmd.exe` "JovemConnect - IA" (`wmic`, ou PowerShell sem ele; título conferido no `tasklist /V`), fecha a janela junto (`taskkill /T`) | 0 |
 
-- **Funções internas:** `diz` (45), `conectar` (47), `nome_valido` (57), `tabelas` (61), `importar` (73, `multi_query` do arquivo SQL), `porta_aberta` (99), `http_get` (108).
-- **Testes:** 26/26 na réplica Linux (ver [TESTES_RESULTADOS.md](TESTES_RESULTADOS.md#v456--versões-455-e-456)).
+- **Funções internas:** `diz` (45), `conectar` (47), `nome_valido` (57), `tabelas` (61), `importar` (73, `multi_query` do arquivo SQL), `porta_aberta` (99), `pid_pai` (v4.58, pai de um processo no Windows), `tarefa` (v4.58, linha do `tasklist /V` de um pid), `http_get`.
+- **Testes:** 26/26 na réplica Linux na v4.56 e de novo na v4.58 (ver [TESTES_RESULTADOS.md](TESTES_RESULTADOS.md#v458--php-74-e-80-e-exclusão-da-pasta)). Este arquivo também não usa nada exclusivo do PHP 8.0+, porque roda com o `php.exe` do XAMPP de cada computador.
+
+### `scripts/excluir_pasta.bat` (novo na v4.58)
+
+- **Tipo:** script Windows (batch, ASCII, CRLF). **Não é para rodar direto:** o `parar_jovemconnect.bat` copia este arquivo para `%TEMP%` e o chama com a pasta do projeto, depois da confirmação.
+- **Passo a passo [C]:** repete as proteções (pasta dentro de `htdocs`, com `index.php`, `iniciar_ia.bat` e `scripts\jovemconnect.php`); espera 3 s; até 3 tentativas com `attrib -r -s -h /s /d` (somente leitura e ocultos) e `rmdir /s /q`, com 3 s entre elas. Se algo sobrar, lista o que ficou, sugere o que fechar (janela da IA, editor, terminal) e pergunta "Tentar de novo? [S/N]". No fim, a cópia temporária se apaga.
+- **Diagnóstico:** `%TEMP%\jovemconnect_limpeza.log` (fora da pasta, que é apagada).
 
 > O algoritmo exato do Match (pesos, cache e fallback) está em [IA_E_MATCH.md](IA_E_MATCH.md).
 
@@ -1811,7 +1828,7 @@ Dependências comuns a quase todos os arquivos (não repetidas em cada seção):
 | `formatarCep` | `functions.php`:172 | `formatarCep(string $cep): string` | (próprio arquivo) |
 | `truncar` | `functions.php`:191 | `truncar(string $texto, int $limite = 150, string $sufixo = '…'): string` | (próprio arquivo) |
 | `h` | `functions.php`:203 | `h(string $texto): string` | (próprio arquivo) |
-| `chamarFlask` | `functions.php`:229 | `chamarFlask(string $rota, array $dados = [], int $timeout = 6): array\|false` | (próprio arquivo) |
+| `chamarFlask` | `functions.php`:229 | `chamarFlask(string $rota, array $dados = [], int $timeout = 6)` (retorna `array\|false`) | (próprio arquivo) |
 | `flaskOnline` | `functions.php`:265 | `flaskOnline(): bool` | (próprio arquivo) |
 | `registrar_log` | `includes/auth.php`:32 | `registrar_log(string $mensagem, string $nivel = 'INFO'): void` | (próprio arquivo), `includes/config.php`, `includes/logger.php` |
 | `verificar_autenticacao` | `includes/auth.php`:43 | `verificar_autenticacao(string $tipo): void` | (próprio arquivo) |

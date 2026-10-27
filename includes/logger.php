@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/compat.php';   // PHP 7.4/8.0: str_contains etc. (includes/compat.php)
 /* ============================================================
    includes/logger.php — registro de eventos (logs) do JovemConnect
 

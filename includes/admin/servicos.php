@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../compat.php';   // PHP 7.4/8.0: str_contains etc. (includes/compat.php)
 /* ============================================================
    includes/admin/servicos.php — operações da Central administrativa
    (Stage 7)
@@ -82,7 +83,8 @@ if (!function_exists('jc_admin_indicadores')) {
 
     /** Campos editáveis pela administração (chave do mapa de validação → coluna). */
     function jc_admin_campos_editaveis(string $tipo): array {
-        return match ($tipo) {
+        // (sem "match", que só existe no PHP 8.0+: o projeto também roda no PHP 7.4)
+        $campos = [
             'jovem'   => ['jovem.nome' => 'nome', 'jovem.area_interesse' => 'area_interesse',
                           'jovem.resumo' => 'resumo_profissional', 'jovem.cidade' => 'cidade'],
             'empresa' => ['empresa.nome' => 'nome_empresa', 'empresa.area_atuacao' => 'area_atuacao',
@@ -90,8 +92,8 @@ if (!function_exists('jc_admin_indicadores')) {
                           'empresa.linkedin' => 'linkedin', 'empresa.cidade' => 'cidade'],
             'vaga'    => ['vaga.titulo' => 'titulo', 'vaga.descricao' => 'descricao',
                           'vaga.salario' => 'salario', 'vaga.carga_horaria' => 'carga_horaria'],
-            default   => [],
-        };
+        ];
+        return $campos[$tipo] ?? [];
     }
 
     /** Escapa curingas de LIKE. */

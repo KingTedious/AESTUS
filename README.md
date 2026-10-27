@@ -24,7 +24,7 @@ Plataforma de empregabilidade que conecta jovens em busca do primeiro emprego
 
 | Parte | Tecnologia |
 |---|---|
-| Site | PHP 8 (mysqli, sessões), HTML, CSS e JavaScript sem frameworks |
+| Site | PHP 8.1+ (também roda no 7.4 e no 8.0, em modo de compatibilidade), mysqli, sessões, HTML, CSS e JavaScript sem frameworks |
 | Banco | MariaDB / MySQL |
 | IA | Python 3 + Flask (`IA/recomendar.py`) e Google Gemini (opcional, via API REST) |
 | E-mail / SMS | PHPMailer (SMTP) e Twilio, via Composer |
@@ -33,13 +33,14 @@ Plataforma de empregabilidade que conecta jovens em busca do primeiro emprego
 ## Como instalar (XAMPP)
 
 **Jeito rápido (computador novo, escola, apresentação):** com a pasta em
-`C:\xampp\htdocs\`, dê dois cliques em **`iniciar_jovemconnect.bat`**. Ele confere o PHP,
+`C:\xampp\htdocs\`, dê dois cliques em **`iniciar_jovemconnect.bat`**. Ele confere o PHP (se algo
+não bater, como um XAMPP antigo, mostra o motivo e pergunta se continua mesmo assim),
 liga o Apache e o MySQL do XAMPP (se ainda não estiverem ligados), pergunta se pode
 criar o banco e instalar o `schema.sql` (só em banco vazio; oferece os dados de
 demonstração), inicia a IA e abre o site. Para desligar, use
 **`parar_jovemconnect.bat`**: ele fecha a IA e **pergunta** se deve apagar o banco do
 projeto, desligar o XAMPP e excluir a pasta deste computador (cada exclusão pede
-`S` e que você digite o nome). Não use a limpeza no seu computador principal.
+`S` e que você digite o nome; maiúsculas tanto faz). Não use a limpeza no seu computador principal.
 Os passos abaixo são o jeito manual.
 
 1. **Arquivos** — coloque a pasta do projeto em `C:\xampp\htdocs\` (ex.:

@@ -68,7 +68,7 @@ flowchart LR
    para logs ou para o histórico.
 4. Entrar em `http://localhost/JovemConnect/admin/login.php` com e-mail, senha e o código de 6 dígitos.
 
-Requisitos: os mesmos do site (PHP 8.1+, mysqli). A extensão `intl` do PHP é **opcional**: com ela, nomes
+Requisitos: os mesmos do site (PHP 8.1+ recomendado; 7.4 e 8.0 em modo de compatibilidade desde a v4.58; mysqli). A extensão `intl` do PHP é **opcional**: com ela, nomes
 digitados com acentos "decompostos" são normalizados (NFC); sem ela, continuam aceitos e exibidos
 corretamente. Não há dependência nova (nem Composer, nem pip).
 

@@ -5,7 +5,9 @@ title JovemConnect - Inicializador
 rem ======================================================================
 rem  iniciar_jovemconnect.bat - liga tudo para usar o JovemConnect
 rem
-rem   1. confere o XAMPP e o PHP (extensoes, .env, pastas gravaveis)
+rem   1. confere o XAMPP e o PHP (versao, extensoes, .env, pastas gravaveis);
+rem      se algo nao bater, mostra o motivo e pergunta se continua mesmo assim
+rem      (PHP 7.4 e 8.0 funcionam em modo de compatibilidade)
 rem   2. liga o Apache e o MySQL do XAMPP, se ainda nao estiverem ligados
 rem      (se ja estiverem, nao mexe; se outro programa usar a porta, avisa)
 rem   3. banco de dados: se nao existir, pergunta se pode criar e importar
@@ -41,8 +43,16 @@ if not exist "%XAMPP%\apache_start.bat" goto sem_xampp
 if not exist "%AJUDA%" goto falta_arquivo
 "%PHP%" "%AJUDA%" checar
 set "RC=%ERRORLEVEL%"
-if "%RC%"=="1" goto falha_checagem
-if not "%RC%"=="20" goto apache
+rem 0 = ok, 20 = ok sem .env; qualquer outro codigo (1, ou erro do proprio PHP) = aviso
+if "%RC%"=="0" goto checar_env
+if "%RC%"=="20" goto checar_env
+echo.
+call :log "AVISO: alguma verificacao nao bateu (veja as linhas acima)."
+choice /c SN /n /m "Continuar mesmo assim? (o que depender disso pode nao funcionar) [S/N] "
+if errorlevel 2 goto falha_checagem
+call :log "  Continuando por escolha do usuario, apesar do aviso."
+:checar_env
+if exist "%RAIZ%\.env" goto apache
 echo.
 choice /c SN /n /m "Nao existe .env. Criar a partir do .env.example (banco root sem senha, padrao do XAMPP)? [S/N] "
 if errorlevel 2 goto sem_env
@@ -62,7 +72,7 @@ call :log "  Ja estava ligado."
 goto mysql
 :ligar_apache
 call :log "  Ligando o Apache do XAMPP (janela 'XAMPP - Apache')..."
-start "XAMPP - Apache" /min "%XAMPP%\apache_start.bat"
+start "XAMPP - Apache" /D "%XAMPP%" /min "%XAMPP%\apache_start.bat"
 "%PHP%" "%AJUDA%" esperar-porta 80 25
 if errorlevel 1 goto apache_nao_ligou
 call :log "  OK: Apache ligado."
@@ -76,7 +86,7 @@ call :log "  Ja estava ligado."
 goto banco
 :ligar_mysql
 call :log "  Ligando o MySQL do XAMPP (janela 'XAMPP - MySQL')..."
-start "XAMPP - MySQL" /min "%XAMPP%\mysql_start.bat"
+start "XAMPP - MySQL" /D "%XAMPP%" /min "%XAMPP%\mysql_start.bat"
 "%PHP%" "%AJUDA%" esperar-porta 3306 40
 if errorlevel 1 goto mysql_nao_ligou
 call :log "  OK: MySQL ligado."
@@ -119,7 +129,7 @@ call :log "ERRO: falta scripts\jovemconnect.php. Confira se a pasta do projeto f
 goto falhou
 
 :falha_checagem
-call :log "ERRO: a checagem do PHP falhou (veja as linhas acima)."
+call :log "Parado a seu pedido: a checagem do PHP nao bateu (veja as linhas acima)."
 goto falhou
 
 :porta80_ocupada

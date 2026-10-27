@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../includes/compat.php';   // PHP 7.4/8.0: str_contains (includes/compat.php)
 // includes/validacoes.php
 /* ------------------------------------------------------------------
    Stage 7 — ARQUIVO LEGADO, SEM USO. Nenhuma página inclui este arquivo

@@ -18,7 +18,7 @@
 
 | Ferramenta | Mínimo identificado no código | Declarado no projeto | Testado | Observação |
 |---|---|---|---|---|
-| PHP | **8.1** (tipo de retorno `never` em `IA/assistente_ajax.php`, `Vagas/favoritar.php`, `uploads/ver_curriculo.php`, `includes/candidato.php`) | `>=8.0` em `composer.json` e `requirements.txt`; "8.1+" no cabeçalho do `schema.sql` (até a v4.50: "8.2") | 8.3.6 | O mínimo declarado está desatualizado; com PHP 8.0 essas páginas dão erro de sintaxe [I] |
+| PHP | **7.4** desde a v4.58 (`includes/compat.php` para `str_contains`/`str_starts_with`; sem `match` nem tipos de união; `mysqli_report` explícito). Recomendado: **8.1+** | `>=8.0` em `composer.json` e `requirements.txt`; "8.1+" no cabeçalho do `schema.sql` | 8.3.6 (7.4 e 8.0 só por análise do código) | O tipo de retorno `never` não dá erro no 7.4/8.0 (vira nome de classe e a função nunca retorna). Antes da v4.58, o projeto exigia 8.1 na prática e o `iniciar_jovemconnect.bat` parava em PHP mais antigo |
 | MariaDB / MySQL | InnoDB, `utf8mb4`, `ON DUPLICATE KEY UPDATE`, `CHECK` não usado | "MariaDB 10.4+ / MySQL 8.0+" (`schema.sql`) | servidor compatível com MySQL | — |
 | Apache | `.htaccess` com `Require all denied` (2.4) e `Deny from all` (2.2) | "Apache 2.4+" (`requirements.txt`) | não (a réplica usou o servidor embutido do PHP) | precisa de `AllowOverride` para os `.htaccess` |
 | XAMPP | — | "v3.3.0+" (`requirements.txt`, versão do painel) | não | — |

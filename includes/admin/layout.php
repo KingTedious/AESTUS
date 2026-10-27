@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../compat.php';   // PHP 7.4/8.0: str_contains etc. (includes/compat.php)
 /* ============================================================
    includes/admin/layout.php — estrutura visual da Central
    administrativa (Stage 7)
@@ -306,11 +307,17 @@ if (!function_exists('jc_admin_inicio')) {
             return '—';
         }
         $rot = $nome !== null && $nome !== '' ? $nome : ucfirst($tipo) . ' #' . $id;
-        return match ($tipo) {
-            'vaga'           => '<a href="vaga.php?id=' . $id . '">' . jc_e($rot) . '</a>',
-            'jovem', 'empresa' => '<a href="conta.php?tipo=' . $tipo . '&amp;id=' . $id . '">' . jc_e($rot) . '</a>',
-            'moderacao_item' => '<a href="moderacao.php?item=' . $id . '">Item #' . $id . '</a>',
-            default          => jc_e(ucfirst($tipo) . ' #' . $id),
-        };
+        // (sem "match", que só existe no PHP 8.0+: o projeto também roda no PHP 7.4)
+        switch ($tipo) {
+            case 'vaga':
+                return '<a href="vaga.php?id=' . $id . '">' . jc_e($rot) . '</a>';
+            case 'jovem':
+            case 'empresa':
+                return '<a href="conta.php?tipo=' . $tipo . '&amp;id=' . $id . '">' . jc_e($rot) . '</a>';
+            case 'moderacao_item':
+                return '<a href="moderacao.php?item=' . $id . '">Item #' . $id . '</a>';
+            default:
+                return jc_e(ucfirst($tipo) . ' #' . $id);
+        }
     }
 }

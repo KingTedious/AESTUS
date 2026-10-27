@@ -20,11 +20,9 @@ if (jc_admin_post()) {
     $id   = ctype_digit((string) ($_POST['id'] ?? '')) ? intval($_POST['id']) : 0;
 }
 $acao = jc_admin_post() ? (string) ($_POST['acao'] ?? '') : '';
-$permissao = match ($acao) {
-    'editar' => 'contas.editar',
-    'suspender', 'reativar' => 'contas.suspender',
-    default => 'contas.ver',
-};
+// (sem "match", que só existe no PHP 8.0+: o projeto também roda no PHP 7.4)
+$permissoes_acao = ['editar' => 'contas.editar', 'suspender' => 'contas.suspender', 'reativar' => 'contas.suspender'];
+$permissao = $permissoes_acao[$acao] ?? 'contas.ver';
 $admin = jc_admin_exigir($permissao);
 
 if ($tipo === '' || $id <= 0) {

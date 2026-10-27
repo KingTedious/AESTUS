@@ -18,7 +18,9 @@ rem ======================================================================
 set "RAIZ=%~dp0"
 if "%RAIZ:~-1%"=="\" set "RAIZ=%RAIZ:~0,-1%"
 for %%I in ("%RAIZ%") do set "PASTA=%%~nxI"
-for %%I in ("%RAIZ%\..") do set "PAI=%%~nxI"
+rem Nome da pasta-mae, com o caminho normalizado antes (\.. resolvido)
+for %%I in ("%RAIZ%\..") do set "PAIC=%%~fI"
+for %%I in ("%PAIC%") do set "PAI=%%~nxI"
 for %%I in ("%RAIZ%\..\..") do set "XAMPP=%%~fI"
 set "PHP=%XAMPP%\php\php.exe"
 set "AJUDA=%RAIZ%\scripts\jovemconnect.php"
@@ -46,15 +48,15 @@ if errorlevel 2 goto xampp
 "%PHP%" "%AJUDA%" porta 3306
 if not errorlevel 1 goto banco_confirmar
 echo   O MySQL esta desligado; ligando so para apagar o banco...
-start "XAMPP - MySQL" /min "%XAMPP%\mysql_start.bat"
+start "XAMPP - MySQL" /D "%XAMPP%" /min "%XAMPP%\mysql_start.bat"
 "%PHP%" "%AJUDA%" esperar-porta 3306 40
 if errorlevel 1 goto banco_sem_mysql
 :banco_confirmar
 set "CONF="
-set /p "CONF=  Para confirmar, digite o nome do banco (%BANCO%): "
+set /p "CONF=  Para confirmar, digite o nome do banco (%BANCO%; maiusculas tanto faz): "
 set "OK_BANCO="
 setlocal EnableDelayedExpansion
-if "!CONF!"=="!BANCO!" (endlocal & set "OK_BANCO=1") else endlocal
+if /i "!CONF!"=="!BANCO!" (endlocal & set "OK_BANCO=1") else endlocal
 if not defined OK_BANCO goto banco_nao
 "%PHP%" "%AJUDA%" banco-apagar "%BANCO%"
 goto xampp
@@ -99,31 +101,32 @@ echo   ATENCAO: %AVISO_GIT%
 echo   Se excluir a pasta, esse trabalho se perde.
 :pasta_confirmar
 set "CONF="
-set /p "CONF=  Para confirmar, digite o nome da pasta (%PASTA%): "
+set /p "CONF=  Para confirmar, digite o nome da pasta (%PASTA%; maiusculas tanto faz): "
 set "OK_PASTA="
 setlocal EnableDelayedExpansion
-if "!CONF!"=="!PASTA!" (endlocal & set "OK_PASTA=1") else endlocal
+if /i "!CONF!"=="!PASTA!" (endlocal & set "OK_PASTA=1") else endlocal
 if not defined OK_PASTA goto pasta_nao
 
-rem A exclusao roda num script temporario fora da pasta (este arquivo esta dentro dela).
+rem A exclusao roda numa copia de scripts\excluir_pasta.bat em %TEMP% (este arquivo
+rem esta dentro da pasta). Ela espera este arquivo terminar, tenta ate 3 vezes, tira
+rem o "somente leitura" (arquivos do .git) e, se algo ficar, mostra o que e oferece
+rem tentar de novo. Diagnostico em %TEMP%\jovemconnect_limpeza.log.
+if not exist "%RAIZ%\scripts\excluir_pasta.bat" goto pasta_sem_script
 set "LIMPA=%TEMP%\jovemconnect_limpeza_%RANDOM%%RANDOM%.bat"
-> "%LIMPA%" echo @echo off
->>"%LIMPA%" echo title JovemConnect - excluindo a pasta
->>"%LIMPA%" echo cd /d "%%TEMP%%"
->>"%LIMPA%" echo timeout /t 3 /nobreak ^>nul
->>"%LIMPA%" echo if not exist "%RAIZ%\index.php" goto fim
->>"%LIMPA%" echo rmdir /s /q "%RAIZ%"
->>"%LIMPA%" echo if exist "%RAIZ%\" echo Alguns arquivos estavam em uso e ficaram em "%RAIZ%". Feche os programas e apague o resto manualmente.
->>"%LIMPA%" echo if not exist "%RAIZ%\" echo Pasta excluida: "%RAIZ%"
->>"%LIMPA%" echo :fim
->>"%LIMPA%" echo pause
->>"%LIMPA%" echo (goto) 2^>nul ^& del "%%~f0"
-echo   Excluindo em uma janela separada...
-start "JovemConnect - limpeza" cmd /c ""%LIMPA%""
+copy /y "%RAIZ%\scripts\excluir_pasta.bat" "%LIMPA%" >nul
+if not exist "%LIMPA%" goto pasta_sem_script
+echo   Excluindo em uma janela separada ("JovemConnect - limpeza")...
+cd /d "%TEMP%"
+start "JovemConnect - limpeza" /D "%TEMP%" cmd /c ""%LIMPA%" "%RAIZ%""
 endlocal & cd /d "%TEMP%" & exit /b 0
 
 :pasta_nao
 echo   Nome diferente: a pasta NAO foi excluida.
+goto fim
+
+:pasta_sem_script
+echo   ERRO: nao consegui preparar a exclusao (falta scripts\excluir_pasta.bat ou %%TEMP%% sem permissao).
+echo   Nada foi excluido. Apague a pasta pelo Explorer depois de fechar esta janela.
 goto fim
 
 :pasta_recusada

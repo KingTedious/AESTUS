@@ -48,7 +48,7 @@ Na v4.00 não existia perfil de administrador. Desde a Stage 7 existe a Central 
 | Camada | Tecnologia | Evidência |
 |---|---|---|
 | Servidor web | Apache (XAMPP no Windows) | `iniciar_ia.bat`, `.htaccess` em `logs/` e `uploads/curriculos/` |
-| Aplicação | PHP ≥ 8.1 na prática (usa o tipo de retorno `never`), `mysqli` | `composer.json` declara `>=8.0` [C divergência] |
+| Aplicação | PHP 8.1+ recomendado; 7.4 e 8.0 em modo de compatibilidade desde a v4.58 (`includes/compat.php`), `mysqli` | `composer.json` declara `>=8.0` |
 | Banco | MariaDB 10.4+ / MySQL 8.0+, InnoDB, `utf8mb4` | cabeçalho do `schema.sql` |
 | Dependências PHP opcionais | PHPMailer 6.9, Twilio SDK 8.3 (via Composer) | `composer.json`; pasta `vendor/` não versionada |
 | Serviço de IA | Python 3.10+ + Flask + flask-cors (versões fixas), porta 5000 por padrão (ou a próxima livre de 5001–5010), só `127.0.0.1` | `IA/recomendar.py`, `IA/requirements-ia.txt` |

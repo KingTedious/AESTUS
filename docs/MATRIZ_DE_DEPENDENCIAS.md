@@ -9,7 +9,7 @@
 
 | Dependência | Tipo | Usada por | Obrigatória? | Sem ela |
 |---|---|---|---|---|
-| PHP ≥ 8.1, extensões `mysqli`, `curl`, `mbstring`, `json` | runtime | tudo; `curl` em `includes/match.php`, `IA/avaliar_ajax.php`, `Vagas/curriculoIA.php` | sim | site não roda; sem `curl` não há Flask (Match local continua) [I] |
+| PHP 8.1+ (7.4 e 8.0 com `includes/compat.php`, desde a v4.58), extensões `mysqli`, `curl`, `mbstring`, `json` | runtime | tudo; `curl` em `includes/match.php`, `IA/avaliar_ajax.php`, `Vagas/curriculoIA.php` | sim | site não roda; sem `curl` não há Flask (Match local continua) [I] |
 | MariaDB 10.4+ / MySQL 8.0+ | banco | `includes/config.php` | sim | 503 "temporariamente indisponível" |
 | Apache com `AllowOverride` | servidor | `.htaccess` de `logs/` e `uploads/curriculos/` | recomendado | pastas protegidas ficam públicas (SEG-10) |
 | `phpmailer/phpmailer ^6.9` (Composer) | biblioteca | `includes/mailer.php` | para e-mail | verificação de e-mail e recuperação não enviam nada |

@@ -143,7 +143,7 @@ sequenceDiagram
 
 | Decisão | Onde | Consequência |
 |---|---|---|
-| Uma conexão `mysqli` global (`$conn`) por requisição | `includes/config.php` | Simples; sem pool nem ORM. Exceções do mysqli ficam ativas (padrão do PHP 8.1+), por isso ramos `if (!$stmt->execute())` não são alcançados [C]. |
+| Uma conexão `mysqli` global (`$conn`) por requisição | `includes/config.php` | Simples; sem pool nem ORM. Exceções do mysqli ficam ativas (padrão do PHP 8.1+, e ligadas explicitamente com `mysqli_report` desde a v4.58, para valer também no 7.4/8.0), por isso ramos `if (!$stmt->execute())` não são alcançados [C]. |
 | Regras de acesso centralizadas em funções | `includes/candidato.php` (`jc_empresa_acesso_candidato`, `jc_empresa_pode_ver_candidato`) | A mesma regra vale no perfil, no currículo e no Match [C][T]. |
 | Algoritmo do Match duplicado em Python e PHP | `IA/recomendar.py::avaliar`, `includes/match.php::jc_match_calcular` | O site funciona sem Flask; exige manter os dois iguais (paridade testada na réplica: 1.205 entradas, 0 divergências [T]). |
 | Colunas opcionais detectadas em tempo de execução | `includes/endereco_empresa.php`, `includes/locais.php`, `includes/termos.php` (`SHOW COLUMNS`) | O site funciona antes e depois das migrações [C][T]. |

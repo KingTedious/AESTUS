@@ -14,14 +14,18 @@ Num computador com XAMPP e o projeto em `C:\xampp\htdocs\<pasta>`:
    demonstração, e por fim chama o `iniciar_ia.bat` (IA e navegador). Tudo o que cria, ele pergunta antes.
 2. Ao terminar, dê dois cliques em **`parar_jovemconnect.bat`**. Ele fecha a IA desta pasta e pergunta, um de cada
    vez, se deve apagar o banco do XAMPP, desligar o XAMPP e apagar a pasta do projeto do `htdocs` (útil em
-   computadores emprestados, como os da escola). Para apagar o banco ou a pasta, é preciso digitar o nome; antes de
-   apagar a pasta, ele avisa sobre alterações do Git que ainda não foram enviadas.
+   computadores emprestados, como os da escola). Para apagar o banco ou a pasta, é preciso digitar o nome (maiúsculas
+   tanto faz); antes de apagar a pasta, ele avisa sobre alterações do Git que ainda não foram enviadas. A exclusão
+   acontece numa janela "JovemConnect - limpeza", que mostra o resultado.
+3. Se a checagem do PHP não bater (por exemplo, um XAMPP antigo), o `iniciar_jovemconnect.bat` mostra o motivo e
+   pergunta se continua mesmo assim.
 
 Os passos abaixo explicam o que esses scripts fazem e como fazer tudo à mão.
 
 ## 1. Preparar o ambiente
 
-1. Instale o **XAMPP** (Apache + MariaDB + PHP). O PHP precisa ser **8.1 ou mais novo** (ver
+1. Instale o **XAMPP** (Apache + MariaDB + PHP). Recomendado: PHP **8.1 ou mais novo**; desde a v4.58 o projeto também
+   roda no **7.4 e no 8.0** (modo de compatibilidade, para computadores com XAMPP antigo, como os da escola; ver
    [REQUISITOS.md](REQUISITOS.md#versões)).
 2. Instale o **Python 3.10+** marcando "Add python.exe to PATH" (só para os recursos de IA; o site funciona sem ele).
 3. Opcional: **Composer**, só se for usar e-mail (PHPMailer) ou SMS (Twilio).
@@ -161,7 +165,8 @@ Lista completa: [CONFIGURACAO.md](CONFIGURACAO.md).
 |---|---|---|
 | "O sistema está temporariamente indisponível" | MySQL parado ou `DB_*` errado | iniciar o MySQL; conferir `.env`; ver `banco.indisponivel` em `logs/app.log` |
 | "Ocorreu um erro inesperado" | exceção (ex.: banco antigo sem uma coluna) | ver `erro.inesperado` em `logs/app.log` (`errno`/`sqlstate`); aplicar as migrações pendentes |
-| Erro de sintaxe em páginas com `never` | PHP 8.0 | atualizar para PHP 8.1+ |
+| `iniciar_jovemconnect.bat`: "alguma verificacao nao bateu" | PHP antigo, extensão desligada ou pasta sem permissão | ler a linha marcada; responder **S** para continuar mesmo assim (PHP 7.4/8.0 já passa como compatibilidade) ou **N** para parar |
+| `parar_jovemconnect.bat`: a pasta não some | algum programa usa arquivos dela (janela da IA, editor, terminal aberto nela) | a janela "JovemConnect - limpeza" lista o que sobrou: feche o programa e responda **S** para tentar de novo; diagnóstico em `%TEMP%\jovemconnect_limpeza.log` |
 | Página sem estilo | servidor diferencia maiúsculas (`Assets/` × `assets/`) | ver [MANUTENCAO_E_EVOLUCAO.md](MANUTENCAO_E_EVOLUCAO.md#publicar-fora-do-xampp) |
 | E-mail/SMS não chega | sem `composer install` ou credenciais | `composer install`; preencher `SMTP_*`/`TWILIO_*`; ver o `error_log` do PHP (`C:\xampp\php\logs` ou `C:\xampp\apache\logs\error.log`, conforme o php.ini) |
 | `iniciar_ia.bat`: "o ambiente oficial (venv) nao pode ser usado" | `venv` ausente ou criado em outro PC | responder **S** para reconstruir o `venv` deste PC (o anterior vira `venv.antigo-<data>`) |

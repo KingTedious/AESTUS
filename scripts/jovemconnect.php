@@ -10,6 +10,7 @@
 
    Comandos (código de saída 0 = ok):
      checar                 PHP, extensões, .env, pastas graváveis, htdocs
+                            (1 = algo falhou; o .bat pergunta se continua mesmo assim)
      criar-env              cria o .env a partir do .env.example (nunca sobrescreve)
      porta <n>              0 se 127.0.0.1:<n> aceita conexão
      esperar-porta <n> <s>  espera até <s> segundos a porta abrir
@@ -105,6 +106,32 @@ function porta_aberta(int $porta): bool {
     return false;
 }
 
+/** Windows: pid do processo pai, ou null (wmic; sem ele, PowerShell). */
+function pid_pai(int $pid): ?int {
+    $saida = [];
+    @exec('wmic process where ProcessId=' . $pid . ' get ParentProcessId /value 2>nul', $saida);
+    foreach ($saida as $linha) {
+        if (preg_match('/ParentProcessId=(\d+)/', $linha, $m)) {
+            return (int) $m[1];
+        }
+    }
+    $saida = [];
+    @exec('powershell -NoProfile -NonInteractive -Command "(Get-CimInstance Win32_Process -Filter \'ProcessId=' . $pid . '\').ParentProcessId" 2>nul', $saida);
+    foreach ($saida as $linha) {
+        if (preg_match('/^\s*(\d+)\s*$/', $linha, $m)) {
+            return (int) $m[1];
+        }
+    }
+    return null;
+}
+
+/** Windows: linha CSV do tasklist /V (nome, pid, ..., título da janela) do pid, ou ''. */
+function tarefa(int $pid): string {
+    $info = [];
+    @exec('tasklist /V /FI "PID eq ' . $pid . '" /FO CSV /NH 2>nul', $info);
+    return isset($info[0]) && strpos($info[0], '"' . $pid . '"') !== false ? $info[0] : '';
+}
+
 function http_get(string $url, int $timeout = 3): array {
     $ch = curl_init($url);
     curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_CONNECTTIMEOUT => 2,
@@ -122,8 +149,16 @@ switch ($cmd) {
 
 case 'checar':
     $ok = true;
-    diz('  PHP ' . PHP_VERSION . (version_compare(PHP_VERSION, '8.1.0', '>=') ? ' (ok)' : ' - ERRO: o projeto precisa do PHP 8.1 ou mais novo'));
-    $ok = $ok && version_compare(PHP_VERSION, '8.1.0', '>=');
+    // 8.1+ é o ambiente de desenvolvimento; 7.4 e 8.0 funcionam com includes/compat.php
+    // (XAMPP mais antigo, ex.: computadores da escola); abaixo do 7.4 o código nem é lido.
+    if (version_compare(PHP_VERSION, '8.1.0', '>=')) {
+        diz('  PHP ' . PHP_VERSION . ' (ok)');
+    } elseif (version_compare(PHP_VERSION, '7.4.0', '>=')) {
+        diz('  PHP ' . PHP_VERSION . ' (ok, modo de compatibilidade: o projeto e feito no PHP 8.1+, mas roda no 7.4/8.0)');
+    } else {
+        diz('  PHP ' . PHP_VERSION . ' - MUITO ANTIGO: o projeto precisa do PHP 7.4 ou mais novo');
+        $ok = false;
+    }
     foreach (['mysqli', 'curl', 'openssl', 'mbstring', 'json'] as $ext) {
         $tem = extension_loaded($ext);
         diz('  extensao ' . $ext . ': ' . ($tem ? 'ok' : 'FALTANDO (ative no php.ini do XAMPP)'));
@@ -311,13 +346,22 @@ case 'ia-parar':
         exit(0);
     }
     if (stripos(PHP_OS, 'WIN') === 0) {
-        $info = [];
-        exec('tasklist /FI "PID eq ' . $pid . '" /FO CSV /NH', $info);
-        if (!isset($info[0]) || stripos($info[0], 'python') === false) {
+        $info = tarefa($pid);
+        if ($info === '' || stripos($info, 'python') === false) {
             diz('  O PID registrado nao e um Python; por seguranca nada foi fechado.');
             exit(1);
         }
-        exec('taskkill /PID ' . $pid . ' /F', $saida, $rc);
+        // Fecha tambem a janela "JovemConnect - IA" (o cmd /k que o iniciar_ia.bat abriu),
+        // mas SO se o pai do Python for mesmo essa janela. Sem isso a janela ficava aberta
+        // depois de a IA fechar.
+        $pai = pid_pai($pid);
+        $janela = $pai !== null ? tarefa($pai) : '';
+        if ($janela !== '' && stripos($janela, '"cmd.exe"') === 0 && stripos($janela, 'JovemConnect - IA') !== false) {
+            exec('taskkill /PID ' . $pai . ' /T /F 2>nul', $saida, $rc);
+            diz('  Janela "JovemConnect - IA" fechada.');
+        } else {
+            exec('taskkill /PID ' . $pid . ' /F 2>nul', $saida, $rc);
+        }
     } else {
         $rc = function_exists('posix_kill') && posix_kill($pid, 15) ? 0 : 1;
     }
