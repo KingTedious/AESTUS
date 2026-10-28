@@ -86,7 +86,7 @@ if (!function_exists('jc_candidato_indisponivel')) {
         echo '<!DOCTYPE html><html lang="pt-br" data-theme="dark"><head><meta charset="UTF-8">'
            . '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
            . '<title>Perfil indisponível | JovemConnect</title>'
-           . '<link rel="stylesheet" href="../Assets/css/style.css">'
+           . '<link rel="stylesheet" href="../assets/css/style.css">'
            . '<link rel="icon" type="image/png" sizes="32x32" href="../assets/img/marca/jovemconnect-icone-32.png">'
            . '</head><body><main class="card perfil-indisponivel">'
            . '<h1>Perfil indisponível</h1>'

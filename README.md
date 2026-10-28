@@ -28,7 +28,7 @@ Plataforma de empregabilidade que conecta jovens em busca do primeiro emprego
 | Banco | MariaDB / MySQL |
 | IA | Python 3 + Flask (`IA/recomendar.py`) e Google Gemini (opcional, via API REST) |
 | E-mail / SMS | PHPMailer (SMTP) e Twilio, via Composer |
-| Ambiente local | XAMPP (Apache + MariaDB) no Windows |
+| Ambiente local | XAMPP (Apache + MariaDB) no Windows; no Linux, XAMPP para Linux ou Apache + MariaDB do sistema |
 
 ## Como instalar (XAMPP)
 
@@ -41,6 +41,8 @@ demonstração), inicia a IA e abre o site. Para desligar, use
 **`parar_jovemconnect.bat`**: ele fecha a IA e **pergunta** se deve apagar o banco do
 projeto, desligar o XAMPP e excluir a pasta deste computador (cada exclusão pede
 `S` e que você digite o nome; maiúsculas tanto faz). Não use a limpeza no seu computador principal.
+No **Linux**, use `bash iniciar_jovemconnect.sh` e `bash parar_jovemconnect.sh` na pasta do projeto (com a
+pasta em `/opt/lampp/htdocs/` ou `/var/www/html/`); veja `docs/INSTALACAO_E_EXECUCAO.md`.
 Os passos abaixo são o jeito manual.
 
 1. **Arquivos** — coloque a pasta do projeto em `C:\xampp\htdocs\` (ex.:

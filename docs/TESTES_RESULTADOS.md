@@ -1188,3 +1188,25 @@ nessas versões, e os `.bat` só rodam no Windows; o que dependia disso foi veri
 aviso; navegar pelo site (cadastro, vagas, favoritos, Match, Central administrativa); rodar o
 `parar_jovemconnect.bat` até a exclusão da pasta e, se algo sobrar, guardar `%TEMP%\jovemconnect_limpeza.log`.
 
+## V459 — Linux
+
+Executados em 28/10/2026 na réplica Linux (PHP 8.3.6, Python 3.13), **sem** os atalhos `Assets → assets` e
+`Candidaturas → candidaturas` que a réplica usava antes. Com isso, ela diferencia maiúsculas como um servidor Linux.
+Não havia XAMPP para Linux nem systemd na réplica: o modo XAMPP foi testado com um `lampp` falso que registra os
+comandos, e o modo systemd só por revisão.
+
+| ID | Verificação | Resultado | Observação |
+|---|---|---|---|
+| V459-001 | Varredura de todas as referências a arquivos e pastas do projeto contra a grafia do disco | 22 referências corrigidas (`Assets/` → `assets/`, em 21 arquivos) | sobram 9 ocorrências que não são caminhos: comentários e chaves comparadas em minúsculas (`includes/assistente.php`) |
+| V459-002 | Páginas de visitante, jovem e empresa num servidor que diferencia maiúsculas (`t_paginas_linux.py`) | **6/6** | 44 páginas visitadas, nenhuma com 404/500; os 13 arquivos de CSS/JS/imagem referenciados respondem 200; `Assets/css/style.css` dá 404 (prova de que o servidor diferencia) |
+| V459-003 | Regressão completa no servidor que diferencia maiúsculas | todas as suítes no padrão | só as 7 falhas que já existiam (3 na formação original, 4 no cadastro); Central administrativa 51, 7, 13, 48, 39, 74 e 46 sem falhas |
+| V459-004 | Scripts Linux (`t_linux_scripts.py`) | **34/34** | LF e sintaxe; iniciar com tudo no ar (6 etapas, reaproveita a IA); checagem que não bate com N (para) e S (continua); IA desligada → sobe em segundo plano, continua viva depois do script, com a pasta de trabalho fora do projeto e saída em `logs/ia_console.log`; parar com N a tudo (só fecha a IA); venv ausente + N; venv do Windows (avisa, guarda como `venv.antigo-<data>`, cria um venv Linux; sem internet, para com mensagem clara); XAMPP falso (`startapache`, `startmysql`, `stopapache`, `stopmysql`); modo manual; banco de teste apagado só com o nome certo (maiúsculas tanto faz) e o banco do site intacto; pasta excluída só com o nome certo, com aviso do Git e só dentro de `htdocs`/`/var/www`; `quem-usa` e `protecao` no Linux; sem senha ou chave na saída e no log |
+| V459-005 | Ajudante dos scripts (`t_scripts.py`) | **26/26** | o comportamento usado pelos `.bat` não mudou |
+
+**Encontrado e corrigido durante os testes:** o `iniciar_ia.sh` deixava um processo `bash` preso esperando a IA,
+o que travava quem lia a saída do script. Agora a IA é lançada com `exec`, sem nada preso ao terminal. As perguntas
+S/N passaram a aparecer também quando a entrada não é um terminal.
+
+**Pendente num Linux de verdade:** XAMPP para Linux (`/opt/lampp`) e Apache/MariaDB do sistema (systemd, `sudo`,
+usuário do Apache gravando em `logs/`, `AllowOverride` para os `.htaccess`) e a abertura do navegador com `xdg-open`.
+

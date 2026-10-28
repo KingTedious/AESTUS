@@ -106,11 +106,12 @@ aumentaria o que se perde por engano (SEG-11/AUD-002).
 
 Itens que mudam fora do Windows/Apache:
 
-1. Trocar `../Assets/css/style.css` por `../assets/css/style.css` (≈ 21 arquivos) — em Linux, essas páginas
-   ficam sem CSS [C caminho / I efeito].
+1. ~~Trocar `../Assets/css/style.css` por `../assets/css/style.css`~~ — feito na v4.59 (21 arquivos). Ao criar
+   páginas novas, escreva caminhos com a grafia exata do disco: o Linux diferencia maiúsculas.
 2. Garantir `AllowOverride` (Apache) ou regras equivalentes (nginx) para `logs/` e `uploads/curriculos/`;
    negar `.env`, `*.sql`, `composer.*`, `includes/` (SEG-04, SEG-10).
-3. Substituir `iniciar_ia.bat` por um serviço (ex.: systemd) que rode `python IA/recomendar.py`.
+3. Para uso local, `iniciar_jovemconnect.sh` / `iniciar_ia.sh` (v4.59). Num servidor, um serviço do systemd que rode
+   `venv/bin/python IA/recomendar.py` (a IA já grava a porta em `logs/ia_porta.json` e sai limpa com SIGTERM).
 4. HTTPS (o cookie de sessão já recebe `Secure` automaticamente em HTTPS).
 5. `display_errors=Off` e `FLASK_DEBUG` desligado.
 6. (Stage 7) Central administrativa: HTTPS (o cookie `JCADMIN` só recebe `Secure` em HTTPS), restringir `/admin/`
@@ -144,7 +145,7 @@ tratado em parte SEG-19 (salário e carga horária); **SEG-01 continua pendente*
 | 3 | Segredo compartilhado PHP↔Flask; remover CORS | SEG-06 |
 | 3 | Hash dos códigos; invalidar sessões ao trocar a senha | SEG-08, SEG-09 |
 | — | `schema.sql` só para instalação nova, sem `DROP` e sem dados (feito no Lote B da remediação) | SEG-11 |
-| 4 | Caminho `Assets/` → `assets/` | — |
+| 4 | Caminho `Assets/` → `assets/` | feito na v4.59 |
 | 4 | `type="url"` do site impede salvar o perfil da empresa | — |
 | 4 | Fallback de sugestões de currículo sem Flask (ou mensagem clara) | — |
 | 4 | Regras de substring do Match (decisão de produto; mudar os dois lados) | MATCH-01/02 |

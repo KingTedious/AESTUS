@@ -41,7 +41,7 @@ Na v4.00 não existia perfil de administrador. Desde a Stage 7 existe a Central 
 | Assistente com IA e respostas prontas | botão ✦ em quase todas as páginas | [C] [T com Gemini simulado] |
 | Acessibilidade (tamanho do texto, fonte para dislexia, filtros de cor, alto contraste, tema claro/escuro) | painel ♿ | [C] [T] |
 | Logs JSON de aplicação, segurança e IA | `logs/` | [C] [T] |
-| Iniciar e parar tudo no XAMPP (Apache, MySQL, banco, IA; apagar banco e pasta no fim) (v4.56) | `iniciar_jovemconnect.bat`, `parar_jovemconnect.bat`, `scripts/jovemconnect.php` | [C]; ajudante [T] 26/26; os `.bat` só rodam no Windows |
+| Iniciar e parar tudo no XAMPP (Apache, MySQL, banco, IA; apagar banco e pasta no fim) (v4.56; versões `.sh` para Linux na v4.59) | `iniciar_jovemconnect.bat`/`.sh`, `parar_jovemconnect.bat`/`.sh`, `scripts/jovemconnect.php` | [C]; ajudante [T] 26/26; `.sh` [T] na réplica Linux; os `.bat` só rodam no Windows |
 
 ## Tecnologias
 
@@ -286,7 +286,7 @@ Levantamento por engenharia reversa (não havia documento de requisitos no repos
 - Listagens sem paginação [C].
 - O perfil do jovem nasce **público para empresas** (`perfil_publico = 1`) [C].
 - A nota do Match usa comparação de texto (substring), sem distância real nem habilidades [C][T].
-- O caminho `../Assets/css/style.css` (com "A" maiúsculo) só funciona em sistemas que não diferenciam maiúsculas, como o Windows [C].
+- ~~O caminho `../Assets/css/style.css` (com "A" maiúsculo) só funcionava em sistemas que não diferenciam maiúsculas~~: corrigido na v4.59, e o projeto roda no Linux [C].
 
 A lista completa, com evidências e recomendações, está em [SEGURANCA_E_PRIVACIDADE.md](SEGURANCA_E_PRIVACIDADE.md)
 e em [MANUTENCAO_E_EVOLUCAO.md](MANUTENCAO_E_EVOLUCAO.md#pendências-que-exigem-mudança-de-código).

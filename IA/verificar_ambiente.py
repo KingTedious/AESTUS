@@ -212,7 +212,7 @@ def esperar(segundos):
     while time.monotonic() < limite:
         porta = estado()
         if porta is not None:
-            log(f"  IA respondendo em http://127.0.0.1:{porta}/ping (porta gravada em logs\\ia_porta.json)")
+            log(f"  IA respondendo em http://127.0.0.1:{porta}/ping (porta gravada em logs{os.sep}ia_porta.json)")
             return 0
         time.sleep(0.5)
     return 1

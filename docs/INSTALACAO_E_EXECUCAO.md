@@ -20,6 +20,19 @@ Num computador com XAMPP e o projeto em `C:\xampp\htdocs\<pasta>`:
 3. Se a checagem do PHP não bater (por exemplo, um XAMPP antigo), o `iniciar_jovemconnect.bat` mostra o motivo e
    pergunta se continua mesmo assim.
 
+**No Linux (v4.59):** com a pasta em `/opt/lampp/htdocs/` (XAMPP para Linux) ou em `/var/www/html/` (Apache do
+sistema), rode no terminal, dentro da pasta do projeto:
+
+```bash
+bash iniciar_jovemconnect.sh    # liga tudo (pode pedir a senha do sudo para ligar Apache/MySQL)
+bash parar_jovemconnect.sh      # desliga e, se você quiser, apaga o banco e a pasta
+```
+
+Fazem o mesmo que os `.bat`, perguntando antes de criar ou apagar qualquer coisa. No Linux eles também oferecem
+liberar a escrita do Apache em `logs/` e `uploads/curriculos/` e conferem se os `.htaccess` estão valendo. A IA
+fica em segundo plano (saída em `logs/ia_console.log`). Pacotes necessários num Linux sem XAMPP, por exemplo no
+Debian/Ubuntu: `apache2 mariadb-server php php-mysql php-curl php-mbstring python3 python3-venv`.
+
 Os passos abaixo explicam o que esses scripts fazem e como fazer tudo à mão.
 
 ## 1. Preparar o ambiente
@@ -167,7 +180,11 @@ Lista completa: [CONFIGURACAO.md](CONFIGURACAO.md).
 | "Ocorreu um erro inesperado" | exceção (ex.: banco antigo sem uma coluna) | ver `erro.inesperado` em `logs/app.log` (`errno`/`sqlstate`); aplicar as migrações pendentes |
 | `iniciar_jovemconnect.bat`: "alguma verificacao nao bateu" | PHP antigo, extensão desligada ou pasta sem permissão | ler a linha marcada; responder **S** para continuar mesmo assim (PHP 7.4/8.0 já passa como compatibilidade) ou **N** para parar |
 | `parar_jovemconnect.bat`: a pasta não some | algum programa usa arquivos dela (janela da IA, editor, terminal aberto nela) | a janela "JovemConnect - limpeza" lista o que sobrou: feche o programa e responda **S** para tentar de novo; diagnóstico em `%TEMP%\jovemconnect_limpeza.log` |
-| Página sem estilo | servidor diferencia maiúsculas (`Assets/` × `assets/`) | ver [MANUTENCAO_E_EVOLUCAO.md](MANUTENCAO_E_EVOLUCAO.md#publicar-fora-do-xampp) |
+| Página sem estilo | cópia anterior à v4.59 num servidor que diferencia maiúsculas (`Assets/` × `assets/`) | atualizar o projeto (corrigido na v4.59) |
+| Linux: logs ou currículos não gravam | o Apache roda com outro usuário | rodar o `iniciar_jovemconnect.sh` e responder **S** para liberar a escrita em `logs/` e `uploads/curriculos/` |
+| Linux: "o Apache nao esta aplicando os .htaccess" | `AllowOverride None` no Apache do sistema | ativar `AllowOverride All` para a pasta do site e reiniciar o Apache |
+| Linux: banco "inacessivel" com o MariaDB do sistema | o `root` só entra com `sudo` | criar um usuário para o projeto e colocá-lo em `DB_USER`/`DB_PASS` no `.env` (o script mostra os comandos) |
+| Linux: "nenhum Python 3.10+ com venv" | falta o pacote do venv | `sudo apt install python3 python3-venv` (Debian/Ubuntu) |
 | E-mail/SMS não chega | sem `composer install` ou credenciais | `composer install`; preencher `SMTP_*`/`TWILIO_*`; ver o `error_log` do PHP (`C:\xampp\php\logs` ou `C:\xampp\apache\logs\error.log`, conforme o php.ini) |
 | `iniciar_ia.bat`: "o ambiente oficial (venv) nao pode ser usado" | `venv` ausente ou criado em outro PC | responder **S** para reconstruir o `venv` deste PC (o anterior vira `venv.antigo-<data>`) |
 | `iniciar_ia.bat`: "nenhum Python 3.10+ utilizavel" | Python ausente do PATH | instalar o Python 3.13 marcando "Add python.exe to PATH" |

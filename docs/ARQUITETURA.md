@@ -288,9 +288,10 @@ Desde a v4.56, `iniciar_jovemconnect.bat` liga o Apache e o MySQL do XAMPP, cria
 `iniciar_ia.bat`; `parar_jovemconnect.bat` desfaz isso no fim do uso (ver
 [INSTALACAO_E_EXECUCAO.md](INSTALACAO_E_EXECUCAO.md#início-rápido-v456)).
 
-O ambiente de referência é **Windows + XAMPP** [I: `iniciar_ia.bat`, caminhos `C:\xampp\htdocs`, uso de
-`Assets/` com maiúscula que só funciona em sistema de arquivos sem distinção de maiúsculas]. Publicar em
-Linux exige ajustes listados em [MANUTENCAO_E_EVOLUCAO.md](MANUTENCAO_E_EVOLUCAO.md#publicar-fora-do-xampp).
+O ambiente de referência é **Windows + XAMPP**. Desde a v4.59 o projeto também roda no **Linux** (XAMPP para
+Linux em `/opt/lampp` ou Apache/MariaDB do sistema), com `iniciar_jovemconnect.sh`, `iniciar_ia.sh` e
+`parar_jovemconnect.sh` e com todas as referências a arquivos na grafia exata do disco (o Linux diferencia
+maiúsculas). Para publicar num servidor, veja [MANUTENCAO_E_EVOLUCAO.md](MANUTENCAO_E_EVOLUCAO.md#publicar-fora-do-xampp).
 
 ## Banco de dados
 

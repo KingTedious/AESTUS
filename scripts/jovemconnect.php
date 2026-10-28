@@ -1,7 +1,8 @@
 <?php
 /* ============================================================
    scripts/jovemconnect.php — ajudante de linha de comando dos
-   iniciar_jovemconnect.bat e parar_jovemconnect.bat
+   iniciar_jovemconnect.bat / parar_jovemconnect.bat (Windows) e
+   iniciar_jovemconnect.sh / parar_jovemconnect.sh (Linux)
 
    Só roda pelo terminal (php.exe do XAMPP); a pasta scripts/ também é
    bloqueada para o navegador (.htaccess). Lê o banco pelo .env (mesmas
@@ -14,7 +15,7 @@
      criar-env              cria o .env a partir do .env.example (nunca sobrescreve)
      porta <n>              0 se 127.0.0.1:<n> aceita conexão
      esperar-porta <n> <s>  espera até <s> segundos a porta abrir
-     quem-usa <n>           mostra o programa que escuta na porta (Windows)
+     quem-usa <n>           mostra o programa que escuta na porta (Windows: netstat; Linux: ss/lsof)
      apache                 0 se quem responde em http://127.0.0.1/ é um Apache
      site <pasta>           0 se http://localhost/<pasta>/index.php é o JovemConnect
      banco-status           0 instalado | 10 não existe | 11 existe vazio | 2 MySQL inacessível
@@ -24,6 +25,8 @@
      banco-nome             imprime o nome do banco (DB_NAME)
      banco-apagar <nome>    DROP DATABASE — só se <nome> == DB_NAME e não for do sistema
      ia-parar               fecha SÓ a IA desta pasta (pid/instância de logs/ia_porta.json)
+     protecao <pasta>       0 se o Apache bloqueia logs/ e uploads/curriculos/ pelo navegador
+                            (os .htaccess funcionam); 1 se um arquivo de teste foi servido
    ============================================================ */
 
 if (PHP_SAPI !== 'cli') {
@@ -41,6 +44,7 @@ $DB = [
     'pass' => getenv('DB_PASS') !== false ? (string) getenv('DB_PASS') : '',
     'nome' => getenv('DB_NAME') ?: 'jovemconnect',
 ];
+$WINDOWS = stripos(PHP_OS, 'WIN') === 0;
 const BANCOS_DO_SISTEMA = ['mysql', 'information_schema', 'performance_schema', 'sys', 'phpmyadmin', 'test'];
 
 function diz(string $msg): void { fwrite(STDOUT, $msg . PHP_EOL); }
@@ -161,7 +165,8 @@ case 'checar':
     }
     foreach (['mysqli', 'curl', 'openssl', 'mbstring', 'json'] as $ext) {
         $tem = extension_loaded($ext);
-        diz('  extensao ' . $ext . ': ' . ($tem ? 'ok' : 'FALTANDO (ative no php.ini do XAMPP)'));
+        diz('  extensao ' . $ext . ': ' . ($tem ? 'ok' : ($WINDOWS ? 'FALTANDO (ative no php.ini do XAMPP)'
+            : 'FALTANDO (ative no php.ini, ou instale o pacote php-' . $ext . ')')));
         $ok = $ok && $tem;
     }
     $env = is_file($RAIZ . '/.env');
@@ -172,11 +177,18 @@ case 'checar':
             @mkdir($dir, 0775, true);
         }
         $grava = is_dir($dir) && is_writable($dir);
-        diz('  pasta ' . $p . ': ' . ($grava ? 'gravavel' : 'SEM PERMISSAO DE ESCRITA'));
+        diz('  pasta ' . $p . ': ' . ($grava ? 'gravavel' : 'SEM PERMISSAO DE ESCRITA'
+            . ($WINDOWS ? '' : ' (o .sh oferece liberar com chmod)')));
         $ok = $ok && $grava;
     }
     $em_htdocs = strtolower(basename(dirname($RAIZ))) === 'htdocs';
-    diz('  dentro de htdocs: ' . ($em_htdocs ? 'sim' : 'NAO - o Apache do XAMPP so mostra pastas dentro de htdocs'));
+    if ($WINDOWS || $em_htdocs) {
+        diz('  dentro de htdocs: ' . ($em_htdocs ? 'sim' : 'NAO - o Apache do XAMPP so mostra pastas dentro de htdocs'));
+    } else {
+        // Linux sem XAMPP: o Apache do sistema costuma servir /var/www/html
+        $web = strpos(str_replace('\\', '/', $RAIZ) . '/', '/var/www/') === 0;
+        diz('  pasta servida pelo Apache: ' . ($web ? 'sim (/var/www)' : 'NAO SEI - o Apache precisa servir a pasta-mae (XAMPP: /opt/lampp/htdocs; Apache do sistema: /var/www/html)'));
+    }
     exit($ok ? ($env ? 0 : 20) : 1);
 
 case 'criar-env':
@@ -205,11 +217,17 @@ case 'esperar-porta':
     exit(1);
 
 case 'quem-usa':
-    if (stripos(PHP_OS, 'WIN') !== 0) {
-        diz('  (so no Windows)');
+    $porta = (int) $arg;
+    if (!$WINDOWS) {
+        $linhas = [];
+        @exec('ss -ltnpH "sport = :' . $porta . '" 2>/dev/null', $linhas);
+        if (!$linhas) {
+            @exec('lsof -nP -iTCP:' . $porta . ' -sTCP:LISTEN 2>/dev/null', $linhas);
+        }
+        diz($linhas ? '  porta ' . $porta . ' em uso: ' . trim(implode(' | ', array_slice($linhas, 0, 3)))
+                    : '  nao identifiquei o programa na porta ' . $porta . ' (pode precisar de sudo para ver).');
         exit(0);
     }
-    $porta = (int) $arg;
     $linhas = [];
     exec('netstat -ano -p TCP', $linhas);
     foreach ($linhas as $l) {
@@ -236,6 +254,29 @@ case 'site':
     $pasta = rawurlencode($arg !== '' ? $arg : basename($RAIZ));
     [$http, $corpo] = http_get("http://127.0.0.1/{$pasta}/index.php");
     exit($http === 200 && stripos($corpo, 'JovemConnect') !== false ? 0 : 1);
+
+case 'protecao':
+    // Cria um arquivo de teste em cada pasta protegida, pede pelo Apache e apaga.
+    // 403/404 = protegido; 200 com o conteúdo = o .htaccess NÃO está valendo (AllowOverride).
+    $pasta = rawurlencode($arg !== '' ? $arg : basename($RAIZ));
+    $expostas = [];
+    foreach (['logs', 'uploads/curriculos'] as $p) {
+        $nome = 'teste_protecao_' . bin2hex(random_bytes(4)) . '.txt';
+        $arq = $RAIZ . '/' . $p . '/' . $nome;
+        if (@file_put_contents($arq, 'jovemconnect-teste') === false) {
+            diz('  ' . $p . ': nao consegui criar o arquivo de teste (pulei).');
+            continue;
+        }
+        [$http, $corpo] = http_get("http://127.0.0.1/{$pasta}/{$p}/{$nome}");
+        @unlink($arq);
+        if ($http === 200 && strpos($corpo, 'jovemconnect-teste') !== false) {
+            $expostas[] = $p;
+            diz('  ' . $p . '/: ABERTA pelo navegador (o .htaccess nao esta valendo)');
+        } else {
+            diz('  ' . $p . '/: protegida (HTTP ' . $http . ')');
+        }
+    }
+    exit($expostas ? 1 : 0);
 
 case 'banco-nome':
     diz($DB['nome']);
@@ -345,7 +386,7 @@ case 'ia-parar':
         @unlink($arq);
         exit(0);
     }
-    if (stripos(PHP_OS, 'WIN') === 0) {
+    if ($WINDOWS) {
         $info = tarefa($pid);
         if ($info === '' || stripos($info, 'python') === false) {
             diz('  O PID registrado nao e um Python; por seguranca nada foi fechado.');
@@ -363,7 +404,17 @@ case 'ia-parar':
             exec('taskkill /PID ' . $pid . ' /F 2>nul', $saida, $rc);
         }
     } else {
-        $rc = function_exists('posix_kill') && posix_kill($pid, 15) ? 0 : 1;
+        // Linux: só encerra se o pid for mesmo o recomendar.py (linha de comando em /proc)
+        $cmd = (string) @file_get_contents('/proc/' . $pid . '/cmdline');
+        if ($cmd !== '' && (stripos($cmd, 'python') === false || strpos($cmd, 'recomendar.py') === false)) {
+            diz('  O PID registrado nao e a IA (recomendar.py); por seguranca nada foi fechado.');
+            exit(1);
+        }
+        if (function_exists('posix_kill')) {
+            $rc = posix_kill($pid, 15) ? 0 : 1;
+        } else {
+            exec('kill -TERM ' . $pid . ' 2>/dev/null', $saida, $rc);
+        }
     }
     for ($i = 0; $i < 20 && porta_aberta($porta); $i++) {
         usleep(250000);
@@ -375,7 +426,9 @@ case 'ia-parar':
             @unlink($arq);
         }
     }
-    diz($fechou ? "  IA desta pasta fechada (porta {$porta})." : '  ERRO: a IA nao fechou; feche a janela "JovemConnect - IA".');
+    diz($fechou ? "  IA desta pasta fechada (porta {$porta})."
+                : ($WINDOWS ? '  ERRO: a IA nao fechou; feche a janela "JovemConnect - IA".'
+                            : "  ERRO: a IA nao fechou; encerre-a com: kill {$pid}"));
     exit($fechou ? 0 : 1);
 
 default:

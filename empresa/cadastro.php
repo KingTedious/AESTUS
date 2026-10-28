@@ -202,7 +202,7 @@ $val  = fn(string $campo) => htmlspecialchars((string) ($campos[$campo] ?? ''), 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cadastro de Empresa | JovemConnect</title>
-    <link rel="stylesheet" href="../Assets/css/style.css">
+    <link rel="stylesheet" href="../assets/css/style.css">
     <link rel="icon" type="image/png" sizes="32x32" href="../assets/img/marca/jovemconnect-icone-32.png">
     <link rel="apple-touch-icon" href="../assets/img/marca/jovemconnect-icone-180.png">
 </head>

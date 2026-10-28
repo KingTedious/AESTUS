@@ -10,8 +10,8 @@
 
 | Item | Situação |
 |---|---|
-| Sistema operacional | **Windows** com XAMPP (declarado: `README.md`, `requirements.txt`; identificado: `iniciar_ia.bat`, caminhos `Assets/` com maiúscula que só funcionam em sistema de arquivos sem distinção de maiúsculas) |
-| Linux | Não suportado sem ajustes (caminho `Assets/`, `.htaccess`, `iniciar_ia.bat`) — ver [MANUTENCAO_E_EVOLUCAO.md](MANUTENCAO_E_EVOLUCAO.md#publicar-fora-do-xampp) |
+| Sistema operacional | **Windows** com XAMPP (ambiente de referência; scripts `.bat`) |
+| Linux | Suportado desde a v4.59: XAMPP para Linux (`/opt/lampp`) ou Apache + MariaDB/MySQL + PHP do sistema; scripts `.sh`. O Apache precisa de `AllowOverride` para os `.htaccess` (o script confere) |
 | Réplica usada nos testes desta auditoria | Linux, PHP 8.3.6 (servidor embutido), Python 3.13, Flask 3.1.3, banco compatível com MySQL — **não é idêntica ao XAMPP** |
 
 ## Versões
@@ -110,4 +110,4 @@ Os itens abaixo descrevem o comportamento encontrado (não metas declaradas pelo
 | RNF-11 | Funciona antes e depois das migrações. | Verificado por teste | smoke sem/com migração |
 | RNF-12 | Limite de tentativas em login e códigos. | **Ausente** | SEG-02 |
 | RNF-13 | Paginação das listagens. | **Ausente** | `Vagas/listar.php`, painéis, `Vagas/candidatos.php` |
-| RNF-14 | Portabilidade para Linux. | Parcial | caminho `Assets/`; `.htaccess` só em Apache |
+| RNF-14 | Portabilidade para Linux. | Atendido (v4.59) | caminhos corrigidos e scripts `.sh`; `.htaccess` só em Apache com `AllowOverride` |

@@ -19,7 +19,7 @@ header('X-Content-Type-Options: nosniff');
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= htmlspecialchars($doc['titulo']) ?> | JovemConnect</title>
-    <link rel="stylesheet" href="Assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/style.css">
     <link rel="icon" type="image/png" sizes="32x32" href="assets/img/marca/jovemconnect-icone-32.png">
     <script>try { var t = localStorage.getItem('jc-theme'); if (t) document.documentElement.setAttribute('data-theme', t); } catch (e) {}</script>
 </head>

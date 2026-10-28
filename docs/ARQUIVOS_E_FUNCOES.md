@@ -1,6 +1,6 @@
 # Arquivos e funções
 
-> Gerado na auditoria de documentação de 10/10/2026 sobre a versão **v4.00** (tag `v4.00`) e **atualizado para a v4.56** (26/10/2026) nos arquivos que mudaram nas versões 4.55 e 4.56: painel do jovem, lista de vagas, card de vaga, inicialização e porta da IA, scripts de iniciar/parar e configuração; na **v4.58** (27/10/2026), compatibilidade com PHP 7.4/8.0 e a exclusão da pasta pelo `parar_jovemconnect.bat`. Nos demais arquivos, os números de linha são os da v4.00 e podem ter mudado depois. Legenda: **[C]** confirmado no código · **[I]** inferido (com a evidência indicada) · **[NC]**/**[N]** não confirmado.
+> Gerado na auditoria de documentação de 10/10/2026 sobre a versão **v4.00** (tag `v4.00`) e **atualizado para a v4.56** (26/10/2026) nos arquivos que mudaram nas versões 4.55 e 4.56: painel do jovem, lista de vagas, card de vaga, inicialização e porta da IA, scripts de iniciar/parar e configuração; na **v4.58** (27/10/2026), compatibilidade com PHP 7.4/8.0 e a exclusão da pasta pelo `parar_jovemconnect.bat`; na **v4.59** (28/10/2026), funcionamento no Linux (`.sh`, caminhos com maiúsculas corretas, ajudante para Linux). Nos demais arquivos, os números de linha são os da v4.00 e podem ter mudado depois. Legenda: **[C]** confirmado no código · **[I]** inferido (com a evidência indicada) · **[NC]**/**[N]** não confirmado.
 
 Catálogo de **todos os arquivos de código e configuração** do repositório (88 arquivos versionados na v4.00; os arquivos `.env`, `geminiAPI.env` e `logs/*.log` existem só na máquina e não foram abertos). Documentos `.md` e arquivos SQL estão descritos em [README.md](README.md), [BANCO_DE_DADOS.md](BANCO_DE_DADOS.md) e [MIGRACOES.md](MIGRACOES.md).
 
@@ -225,7 +225,7 @@ Chaves de sessão do módulo (confirmadas):
 |---|---|---|---|---|---|
 | `switchProfile` | 159 | `type` (`'jovem'`/`'empresa'`) | — | Alterna classes/aria das abas, `tipo_usuario`, placeholder, `form.action`, textos/links do rodapé. | `onclick` das abas |
 
-- **Riscos / observações:** [C] o campo `tipo_usuario` é enviado mas **nenhum processar_login o lê** — o tipo é decidido pelo arquivo de destino. [C] CSS referenciado como `../Assets/css/style.css` (A maiúsculo); a pasta é `assets/` — em servidor com sistema de arquivos sensível a maiúsculas (Linux) o CSS principal não carrega ([I]: no XAMPP/Windows funciona). O ícone usa `assets/` minúsculo.
+- **Riscos / observações:** [C] o campo `tipo_usuario` é enviado mas **nenhum processar_login o lê** — o tipo é decidido pelo arquivo de destino. [C] CSS: `assets/` minúsculo desde a v4.59 (antes `Assets/`, que no Linux deixava a página sem CSS).
 
 ### `empresa/login.php`
 - **Tipo:** página GET (formulário), PHP + HTML + JS.
@@ -233,7 +233,7 @@ Chaves de sessão do módulo (confirmadas):
 - **Quando executa / quem usa:** `empresa/processar_login.php`, `empresa/cadastro.php`, `empresa/perfil.php`, `empresa/excluir_conta.php`, `Vagas/*` (redirecionamentos de empresa), `recuperar_senha.php` (após redefinir senha de empresa).
 - **Depende de / Entradas / Saídas / Interface:** idênticos a `jovem/login.php` (redireciona primeiro `empresa_id` → `../dashboard/empresa.php`, depois `jovem_id`). Diferenças: `tipo_usuario=empresa`, placeholder `rh@empresa.com.br`, rodapé “Registre sua Empresa”, e `DOMContentLoaded → switchProfile('empresa')`.
 - **Funções JS:** `switchProfile(type)` (linha ~169), mesma lógica com os caminhos invertidos.
-- **Riscos / observações:** [C] mesmo problema de `../Assets/css/style.css`. [C] Comentário do cabeçalho diz “Página de login unificada (empresa + jovem)… Sem include de config.php” — correto.
+- **Riscos / observações:** [C] CSS: `assets/` minúsculo desde a v4.59 (antes `Assets/`, que no Linux deixava a página sem CSS). [C] Comentário do cabeçalho diz “Página de login unificada (empresa + jovem)… Sem include de config.php” — correto.
 
 ### `processar_login.php` (raiz)
 - **Tipo:** ponto de entrada (GET/POST) legado, neutralizado.
@@ -413,7 +413,7 @@ Observações gerais válidas para todo o módulo **[C]**:
 - `includes/csrf.php` inicia a sessão endurecida (`session.php`) e oferece `csrf_field()`, `csrf_require()` (falha: HTTP 403, página "Não foi possível concluir", log `csrf.recusado`) e `csrf_js()`.
 - O envio único (`data-envio-unico="Texto..."`) é implementado em `includes/assistente.php` (listener `submit` no `document`, linhas ~665-693). Ele trava o botão depois do primeiro envio válido e destrava no `pageshow` quando a página volta do cache do navegador.
 - `jcIcone(nome)` (ícone em SVG/span) é definida em `includes/assistente.php` (~linha 611).
-- Todas as páginas do módulo carregam `../Assets/css/style.css` com "A" maiúsculo, mas a pasta real se chama `assets/` (ver os achados em [SEGURANCA_E_PRIVACIDADE.md](SEGURANCA_E_PRIVACIDADE.md) e [MANUTENCAO_E_EVOLUCAO.md](MANUTENCAO_E_EVOLUCAO.md)).
+- Todas as páginas do módulo carregam `../assets/css/style.css` (`assets/` minúsculo desde a v4.59 (antes `Assets/`, que no Linux deixava a página sem CSS)).
 
 ### `jovem/cadastro.php`
 - **Tipo:** ponto de entrada, página GET (formulário) + POST (o formulário envia para a própria página). PHP + HTML + JS inline.
@@ -868,7 +868,7 @@ Dependências comuns a quase todos os arquivos (não repetidas em cada seção):
 - `includes/csrf.php` → inclui `includes/session.php` e chama `jc_session_start()`; fornece `csrf_field()`, `csrf_require(bool $ajax)`, `csrf_js()`. `csrf_js()` substitui `window.fetch` para acrescentar o header `X-CSRF-Token` em todo POST de mesma origem. `csrf_verify()` aceita `$_POST['csrf_token']`, header `X-CSRF-Token` ou `csrf_token` em corpo JSON (comparação `hash_equals`). Falha → `jc_log_seguranca('csrf.recusado')`, HTTP 403 (HTML amigável ou JSON `{"error": "Sua sessão expirou..."}`).
 - `includes/config.php` → conexão `$conn` (mysqli), carrega `includes/logger.php` (`jc_log`, `jc_log_seguranca`, `jc_log_excecao`) e registra `set_exception_handler('jc_excecao_nao_tratada')`: exceção não tratada → HTTP 500, JSON `{"error":"Erro interno. Tente novamente em instantes."}` quando a requisição é XHR ou já tem header JSON; senão HTML curto com links "Voltar"/"Ir para a página inicial"; detalhes vão para o log.
 - `includes/assistente.php` → FABs, chat do assistente, painel de acessibilidade; define `window.jcAviso(msg, tipo)`, `window.jcIcone(nome)` e o comportamento `<form data-envio-unico="...">` (trava o botão após o 1º envio).
-- CSS: todas as páginas (exceto `candidaturas/minhas.php`, que usa `includes/header.php`, que também faz o mesmo) referenciam `../Assets/css/style.css` (A maiúsculo); a pasta real é `assets/` — ver Achados.
+- CSS: todas as páginas (inclusive `candidaturas/minhas.php`, via `includes/header.php`) referenciam `../assets/css/style.css` (`assets/` minúsculo desde a v4.59 (antes `Assets/`, que no Linux deixava a página sem CSS)).
 
 ### `Vagas/listar.php`
 
@@ -1409,7 +1409,7 @@ Dependências comuns a quase todos os arquivos (não repetidas em cada seção):
 - **Banco (prepared):** jovem: `SELECT id, titulo, cidade, estado, area, tipo_contrato, descricao FROM vagas WHERE id=?`; empresa: mesmo SELECT `AND empresa_id=?` e `SELECT id, nome, cidade, estado, area_interesse FROM jovens WHERE id=?` (após `jc_empresa_pode_ver_candidato`); `jc_local_efetivo`.
 - **Permissões:** jovem usa sempre `$_SESSION['jovem_id']` (GET `jovem_id` ignorado); empresa precisa ser dona da vaga e ter relação com o candidato (candidatura em vaga dela ou perfil público — regra de `includes/candidato.php`). Jovem pode abrir a análise de **qualquer** vaga existente (não há filtro de status; a tabela `vagas` em `schema.sql` não tem coluna de status) [C].
 - **Interface:** navbar (logo → painel, tema `#btnTheme` com `localStorage['jc-theme']`, perfil, sair); card da vaga (título, área, local efetivo se `nivel ≠ indisponivel`, contrato; dados do candidato para empresa); `section#cardResultado` com estados `#estadoCarregando` ("Calculando compatibilidade..."), `#estadoSucesso` (`#scoreValor`/100, `#scoreBarra`, `#scoreRotulo`, `#analiseTexto`, botão `#btnAnaliseDetalhada`, nota "Nota calculada pelo Match do JovemConnect, com critérios objetivos.") e `#estadoErro` (`#erroTexto`, botão "Tentar novamente" → `carregarAvaliacao()`); modal `#modalAnalise` (`role=dialog aria-modal=true`) com resumo, `#listaCategorias`, `#blocoAjuste`, `#listaFortes`, `#listaReduziram`, local (`#localRotulo`, `#localTexto`, `#localAviso`), `#contextoConteudo` (análise contextual), `#listaLimites`; link "Voltar" (`../Vagas/candidatos.php?vaga=<id>` para empresa, `../Vagas/listar.php?id=<id>` para jovem).
-- **Observação:** a folha de estilo é referenciada como `../Assets/css/style.css` (A maiúsculo) e a pasta real é `assets/` — em servidor com sistema de arquivos sensível a maiúsculas (Linux) o CSS não carrega; no Windows/XAMPP funciona [C: `ls` mostra só `assets`]. O mesmo ocorre em `Vagas/curriculoIA.php`.
+- **Observação:** a folha de estilo é `../assets/css/style.css` (`assets/` minúsculo desde a v4.59 (antes `Assets/`, que no Linux deixava a página sem CSS)); o mesmo em `Vagas/curriculoIA.php`.
 
 **Funções JavaScript**
 
@@ -1542,7 +1542,7 @@ Dependências comuns a quase todos os arquivos (não repetidas em cada seção):
 
 ### `scripts/jovemconnect.php` (novo na v4.56)
 
-- **Tipo:** ajudante de linha de comando dos dois `.bat` acima. Só roda pelo terminal: pelo navegador responde **404** (`PHP_SAPI !== 'cli'`), e a pasta `scripts/` também é bloqueada pelo `.htaccess`. Lê o banco pelo `.env` (mesmas regras de `includes/config.php`) e **nunca mostra a senha**. As mensagens não têm acentos de propósito, porque o console do Windows nem sempre mostra UTF-8.
+- **Tipo:** ajudante de linha de comando dos dois `.bat` acima e, desde a v4.59, dos `.sh` do Linux (o mesmo arquivo; `$WINDOWS` escolhe os comandos de cada sistema, e as mensagens do `checar` dão a dica certa para cada um). Só roda pelo terminal: pelo navegador responde **404** (`PHP_SAPI !== 'cli'`), e a pasta `scripts/` também é bloqueada pelo `.htaccess`. Lê o banco pelo `.env` (mesmas regras de `includes/config.php`) e **nunca mostra a senha**. As mensagens não têm acentos de propósito, porque o console do Windows nem sempre mostra UTF-8.
 - **Comandos [C, l. 123–296]:**
 
 | Comando | O que faz | Código de saída |
@@ -1550,15 +1550,16 @@ Dependências comuns a quase todos os arquivos (não repetidas em cada seção):
 | `checar` | Versão do PHP (8.1+ ok; 7.4–8.0 ok em modo de compatibilidade; abaixo de 7.4 falha), extensões (mysqli, curl, openssl, mbstring, json), `.env`, pastas graváveis, se está no `htdocs` | 0 ok; 20 sem `.env`; 1 algo não bateu (o `.bat` pergunta se continua mesmo assim) |
 | `criar-env` | Copia `.env.example` para `.env`, **nunca** sobrescreve | 0 |
 | `porta <n>` / `esperar-porta <n> <s>` | `127.0.0.1:<n>` aceita conexão? / espera até `<s>` segundos | 0 aberta; 1 fechada |
-| `quem-usa <n>` | Mostra o programa que escuta na porta (Windows: `netstat` + `tasklist`) | — |
+| `quem-usa <n>` | Mostra o programa que escuta na porta (Windows: `netstat` + `tasklist`; Linux, desde a v4.59: `ss`, ou `lsof`) | — |
 | `apache [porta]` | Quem responde em `http://127.0.0.1/` é um Apache (cabeçalho `Server`)? | 0 sim; 1 não |
 | `site <pasta>` | `http://localhost/<pasta>/index.php` é o JovemConnect? | 0 sim; 1 não |
+| `protecao <pasta>` *(v4.59)* | Cria um arquivo de teste em `logs/` e em `uploads/curriculos/`, pede cada um pelo Apache e apaga: confere se os `.htaccess` estão valendo (no Linux dependem de `AllowOverride`) | 0 protegidas; 1 alguma aberta |
 | `banco-nome` | Imprime o `DB_NAME` | 0 |
 | `banco-status` | Situação do banco | 0 instalado; 10 não existe; 11 existe vazio; 2 MySQL inacessível |
 | `banco-instalar` | `CREATE DATABASE … utf8mb4_unicode_ci` (se não existe) e importa o `schema.sql` **só se estiver vazio** | 0 ok; 12 recusado (já tem tabelas) |
 | `banco-seed` | Importa `database/seed_demo.sql` (não duplica nada) | 0 |
 | `banco-apagar <nome>` | `DROP DATABASE`, só se `<nome>` for igual ao `DB_NAME` e não for um banco do sistema (`mysql`, `information_schema`, `performance_schema`, `sys`, `phpmyadmin`, `test`) | 0 ok (ou já não existia); 3 recusado |
-| `ia-parar` | Fecha só a IA desta pasta: confere a `instancia` de `logs/ia_porta.json` no `/ping` e, no Windows, se o `pid` é de um Python (`tasklist`) antes do `taskkill`; arquivo velho apontando para outro programa → não encerra nada. Desde a v4.58, se o processo pai do Python for a janela `cmd.exe` "JovemConnect - IA" (`wmic`, ou PowerShell sem ele; título conferido no `tasklist /V`), fecha a janela junto (`taskkill /T`) | 0 |
+| `ia-parar` | Fecha só a IA desta pasta: confere a `instancia` de `logs/ia_porta.json` no `/ping` e, no Windows, se o `pid` é de um Python (`tasklist`) antes do `taskkill`; arquivo velho apontando para outro programa → não encerra nada. Desde a v4.58, se o processo pai do Python for a janela `cmd.exe` "JovemConnect - IA" (`wmic`, ou PowerShell sem ele; título conferido no `tasklist /V`), fecha a janela junto (`taskkill /T`). No Linux (v4.59), antes de encerrar confere em `/proc/<pid>/cmdline` se o processo é mesmo o `recomendar.py` e usa `posix_kill`, ou `kill` sem a extensão `posix` | 0 |
 
 - **Funções internas:** `diz` (45), `conectar` (47), `nome_valido` (57), `tabelas` (61), `importar` (73, `multi_query` do arquivo SQL), `porta_aberta` (99), `pid_pai` (v4.58, pai de um processo no Windows), `tarefa` (v4.58, linha do `tasklist /V` de um pid), `http_get`.
 - **Testes:** 26/26 na réplica Linux na v4.56 e de novo na v4.58 (ver [TESTES_RESULTADOS.md](TESTES_RESULTADOS.md#v458--php-74-e-80-e-exclusão-da-pasta)). Este arquivo também não usa nada exclusivo do PHP 8.0+, porque roda com o `php.exe` do XAMPP de cada computador.
@@ -1568,6 +1569,21 @@ Dependências comuns a quase todos os arquivos (não repetidas em cada seção):
 - **Tipo:** script Windows (batch, ASCII, CRLF). **Não é para rodar direto:** o `parar_jovemconnect.bat` copia este arquivo para `%TEMP%` e o chama com a pasta do projeto, depois da confirmação.
 - **Passo a passo [C]:** repete as proteções (pasta dentro de `htdocs`, com `index.php`, `iniciar_ia.bat` e `scripts\jovemconnect.php`); espera 3 s; até 3 tentativas com `attrib -r -s -h /s /d` (somente leitura e ocultos) e `rmdir /s /q`, com 3 s entre elas. Se algo sobrar, lista o que ficou, sugere o que fechar (janela da IA, editor, terminal) e pergunta "Tentar de novo? [S/N]". No fim, a cópia temporária se apaga.
 - **Diagnóstico:** `%TEMP%\jovemconnect_limpeza.log` (fora da pasta, que é apagada).
+
+
+### Scripts para Linux (novos na v4.59)
+
+Mesmo papel e mesmas regras dos `.bat`, para um computador Linux. Rode com `bash <arquivo>` na pasta do projeto (não precisam de permissão de execução). Fim de linha **LF** (garantido pelo `.gitattributes`, que tem `*.sh text eol=lf`).
+
+| Arquivo | Equivale a | O que faz [C] |
+|---|---|---|
+| `iniciar_jovemconnect.sh` | `iniciar_jovemconnect.bat` | 6 etapas: (1) `checar` do PHP, com "Continuar mesmo assim?" se algo não bater, e criação do `.env`; (2) oferece liberar a escrita do Apache em `logs/` e `uploads/curriculos/` (`chmod -R a+rwX`; o Apache roda com outro usuário); (3) Apache na porta 80 — se já responde, aceita um Apache ou um servidor que já mostra o JovemConnect; senão liga; (4) MySQL na 3306; (5) banco: instalar `schema.sql` e dados de demonstração só com S, e explica como criar um usuário quando o `root` do MariaDB do sistema não entra sem `sudo`; (6) confere o site e a proteção das pastas (`protecao`); depois chama o `iniciar_ia.sh`. Diagnóstico em `logs/iniciar_jovemconnect.log` |
+| `iniciar_ia.sh` | `iniciar_ia.bat` | Só o `venv` oficial (`venv/bin/python`), validado por `IA/verificar_ambiente.py`; venv ausente, de outro PC ou **criado no Windows** (tem `venv/Scripts`) → para, explica e só reconstrói com S, guardando o antigo como `venv.antigo-<data>`. Reaproveita a IA que já está no ar; senão inicia a IA **em segundo plano** (`setsid nohup`, saída em `logs/ia_console.log`, pasta de trabalho fora do projeto) e espera até 20 s a confirmação da porta. Abre o navegador com `xdg-open` se houver interface gráfica (`JC_NAO_ABRIR=1` desliga). Diagnóstico em `logs/iniciar_ia.log` |
+| `parar_jovemconnect.sh` | `parar_jovemconnect.bat` + `scripts/excluir_pasta.bat` | Fecha só a IA desta pasta; pergunta se apaga o banco (digitando o nome), se desliga Apache e MySQL (avisa que, nos serviços do sistema, outros sites também param) e se exclui a pasta: só dentro de `htdocs` ou `/var/www`, com os arquivos do JovemConnect, aviso do Git e nome digitado (maiúsculas tanto faz). Todo o código fica em funções, então o script pode apagar a própria pasta; até 3 tentativas e, se sobrar algo (arquivos criados pelo Apache), oferece repetir com `sudo` |
+| `scripts/linux_comum.sh` | — | Funções comuns (`log`, `perguntar`, `ajuda`, `servico`), carregadas com `source`. Reconhece o ambiente: **XAMPP para Linux** em `/opt/lampp` (`sudo /opt/lampp/lampp startapache|startmysql|stopapache|stopmysql`, PHP em `/opt/lampp/bin/php`), **serviços do sistema** com systemd (`apache2`/`httpd`; `mariadb`/`mysql`/`mysqld`) ou **manual** (só confere). Variáveis opcionais: `JC_PHP`, `JC_LAMPP` |
+
+- **O que não muda no Windows:** os `.bat`, o `iniciar_ia.bat` e o `excluir_pasta.bat` continuam iguais. O ajudante `scripts/jovemconnect.php` só ganhou ramos para Linux e o comando `protecao`, que os `.bat` não usam.
+- **Testes:** ver [TESTES_RESULTADOS.md](TESTES_RESULTADOS.md#v459--linux).
 
 > O algoritmo exato do Match (pesos, cache e fallback) está em [IA_E_MATCH.md](IA_E_MATCH.md).
 
@@ -1584,7 +1600,7 @@ Dependências comuns a quase todos os arquivos (não repetidas em cada seção):
 - **Permissões e validações:** página pública; sem CSRF (não há formulário).
 - **Erros:** não há tratamento específico; se `localStorage` lançar exceção (armazenamento bloqueado) a linha `applyTheme(localStorage.getItem('jc-theme') || 'dark')` (≈l.188) interrompe o `<script>` final — ver Achados.
 - **Interface:**
-  - `<html data-theme="dark">`, `<body class="landing-page">`. CSS: `href="Assets/css/style.css"` (A maiúsculo — ver Achados). Ícones: `assets/img/marca/jovemconnect-icone-32.png` e `-180.png`.
+  - `<html data-theme="dark">`, `<body class="landing-page">`. CSS: `href="assets/css/style.css"` (minúsculo desde a v4.59). Ícones: `assets/img/marca/jovemconnect-icone-32.png` e `-180.png`.
   - Script no `<head>`: adiciona `revelar-ativo` em `<html>` se houver `IntersectionObserver` e **não** houver `prefers-reduced-motion: reduce`.
   - `nav.navbar#mainNav`: logo (`<picture>` com `jovemconnect-simbolo.png` até 480px e `jovemconnect-horizontal.png` acima), link `#sobre`, link "Entrar" → `jovem/login.php` (estilo inline), `button#btnTheme.btn-theme` (🌙/☀️), "Começar" → `comecar.php`.
   - `section.hero-section`: fundo decorativo `.home-fundo.hero-fundo` com `assets/img/home/pessoa-computador.jpg` (`alt=""`, `aria-hidden`), texto `.hero-text.fade-up`, CTAs "Sou Jovem" → `jovem/cadastro.php`, "Sou Empresa" → `empresa/cadastro.php`.
@@ -1602,7 +1618,7 @@ Dependências comuns a quase todos os arquivos (não repetidas em cada seção):
 | listener `scroll` | 207 | — | — | Alterna `.scrolled` em `#mainNav` quando `scrollY > 20` (passivo). **Não há regra `.scrolled` no `style.css`** [C grep] | evento `scroll` |
 | listener `click` de `#btnTheme` | 189 | — | — | Alterna tema e grava `localStorage['jc-theme']` | clique |
 
-- **Riscos / limitações:** ver os achados em [SEGURANCA_E_PRIVACIDADE.md](SEGURANCA_E_PRIVACIDADE.md) e [MANUTENCAO_E_EVOLUCAO.md](MANUTENCAO_E_EVOLUCAO.md) (caminho `Assets/`, `localStorage` sem `try`, `.scrolled` sem CSS).
+- **Riscos / limitações:** ver os achados em [SEGURANCA_E_PRIVACIDADE.md](SEGURANCA_E_PRIVACIDADE.md) e [MANUTENCAO_E_EVOLUCAO.md](MANUTENCAO_E_EVOLUCAO.md) (`localStorage` sem `try`, `.scrolled` sem CSS; o caminho `Assets/` foi corrigido na v4.59).
 
 ### `comecar.php`
 - **Tipo:** página pública GET, PHP + HTML. HTML próprio.
@@ -1624,7 +1640,7 @@ Dependências comuns a quase todos os arquivos (não repetidas em cada seção):
 - **Entradas:** `$_GET['doc']` — aceito só se `is_string` e for chave de `jc_documentos()`; caso contrário usa `'termos'` (lista branca) [C].
 - **Saídas:** HTML; cabeçalho `X-Content-Type-Options: nosniff`. Sempre 200.
 - **Banco:** nenhum.
-- **Interface:** `main.doc-pagina` com link de volta (`.doc-voltar`), `<h1>` com ícone, selo de versão (`jc_documento_versao()`), `section.card.doc-resumo-caixa` (resumo), `section.doc-completo` (seções com `<h2>`), rodapé "Veja também" + e-mail de contato (só se `JC_CONTATO_EMAIL` for e-mail válido). Tema aplicado no `<head>` com `try/catch`. CSS `Assets/css/style.css` (maiúsculo). Sem apple-touch-icon. Regras `@media print` em `style.css` §29 escondem o link de volta.
+- **Interface:** `main.doc-pagina` com link de volta (`.doc-voltar`), `<h1>` com ícone, selo de versão (`jc_documento_versao()`), `section.card.doc-resumo-caixa` (resumo), `section.doc-completo` (seções com `<h2>`), rodapé "Veja também" + e-mail de contato (só se `JC_CONTATO_EMAIL` for e-mail válido). Tema aplicado no `<head>` com `try/catch`. CSS `assets/css/style.css` (minúsculo desde a v4.59). Sem apple-touch-icon. Regras `@media print` em `style.css` §29 escondem o link de volta.
 - **Funções:** nenhuma própria.
 - **Riscos:** `$doc['icone']` é impresso sem `htmlspecialchars` (l.29) — valor estático do código, sem risco atual [C].
 
@@ -1632,7 +1648,7 @@ Dependências comuns a quase todos os arquivos (não repetidas em cada seção):
 - **Tipo:** módulo auxiliar (include) que **abre o documento HTML inteiro** (`<!DOCTYPE>`, `<head>`, `<body>`) e imprime a navbar.
 - **Responsabilidade:** escolhe a navbar conforme a sessão: interna (`nav.navbar-inner`) para jovem/empresa ou pública (`nav.navbar`) para visitante; define `<title>` a partir de `$page_title`; aplica o tema salvo antes do primeiro render.
 - **Quando executa / quem usa (grep `includes/header.php`):** `candidaturas/minhas.php` (l.19), `verificacoes/escolher_verificacao.php` (l.69), `verificacoes/verificar_email.php` (l.130), `verificacoes/verificar_telefone.php` (l.95). As três páginas de `verificacoes/` **já imprimem seu próprio `<!DOCTYPE html><html><head>…<body>`** antes do include (ver Achados).
-- **Depende de:** sessão PHP (chama `session_start()` comum se ainda não houver sessão — **não** usa `jc_session_start()`; todos os usuários atuais iniciam a sessão antes via `session.php`/`csrf.php` [C]). Google Fonts (`<link>` Inter 300–800 + `preconnect`), `../Assets/css/style.css`, ícones de marca.
+- **Depende de:** sessão PHP (chama `session_start()` comum se ainda não houver sessão — **não** usa `jc_session_start()`; todos os usuários atuais iniciam a sessão antes via `session.php`/`csrf.php` [C]). Google Fonts (`<link>` Inter 300–800 + `preconnect`), `../assets/css/style.css` (minúsculo desde a v4.59), ícones de marca.
 - **Entradas:** `$_SESSION['jovem_id']`, `$_SESSION['empresa_id']`; variável `$page_title` (opcional, escapada com `htmlspecialchars`).
 - **Saídas:** HTML. Variáveis locais `$_hdr_*` são removidas com `unset` no fim (`$page_title` não é removida).
 - **Banco:** nenhum.
@@ -1641,7 +1657,7 @@ Dependências comuns a quase todos os arquivos (não repetidas em cada seção):
   - Visitante: logo → `../index.php`, links "Sobre" (`../index.php#sobre`) e "Entrar" (`../jovem/login.php`), `#btnTheme`, "Começar" (`../comecar.php`).
   - Todos os caminhos são relativos com `../` — o include só funciona em páginas de **subpasta** [C].
 - **Funções:** IIFE de tema no `<head>` (≈l.58), sem `try/catch`.
-- **Riscos:** Logout por GET (link simples) [C]; documento duplicado nas páginas de verificação; caminho `Assets/`.
+- **Riscos:** Logout por GET (link simples) [C]; documento duplicado nas páginas de verificação (o caminho `Assets/` foi corrigido na v4.59).
 
 ### `includes/footer.php`
 - **Tipo:** módulo auxiliar (include) que fecha o documento (`</body></html>`).
@@ -1696,7 +1712,7 @@ Dependências comuns a quase todos os arquivos (não repetidas em cada seção):
 ### `assets/css/style.css`
 - **Tipo:** folha de estilo única do design system ("v3.00" no cabeçalho), **3.153 linhas** (não ~3.300), 29 seções numeradas.
 - **Quem usa (grep `style.css`):** todas as páginas com HTML: `index.php`, `comecar.php`, `documentos.php`, `recuperar_senha.php`, `dashboard/jovem.php`, `dashboard/empresa.php`, `jovem/{login,cadastro,perfil}.php`, `empresa/{login,cadastro,perfil,locais}.php`, `Vagas/{listar (2×: l.105 e l.382), criar, candidatar, candidatos, minhas, avaliar, favoritos, curriculoIA}.php`, `verificacoes/{escolher_verificacao,verificar_email,verificar_telefone}.php`, `includes/header.php`, `includes/candidato.php` (l.83, HTML de página de erro/indisponível).
-  - Caminho com **`Assets/` (A maiúsculo)**: index, documentos, header.php, candidato.php, dashboards, jovem/*, empresa/* (inclui locais), Vagas/*.
+  - ~~Caminho com `Assets/` (A maiúsculo)~~: corrigido na v4.59 nos 21 arquivos (index, documentos, header.php, candidato.php, dashboards, jovem/*, empresa/*, Vagas/*). Uma varredura de todas as referências a arquivos e pastas do projeto não encontrou mais nenhuma grafia diferente da do disco.
   - Caminho com **`assets/` (minúsculo)**: comecar.php, recuperar_senha.php, verificacoes/*.
 - **Dependência externa:** `@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap')` (l.6) — **toda página que carrega o CSS carrega Google Fonts**.
 - **Detalhamento das seções:** ver tabela abaixo.
