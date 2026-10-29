@@ -93,6 +93,14 @@ Observação: `logout.php` inclui o logger sem `env.php`; se `JC_LOG_DIR` estive
 4. Recuperação "enviou" mas nada chegou → `senha.recuperacao_solicitada` existe, mas a falha de envio está só no
    `error_log` do PHP ("PHPMailer não encontrado" = falta `composer install`).
 
+5. (v4.60) "Muitas tentativas seguidas" no login → `login.bloqueado` com `motivo=muitas_tentativas` em
+   `seguranca.log`; espere o prazo ou rode `php scripts/jovemconnect.php limpar-tentativas`. Código que "deixou
+   de valer" → `senha.codigo_cancelado` ou `verificacao.*.codigo_cancelado` (5 erros): peça outro código.
+6. (v4.60) Usuário "deslogado sozinho" → `conta.sessao_encerrada` com `motivo=senha_alterada` (a senha foi
+   trocada em outro lugar) ou `conta_suspensa`.
+7. (v4.60) O limite não está valendo → procure `tentativas.sem_pasta` em `app.log` (pasta dos contadores sem
+   permissão de gravação).
+
 ### Autorização e acesso
 1. Empresa recebe "Perfil indisponível" → `acesso.negado` em `seguranca.log` (`recurso`, `jovem`); confira se há
    candidatura do jovem a uma vaga **dessa** empresa ou se o perfil é público (`jovens.perfil_publico`).

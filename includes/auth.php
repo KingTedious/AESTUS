@@ -16,9 +16,10 @@
      Jovem   → $_SESSION['jovem_id'],   $_SESSION['jovem_nome']
    ============================================================ */
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+// Sessão endurecida (HttpOnly, SameSite, modo estrito) — antes era um session_start()
+// cru, que ignorava essas proteções se esta fosse a primeira inclusão da página.
+require_once __DIR__ . '/session.php';
+jc_session_start();
 
 // Carrega logger.php se disponível; fallback silencioso caso contrário
 if (file_exists(__DIR__ . '/logger.php')) {

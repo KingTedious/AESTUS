@@ -23,6 +23,7 @@
    ============================================================ */
 require_once __DIR__ . '/esquema.php';
 require_once __DIR__ . '/documentos.php';   // JC_CONTATO_EMAIL
+require_once __DIR__ . '/session.php';      // jc_sessao_ref_senha (só funções; não inicia sessão)
 
 if (!function_exists('jc_conta_suspensa')) {
 
@@ -30,6 +31,23 @@ if (!function_exists('jc_conta_suspensa')) {
     function jc_conta_msg_suspensa(): string {
         return 'Esta conta está suspensa pela administração do JovemConnect. '
              . 'Se você acredita que houve um engano, fale com a equipe pelo e-mail ' . JC_CONTATO_EMAIL . '.';
+    }
+
+    /**
+     * Contas de DEMONSTRAÇÃO (database/seed_demo.sql, e-mail @demo.jovemconnect.example,
+     * senha pública em docs/SEED_DEMO.md) não entram quando o .env diz que o ambiente é
+     * de produção (JC_AMBIENTE=producao). Sem essa linha (padrão: desenvolvimento e
+     * apresentação), nada muda. Correção de segurança 2.5: credencial conhecida não
+     * pode valer num ambiente real.
+     */
+    function jc_conta_demo_bloqueada(string $email): bool {
+        return strtolower(trim((string) getenv('JC_AMBIENTE'))) === 'producao'
+            && (bool) preg_match('/@demo\.jovemconnect\.example$/i', trim($email));
+    }
+
+    /** Mensagem para quem tenta usar uma conta de demonstração em produção. */
+    function jc_conta_msg_demo(): string {
+        return 'Contas de demonstração não funcionam neste ambiente. Crie uma conta própria.';
     }
 
     /** true se a conta (jovem|empresa) está suspensa. Sem a migração: sempre false. */
@@ -71,6 +89,12 @@ if (!function_exists('jc_conta_suspensa')) {
      * Chamada por includes/config.php em toda página com sessão de jovem ou
      * empresa: se a conta foi suspensa depois do login, encerra a identidade
      * na sessão e manda para a tela de login com o aviso (ou 403 em JSON).
+     *
+     * Correção SEG-09: o mesmo vale quando a SENHA da conta mudou depois do
+     * login (ex.: alguém redefiniu a senha pela recuperação) ou quando a conta
+     * não existe mais — a sessão aberta antes deixa de valer. Só para sessões
+     * criadas com a referência da senha (login/cadastro a partir desta versão,
+     * jc_sessao_entrar); sessões mais antigas seguem como antes até o próximo login.
      */
     function jc_conta_verificar_sessao(mysqli $conn): void {
         if (session_status() !== PHP_SESSION_ACTIVE || !isset($_SESSION) || !is_array($_SESSION)) {
@@ -80,22 +104,45 @@ if (!function_exists('jc_conta_suspensa')) {
         if ($tipo === null) {
             return;
         }
-        if (!jc_conta_suspensa($conn, $tipo, intval($_SESSION[$tipo . '_id']))) {
+        $id = intval($_SESSION[$tipo . '_id']);
+        $motivo = null;
+        if (jc_conta_suspensa($conn, $tipo, $id)) {
+            $motivo = 'conta_suspensa';
+        } elseif (isset($_SESSION['jc_senha_ref']) && is_string($_SESSION['jc_senha_ref'])) {
+            $tabela = $tipo === 'jovem' ? 'jovens' : 'empresas';
+            $stmt = $conn->prepare("SELECT senha FROM `{$tabela}` WHERE id = ? LIMIT 1");
+            $stmt->bind_param("i", $id);
+            $stmt->execute();
+            $linha = $stmt->get_result()->fetch_assoc();
+            $stmt->close();
+            if (!$linha) {
+                $motivo = 'conta_inexistente';
+            } elseif (!hash_equals($_SESSION['jc_senha_ref'], jc_sessao_ref_senha((string) $linha['senha']))) {
+                $motivo = 'senha_alterada';
+            }
+        }
+        if ($motivo === null) {
             return;
         }
+        $mensagem = $motivo === 'conta_suspensa'
+            ? jc_conta_msg_suspensa()
+            : ($motivo === 'senha_alterada'
+                ? 'A senha desta conta foi alterada. Por segurança, entre novamente com a nova senha.'
+                : 'Sua sessão terminou. Entre novamente.');
         if (function_exists('jc_log_seguranca')) {
-            jc_log_seguranca('conta.sessao_encerrada', 'aviso', ['tipo' => $tipo, 'motivo' => 'conta_suspensa']);
+            jc_log_seguranca('conta.sessao_encerrada', 'aviso', ['tipo' => $tipo, 'motivo' => $motivo]);
         }
-        unset($_SESSION['jovem_id'], $_SESSION['jovem_nome'], $_SESSION['empresa_id'], $_SESSION['empresa_nome']);
+        unset($_SESSION['jovem_id'], $_SESSION['jovem_nome'], $_SESSION['empresa_id'], $_SESSION['empresa_nome'],
+              $_SESSION['jc_senha_ref']);
         @session_regenerate_id(true);
-        $_SESSION['erro_login'] = jc_conta_msg_suspensa();
+        $_SESSION['erro_login'] = $mensagem;
 
         if (jc_requisicao_json()) {
             if (!headers_sent()) {
                 http_response_code(403);
                 header('Content-Type: application/json; charset=utf-8');
             }
-            echo json_encode(['error' => jc_conta_msg_suspensa()]);
+            echo json_encode(['error' => $mensagem]);
             exit;
         }
         if (!headers_sent()) {

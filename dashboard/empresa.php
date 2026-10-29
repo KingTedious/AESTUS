@@ -237,7 +237,7 @@ if ($modo_fallback && $total_vagas > 1) {
             <!-- Cabeçalho do card -->
             <div class="candidate-card-head">
                 <div class="candidate-card-info">
-                    <div class="avatar avatar-md"><?= $inicial ?></div>
+                    <div class="avatar avatar-md"><?= htmlspecialchars($inicial) ?></div>
                     <div>
                         <div class="candidate-name"><?= htmlspecialchars($jovem['nome']) ?></div>
                         <div class="candidate-sub">

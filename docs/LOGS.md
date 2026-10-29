@@ -49,6 +49,20 @@ Stage 7 (Central administrativa e moderação — ver
   `moderacao.sinalizado`, `moderacao.erro_fila`, `vaga.recusada`, `denuncia.erro`.
 - `ia.log`: `moderacao.analise` e `gemini.falha` com `rota=moderacao`.
 
+v4.60 (correção de segurança):
+
+- `seguranca.log`: `login.bloqueado` também com `motivo` = `muitas_tentativas` (limite de falhas por conta ou
+  por IP) ou `conta_demonstracao` (`JC_AMBIENTE=producao`); `senha.recuperacao_limitada` (pedidos de código
+  acima do intervalo ou do teto por hora; a tela é a mesma de sempre); `senha.codigo_bloqueado` (limite de erros
+  por IP) e `senha.codigo_cancelado` (5 erros: o código deixa de valer); `verificacao.email.bloqueada`,
+  `verificacao.email.limitada`, `verificacao.email.codigo_cancelado` e os equivalentes
+  `verificacao.telefone.*`; `conta.sessao_encerrada` também com `motivo` = `senha_alterada` (a senha foi trocada
+  em outra sessão) ou `conta_inexistente`.
+- `app.log`: `tentativas.sem_pasta` (a pasta dos contadores não pode ser gravada; o site segue **sem** limite
+  até isso ser resolvido — ver `JC_TENTATIVAS_DIR` em [CONFIGURACAO.md](CONFIGURACAO.md)).
+- Nenhum desses eventos grava e-mail, IP em claro, senha ou código: os contadores do limite ficam fora de
+  `logs/`, em arquivos com nome de hash e só com horários.
+
 O `elo` é o único valor que não passa pela máscara de números (é gerado pelo sistema,
 16 caracteres hexadecimais); a conferência do histórico compara esses elos com a tabela
 para revelar registros apagados ou trocados.

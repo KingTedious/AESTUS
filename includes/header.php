@@ -14,9 +14,10 @@
 
 // Segurança: session_status evita "headers already sent" se
 // a página chamar session_start() antes de incluir este arquivo
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+// (correção: jc_session_start() em vez de session_start() cru — mesmas proteções do
+// resto do site; se a sessão já estiver aberta, não faz nada)
+require_once __DIR__ . '/session.php';
+jc_session_start();
 
 // ── Detecta estado de sessão ──────────────────────────────────────────────────
 $_hdr_jovem   = isset($_SESSION['jovem_id']);

@@ -1,2 +1,4 @@
 # Fim de linha dos scripts do Linux: sempre LF (com CRLF o bash nao roda o arquivo).
 *.sh text eol=lf
+# Gancho do Git (script sh, sem extensao): tambem LF, senao o sh do Git for Windows falha.
+scripts/seguranca/pre-commit text eol=lf

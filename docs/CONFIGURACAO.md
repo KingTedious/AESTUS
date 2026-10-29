@@ -69,3 +69,18 @@ mensagem, print), revogue-a no painel do Google e gere outra.
 
 Não existe variável com senha ou conta de administrador: administradores são criados só pela linha de
 comando (`php scripts/admin.php criar ...`, ver [ADMINISTRACAO_E_MODERACAO.md](ADMINISTRACAO_E_MODERACAO.md)).
+
+## Segurança (opcional — v4.60)
+
+| Variável | Padrão | Uso |
+|---|---|---|
+| `JC_EXIBIR_ERROS` | vazio | Com `1`, os erros do PHP aparecem na página (só para desenvolver no seu PC). Vazio: os erros vão só para o log do PHP e **não** aparecem para o visitante, porque mostrariam caminhos e trechos de SQL (`includes/env.php`) |
+| `JC_TENTATIVAS_DIR` | pasta temporária que o PHP usa (`sys_get_temp_dir()`; no Windows, em geral a pasta `TEMP` de quem roda o Apache), subpasta `jovemconnect_tentativas_<hash>` | Pasta dos contadores do limite de tentativas de login e de códigos (`includes/tentativas.php`). Deve ficar **fora** do `htdocs`. Se não puder ser gravada, o site continua funcionando sem limite e registra `tentativas.sem_pasta` no log |
+| `JC_AMBIENTE` | vazio (desenvolvimento ou apresentação) | Com `producao`, as contas de demonstração (`@demo.jovemconnect.example`, senha pública) **não entram** e `php scripts/jovemconnect.php banco-seed` se recusa a carregar os dados de demonstração. Use num servidor real; deixe vazio na apresentação com os dados de demonstração |
+
+Para liberar quem foi bloqueado pelo limite de tentativas antes do prazo (por exemplo, na apresentação):
+`php scripts/jovemconnect.php limpar-tentativas` (no Windows: `C:\xampp\php\php.exe scripts\jovemconnect.php
+limpar-tentativas`). O comando apaga só os contadores; nada no banco muda.
+
+O `.env` em si é bloqueado pelo `.htaccess` da raiz (v4.60). Ainda assim, num servidor de verdade, o ideal é
+mantê-lo fora da pasta pública; confira a proteção com `scripts\seguranca\verificar_protecao.bat`.

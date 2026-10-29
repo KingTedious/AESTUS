@@ -33,3 +33,16 @@ error_log
 # Currículos enviados pelos usuários são dados pessoais — não versionar
 uploads/curriculos/*
 !uploads/curriculos/.htaccess
+
+# ── Correção de segurança (PI-08 / PI-09) ───────────────────────────────────
+# Repomix: cópia do código inteiro num arquivo só, gerada para ferramentas de IA.
+# Continua sendo gerado e usado NO SEU PC, mas não vai mais para o Git.
+repomix-output.xml
+repomix-output.*
+# Chave antiga do Gemini: já coberto por *.env acima, mas o arquivo ESTAVA
+# rastreado (e um arquivo rastreado ignora o .gitignore). Deixou de ser rastreado
+# com "git rm --cached geminiAPI.env"; a configuração da IA fica só no .env.
+geminiAPI.env
+# Backups do repositório (git bundle) e manifestos de evidência: guarde FORA do
+# htdocs (o script scripts/seguranca/gerar_evidencias.ps1 já grava fora).
+*.bundle

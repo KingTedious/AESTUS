@@ -10,6 +10,8 @@ rem      se algo nao bater, mostra o motivo e pergunta se continua mesmo assim
 rem      (PHP 7.4 e 8.0 funcionam em modo de compatibilidade)
 rem   2. liga o Apache e o MySQL do XAMPP, se ainda nao estiverem ligados
 rem      (se ja estiverem, nao mexe; se outro programa usar a porta, avisa)
+rem      e confere se o Apache protege os arquivos internos (.htaccess);
+rem      se nao proteger, mostra o motivo e pergunta se continua
 rem   3. banco de dados: se nao existir, pergunta se pode criar e importar
 rem      o schema.sql (so em banco vazio; nunca importa por cima, nunca apaga)
 rem   4. inicia a IA (iniciar_ia.bat) e abre o site
@@ -69,13 +71,26 @@ if errorlevel 1 goto ligar_apache
 "%PHP%" "%AJUDA%" apache
 if errorlevel 1 goto porta80_ocupada
 call :log "  Ja estava ligado."
-goto mysql
+goto protecao
 :ligar_apache
 call :log "  Ligando o Apache do XAMPP (janela 'XAMPP - Apache')..."
 start "XAMPP - Apache" /D "%XAMPP%" /min "%XAMPP%\apache_start.bat"
 "%PHP%" "%AJUDA%" esperar-porta 80 25
 if errorlevel 1 goto apache_nao_ligou
 call :log "  OK: Apache ligado."
+
+rem --- 2b. Protecao dos arquivos internos (seguranca PI-01): so confere -------
+:protecao
+call :log "  Conferindo se o Apache protege os arquivos internos (.env, .git, docs, .sql)..."
+"%PHP%" "%AJUDA%" protecao "%PASTA%"
+if not errorlevel 1 goto mysql
+echo.
+call :log "AVISO: o Apache esta servindo arquivos internos ou o site foi afetado (linhas acima)."
+call :log "  Em rede compartilhada (ex.: escola), outras pessoas poderiam baixar esses arquivos."
+call :log "  Veja docs\SEGURANCA_E_PRIVACIDADE.md (PI-01) e rode scripts\seguranca\verificar_protecao.bat."
+choice /c SN /n /m "Continuar mesmo assim? [S/N] "
+if errorlevel 2 goto falha_protecao
+call :log "  Continuando por escolha do usuario, apesar do aviso de protecao."
 
 rem --- 3. MySQL --------------------------------------------------------------
 :mysql
@@ -130,6 +145,11 @@ goto falhou
 
 :falha_checagem
 call :log "Parado a seu pedido: a checagem do PHP nao bateu (veja as linhas acima)."
+goto falhou
+
+:falha_protecao
+call :log "Parado a seu pedido: a protecao do Apache nao esta valendo neste computador."
+call :log "  Nada foi alterado. Confira o AllowOverride do XAMPP (docs\INSTALACAO_E_EXECUCAO.md)."
 goto falhou
 
 :porta80_ocupada

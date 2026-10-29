@@ -1,5 +1,10 @@
 # Central administrativa, segurança e moderação (Stage 7)
 
+> **Classificação: CONFIDENCIAL (uso interno da equipe).** Descreve permissões, limites, regras de moderação e a trilha de auditoria da Central.
+> Não copie para o texto público do TCC, slides ou repositórios públicos: use a versão resumida de
+> [CLASSIFICACAO.md](CLASSIFICACAO.md#versões-resumidas-para-o-tcc). Desde a v4.60 a pasta `docs/` não é
+> entregue pelo Apache (confira com `scripts\seguranca\verificar_protecao.bat`).
+
 Este documento descreve a **Central administrativa** (`admin/`), o **provisionamento pela linha de
 comando** (`scripts/admin.php`), a **validação e moderação de conteúdo** (`includes/validacao.php`,
 `includes/moderacao.php`), as **denúncias de vagas** e a **trilha de auditoria**. Versão: Stage 7

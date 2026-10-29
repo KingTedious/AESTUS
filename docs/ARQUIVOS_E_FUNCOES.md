@@ -1,5 +1,10 @@
 # Arquivos e funções
 
+> **Classificação: CONFIDENCIAL (uso interno da equipe).** É o mapa completo do código e traz o resumo fiel das instruções da IA.
+> Não copie para o texto público do TCC, slides ou repositórios públicos: use a versão resumida de
+> [CLASSIFICACAO.md](CLASSIFICACAO.md#versões-resumidas-para-o-tcc). Desde a v4.60 a pasta `docs/` não é
+> entregue pelo Apache (confira com `scripts\seguranca\verificar_protecao.bat`).
+
 > Gerado na auditoria de documentação de 10/10/2026 sobre a versão **v4.00** (tag `v4.00`) e **atualizado para a v4.56** (26/10/2026) nos arquivos que mudaram nas versões 4.55 e 4.56: painel do jovem, lista de vagas, card de vaga, inicialização e porta da IA, scripts de iniciar/parar e configuração; na **v4.58** (27/10/2026), compatibilidade com PHP 7.4/8.0 e a exclusão da pasta pelo `parar_jovemconnect.bat`; na **v4.59** (28/10/2026), funcionamento no Linux (`.sh`, caminhos com maiúsculas corretas, ajudante para Linux). Nos demais arquivos, os números de linha são os da v4.00 e podem ter mudado depois. Legenda: **[C]** confirmado no código · **[I]** inferido (com a evidência indicada) · **[NC]**/**[N]** não confirmado.
 
 Catálogo de **todos os arquivos de código e configuração** do repositório (88 arquivos versionados na v4.00; os arquivos `.env`, `geminiAPI.env` e `logs/*.log` existem só na máquina e não foram abertos). Documentos `.md` e arquivos SQL estão descritos em [README.md](README.md), [BANCO_DE_DADOS.md](BANCO_DE_DADOS.md) e [MIGRACOES.md](MIGRACOES.md).
@@ -8,6 +13,7 @@ Para cada arquivo: papel, quem o usa, entradas, saídas, banco, funções (assin
 
 ## Sumário
 
+- [Atualização v4.60 — correção de segurança](#atualização-v460--correção-de-segurança)
 - [Módulo A — Autenticação, sessão, segurança base e contas](#módulo-a--autenticação-sessão-segurança-base-e-contas)
 - [Módulo B — Cadastro, perfis, locais de trabalho e currículo](#módulo-b--cadastro-perfis-locais-de-trabalho-e-currículo)
 - [Módulo C — Vagas, candidaturas, favoritos e painéis](#módulo-c--vagas-candidaturas-favoritos-e-painéis)
@@ -15,6 +21,63 @@ Para cada arquivo: papel, quem o usa, entradas, saídas, banco, funções (assin
 - [Módulo E — Interface pública, componentes compartilhados, CSS e configuração](#módulo-e--interface-pública-componentes-compartilhados-css-e-configuração)
 - [Índice de funções PHP](#índice-de-funções-php)
 - [Índice de funções Python (Flask)](#índice-de-funções-python-flask)
+
+## Atualização v4.60 — correção de segurança
+
+Resumo do que mudou em 29/10/2026 (detalhes, testes e pendências em
+[RELATORIO_CORRECAO_SEGURANCA.md](RELATORIO_CORRECAO_SEGURANCA.md)). As seções por arquivo abaixo continuam
+descrevendo a v4.56, salvo onde há a marca "v4.60".
+
+**Arquivos novos**
+
+| Arquivo | Papel | Funções / conteúdo |
+|---|---|---|
+| `.htaccess` (raiz) | bloqueio de pastas e arquivos internos no Apache e `Options -Indexes` | `<If>` para pastas internas, dois `<FilesMatch>` (nomes perigosos e extensões) — ver [INSTALACAO_E_EXECUCAO.md](INSTALACAO_E_EXECUCAO.md#13-proteção-dos-arquivos-internos) |
+| `docs/.htaccess`, `database/.htaccess`, `migrations/.htaccess`, `includes/.htaccess` | segunda barreira: negam tudo na pasta | `Require all denied` (com alternativa `Deny from all` para Apache 2.2) |
+| `includes/tentativas.php` | limite de tentativas e de envios, sem banco | `jc_tent_dir()`, `jc_tent_arquivo($escopo, $valor)`, `jc_tent_mexer(...)` (lê/grava com `flock`), `jc_tent_registrar()`, `jc_tent_contar()`, `jc_tent_zerar()`, `jc_tent_espera($escopo, $valor, $limite, $janela)` (segundos até liberar), `jc_tent_intervalo()`, `jc_tent_ip()` (só `REMOTE_ADDR`), `jc_tent_atraso($falhas)` (até 2 s), `jc_tent_tempo()`, `jc_tent_msg()`, `jc_tent_msg_envio()`, `jc_tent_envio_permitido($conta)` (registra o envio se permitido), `jc_tent_faxina()`, `jc_tent_limpar_tudo()`. Constantes `JC_TENT_*` (janela de 15 min; 5/30 no login; 5/50 nos códigos; 30 s, 5/h e 20/h nos envios) |
+| `scripts/seguranca/verificar_protecao.ps1` + `.bat` | testa no Apache real o bloqueio dos arquivos internos, variantes de nome, código-fonte, listagem, pastas de upload/log, páginas do site, cabeçalhos, pastas vizinhas do `htdocs` e (com `-Rede`) os IPs da rede | cliente HTTP por TCP (o caminho vai exatamente como escrito); nunca mostra conteúdo; sai com 0/1/2 |
+| `scripts/seguranca/diagnostico_somente_leitura.ps1` + `.bat` | diagnóstico somente leitura do XAMPP, rede, firewall, Git e varredura de segredos com saída redigida (atual e histórico) | seções A a H e G2 |
+| `scripts/seguranca/regressao_isolada.php` + `.bat` | testes HTTP das correções num banco de teste novo e numa cópia temporária do projeto (`php -S`) | apaga o banco e a cópia no fim (`--manter` guarda) |
+| `scripts/seguranca/gerar_evidencias.ps1` + `.bat` | pacote de evidências fora do `htdocs` (zip da versão, manifesto SHA-256, `git bundle`, hashes) | ver [PROCEDIMENTO_EVIDENCIAS.md](PROCEDIMENTO_EVIDENCIAS.md) |
+| `scripts/seguranca/configurar_assinatura.ps1` + `.bat` | configura a assinatura SSH de commits e tags com confirmação: cria a chave (nunca sobrescreve), `allowed_signers`, testa assinar e verificar fora do repositório, configura o Git global e copia a chave pública | não faz commit, tag nem push |
+| `scripts/seguranca/inventariar_versoes_antigas.ps1` + `.bat` | inventário só de leitura das pastas das versões anteriores ao Git: datas e SHA-256 de cada arquivo, fora da pasta e do `htdocs` | `INVENTARIO.csv`, `RESUMO.txt`, `SHA256SUMS.txt` |
+| `liberar_logins.bat` (raiz) | atalho para a apresentação: libera logins e códigos travados pelo limite de tentativas | chama `scripts/jovemconnect.php limpar-tentativas` |
+| `LICENSE` (raiz) | todos os direitos reservados | — |
+| `scripts/seguranca/pre-commit` | gancho opcional que recusa segredos e artefatos no commit | só nomes de arquivo na saída |
+| `scripts/seguranca/git_correcao_seguranca.bat` | roteiro de gravação da v4.60 no Git, com confirmação a cada passo | nunca usa `--force` nem recria tags |
+| `THIRD_PARTY_NOTICES.md` (raiz) | avisos de licença de terceiros | — |
+
+**Funções novas em arquivos existentes**
+
+| Função | Arquivo | O que faz |
+|---|---|---|
+| `jc_cabecalhos_seguranca(): void` | `includes/session.php` | envia `nosniff`, `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy`, CSP (`frame-ancestors`, `base-uri`, `form-action`) e `Permissions-Policy`; chamada por `jc_session_start()` |
+| `jc_sessao_ref_senha(string $hash): string` | `includes/session.php` | impressão da senha guardada na sessão (32 hex do SHA-256 do hash; não permite recuperar a senha) |
+| `jc_sessao_entrar(string $tipo, int $id, string $nome, string $hash): void` | `includes/session.php` | grava a identidade (apagando a do outro tipo), a impressão da senha, troca o ID da sessão e força token CSRF novo |
+| `jc_configurar_erros(): void` | `includes/env.php` | desliga `display_errors` (salvo `JC_EXIBIR_ERROS=1`) e mantém `log_errors` |
+| `jc_conta_demo_bloqueada(string $email): bool`, `jc_conta_msg_demo(): string` | `includes/conta_status.php` | com `JC_AMBIENTE=producao`, recusa contas `@demo.jovemconnect.example` |
+
+Chave de sessão nova: `jc_senha_ref` (gravada por `jc_sessao_entrar`, conferida por `jc_conta_verificar_sessao`).
+
+**Arquivos alterados (resumo)**
+
+| Arquivo | Mudança |
+|---|---|
+| `jovem/processar_login.php`, `empresa/processar_login.php` | limite antes de conferir a senha; bloqueio de conta de demonstração; `jc_sessao_entrar()` no sucesso; falha registra tentativa e espera até 2 s |
+| `jovem/cadastro.php`, `empresa/cadastro.php` | `jc_sessao_entrar()`; o jovem nasce com `perfil_publico = 0` |
+| `recuperar_senha.php` | intervalo e teto de pedidos de código (resposta igual); 5 erros cancelam o código; limite por IP |
+| `verificacoes/verificar_email.php`, `verificacoes/verificar_telefone.php` | 5 erros cancelam o código; limite por IP; intervalo e teto de envios; telefone com no máximo 20 caracteres |
+| `includes/conta_status.php` | `jc_conta_verificar_sessao` também encerra a sessão quando a senha mudou ou a conta não existe mais |
+| `includes/auth.php`, `includes/header.php`, `logout.php` | `jc_session_start()` no lugar de `session_start()` |
+| `uploads/curriculos.php` | nome `curriculo_{id}_{16 hex}.pdf`; apaga o arquivo anterior depois de gravar o novo |
+| `jovem/perfil.php` | IA Advisor monta a resposta com `createElement`/`textContent`; inicial do nome com `htmlspecialchars` |
+| `Vagas/avaliar.php`, `Vagas/candidatos.php`, `Vagas/curriculoIA.php`, `empresa/perfil.php`, `dashboard/empresa.php` | inicial do nome com `htmlspecialchars` (SEG-36, higiene; não era explorável) |
+| `IA/recomendar.py` | sem CORS; `@before_request _somente_local` (403 se o `Host` não for local); `MAX_CONTENT_LENGTH` de 512 KB |
+| `schema.sql` | `perfil_publico` com `DEFAULT 0` |
+| `scripts/jovemconnect.php` | `protecao` ampliado (arquivos internos que existem, variantes, código-fonte, listagem, site, aviso de `.git` na raiz do `htdocs`); `limpar-tentativas`; `banco-seed` recusa com `JC_AMBIENTE=producao` (saída 3) |
+| `iniciar_jovemconnect.bat` / `.sh` | `.bat`: roda `protecao` depois de ligar o Apache e pergunta se continua quando algo está exposto; `.sh`: já rodava `protecao` e agora o aviso cita os arquivos internos |
+| `assets/css/admin.css` | avisos de licença completos dos ícones (Lucide/Feather) |
+| `.gitignore`, `.gitattributes`, `.env.example`, `requirements.txt` | `repomix-output.*`, `geminiAPI.env`, `*.bundle`; `pre-commit` sempre com LF; variáveis `JC_EXIBIR_ERROS`, `JC_TENTATIVAS_DIR`, `JC_AMBIENTE`; comentário do flask-cors |
 
 ## Módulo A — Autenticação, sessão, segurança base e contas
 
@@ -24,7 +87,8 @@ Chaves de sessão do módulo (confirmadas):
 |---|---|---|
 | `jovem_id` (int), `jovem_nome` | `jovem/processar_login.php`, `jovem/cadastro.php` | todo o projeto; apagada em `logout.php`, `jovem/excluir_conta.php` |
 | `empresa_id` (int), `empresa_nome` | `empresa/processar_login.php`, `empresa/cadastro.php` | todo o projeto; apagada em `logout.php`, `empresa/excluir_conta.php` |
-| `csrf_token` (64 hex) | `includes/csrf.php` → `csrf_token()` | `csrf_verify()` |
+| `csrf_token` (64 hex) | `includes/csrf.php` → `csrf_token()` | `csrf_verify()`; desde a v4.60 apagado no login (`jc_sessao_entrar`), que força um token novo |
+| `jc_senha_ref` (32 hex, v4.60) | `includes/session.php` → `jc_sessao_entrar()` | `includes/conta_status.php` → `jc_conta_verificar_sessao()` (encerra a sessão se a senha mudou) |
 | `erro_login` | `jovem/processar_login.php`, `empresa/processar_login.php`, `includes/auth.php` | exibida e apagada (`unset`) em `jovem/login.php` e `empresa/login.php` |
 | `sucesso_login` | `recuperar_senha.php` (etapa 3) | exibida e apagada nas duas telas de login |
 | `recuperacao_etapa` (1/2/3), `recuperacao_email_mascarado`, `recuperacao_email_raw`, `recuperacao_tabela` (`jovens`/`empresas`), `recuperacao_codigo_ok` (bool) | `recuperar_senha.php` | `recuperar_senha.php` |
@@ -706,7 +770,7 @@ Observações gerais válidas para todo o módulo **[C]**:
 | `jc_candidato_indisponivel` | 76 | `string $voltar='../dashboard/empresa.php'` | `never` | HTTP 404 + página "Perfil indisponível" (a mesma para "não existe" e "sem permissão") + `exit` | `jovem/perfil.php` |
 
 - **Riscos:**
-  - `perfil_publico` tem DEFAULT 1 (`schema.sql:81`), e o cadastro não pergunta nada sobre isso. Ou seja, todo jovem novo já está acessível a **qualquer** empresa logada, inclusive o PDF do currículo (ver os achados em [SEGURANCA_E_PRIVACIDADE.md](SEGURANCA_E_PRIVACIDADE.md) e [MANUTENCAO_E_EVOLUCAO.md](MANUTENCAO_E_EVOLUCAO.md)). **[C]**
+  - **(Corrigido na v4.60 para contas novas: o cadastro grava `perfil_publico = 0`; o texto a seguir descreve a v4.56.)** `perfil_publico` tem DEFAULT 1 (`schema.sql:81`), e o cadastro não pergunta nada sobre isso. Ou seja, todo jovem novo já está acessível a **qualquer** empresa logada, inclusive o PDF do currículo (ver os achados em [SEGURANCA_E_PRIVACIDADE.md](SEGURANCA_E_PRIVACIDADE.md) e [MANUTENCAO_E_EVOLUCAO.md](MANUTENCAO_E_EVOLUCAO.md)). **[C]**
   - A regra não verifica se a empresa confirmou o e-mail/telefone. **[NC]**: não foi verificado se outra camada exige isso.
   - O tipo de retorno `never` só é verificado a partir do PHP 8.1. No 7.4/8.0 ele é lido como um nome de classe e não causa erro, porque a função sempre termina com `exit` (nunca retorna) **[I, semântica do PHP]**.
 
@@ -1177,7 +1241,7 @@ Dependências comuns a quase todos os arquivos (não repetidas em cada seção):
   - `/analise_contextual` ← `IA/avaliar_ajax.php` action `contexto` via `jc_flask_post(…, 20)`.
   - `/assistente` ← `IA/assistente_ajax.php` via `jc_flask_post(…, 20)`.
   - `/ping` ← `functions.php` → `flaskOnline()` (função sem chamadores — ver os achados em [SEGURANCA_E_PRIVACIDADE.md](SEGURANCA_E_PRIVACIDADE.md) e [MANUTENCAO_E_EVOLUCAO.md](MANUTENCAO_E_EVOLUCAO.md)); documentação manual em `docs/ASSISTENTE_E_IA.md`.
-- **Depende de:** `flask`, `flask_cors` (importados no topo; obrigatórios). Biblioteca padrão: `os, re, hashlib, json, socket, threading, time, urllib.request/error, logging(.handlers), uuid, datetime`. Opcional: `google.generativeai` (importado só se `GEMINI_API_KEY` estiver em `os.environ`). Serviço externo: `https://generativelanguage.googleapis.com/v1beta` (Gemini REST). Lê o arquivo `.env` da raiz do projeto (não lido nesta documentação).
+- **Depende de:** `flask` (importado no topo; obrigatório). Até a v4.59 também `flask_cors`, retirado na v4.60 (o pacote continua no `venv` e na lista de versões fixas). Biblioteca padrão: `os, re, hashlib, json, socket, threading, time, urllib.request/error, logging(.handlers), uuid, datetime`. Opcional: `google.generativeai` (importado só se `GEMINI_API_KEY` estiver em `os.environ`). Serviço externo: `https://generativelanguage.googleapis.com/v1beta` (Gemini REST). Lê o arquivo `.env` da raiz do projeto (não lido nesta documentação).
 - **Requisito de versão [C/I]:** anotação `-> str | None` (l. 70) é avaliada na definição da função → exige Python ≥ 3.10 (em 3.9 dá `TypeError` ao importar) [I pela semântica do Python].
 
 #### Configuração
@@ -1196,7 +1260,9 @@ Dependências comuns a quase todos os arquivos (não repetidas em cada seção):
 | `FLASK_DEBUG` | só `os.environ` | `"1"` liga o modo debug do Flask (com `app.run(use_reloader=False)`, para não abrir um segundo processo que brigaria pela trava); padrão desligado | 1078 |
 | `JC_IA_PORTA` | `_config`, padrão 5000 | porta preferida; inteiro de 1024 a 65535, inválido → padrão | 953 |
 | `JC_IA_PORTAS_EXTRAS` | `_config`, padrão `5001-5010` | faixa extra `início-fim`, no máximo 50 portas; inválida → padrão | 953 |
-| CORS | `CORS(app, origins=["http://localhost", "http://127.0.0.1", "http://localhost:80"])` | vale para chamadas de navegador; o PHP (cURL) não depende de CORS | 31 |
+| CORS | **retirado na v4.60** (até a v4.59: `CORS(app, origins=["http://localhost", "http://127.0.0.1", "http://localhost:80"])`); o PHP (cURL) nunca dependeu dele | — |
+| `Host` local (v4.60) | `@app.before_request _somente_local`: só `127.0.0.1`, `localhost` ou `::1` (com qualquer porta); outro → 403 JSON (protege contra *DNS rebinding*) | início do arquivo |
+| `MAX_CONTENT_LENGTH` (v4.60) | 512 KB; corpo maior → 413 | início do arquivo |
 
 #### Logs (`logs/ia.log`)
 - Logger `jovemconnect.ia`, `TimedRotatingFileHandler(when="midnight", backupCount=_dias, encoding="utf-8", delay=True)`, formato = só a mensagem (uma linha JSON). Sem permissão de escrita → `NullHandler` (servidor segue) [C, l. 358–373].

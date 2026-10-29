@@ -1,7 +1,7 @@
 # Requisitos do Sistema - JovemConnect
 # (linhas com "#" são comentários; "pip install -r requirements.txt" ignora)
-# O servidor de IA precisa só de flask e flask-cors, com as versões fixas de
-# IA/requirements-ia.txt (é o que o iniciar_ia.bat instala ao reconstruir o venv).
+# O servidor de IA precisa só do flask (o flask-cors segue na lista, sem uso desde a v4.60),
+# com as versões fixas de IA/requirements-ia.txt (é o que o iniciar_ia.bat instala ao reconstruir o venv).
 #
 # [Ambiente]
 # - Servidor: Apache 2.4+
@@ -18,7 +18,7 @@
 # - XAMPP v3.3.0+ (Já inclui PHP, Apache e MySQL configurados)
 
 flask
-flask-cors          # Essencial para o PHP conseguir chamar o Flask sem erro de segurança
+flask-cors          # Sem uso desde a v4.60 (o PHP chama o Flask pelo servidor; CORS retirado); mantido para não invalidar venvs
 mysql-connector-python
 pandas              # Se você for processar dados das vagas
 scikit-learn        # Comum para algoritmos de recomendação/match

@@ -590,7 +590,7 @@ if ($eh_empresa && ($_GET['voltar'] ?? '') === 'candidatos' && intval($_GET['vag
     <aside class="profile-side">
 
         <div class="profile-side-avatar">
-            <div class="avatar avatar-xl"><?= $inicial ?></div>
+            <div class="avatar avatar-xl"><?= htmlspecialchars($inicial) ?></div>
 
             <!-- VIEW -->
             <div id="viewNome">
@@ -1320,16 +1320,25 @@ document.getElementById('btnAnalisarPerfil')?.addEventListener('click', async fu
 
         const { mensagem, sugestoes } = await res.json();
 
-        let html = `<p style="font-size:13px;font-weight:600;color:var(--accent);margin-bottom:10px;">${mensagem}</p>`;
-        if (sugestoes?.length) {
-            html += '<ul style="margin:0;padding-left:16px;">';
+        // Correção SEG-05: a resposta da IA é TEXTO (pode repetir trechos do
+        // resumo do próprio jovem). Antes ia para innerHTML e uma marcação HTML
+        // nela viraria código na página; agora é montada com textContent, com
+        // a mesma aparência.
+        const p = document.createElement('p');
+        p.style.cssText = 'font-size:13px;font-weight:600;color:var(--accent);margin-bottom:10px;';
+        p.textContent = typeof mensagem === 'string' ? mensagem : '';
+        resultEl.replaceChildren(p);
+        if (Array.isArray(sugestoes) && sugestoes.length) {
+            const ul = document.createElement('ul');
+            ul.style.cssText = 'margin:0;padding-left:16px;';
             sugestoes.forEach(s => {
-                html += `<li style="font-size:12px;color:var(--text-secondary);margin-bottom:6px;">${s}</li>`;
+                const li = document.createElement('li');
+                li.style.cssText = 'font-size:12px;color:var(--text-secondary);margin-bottom:6px;';
+                li.textContent = String(s);
+                ul.appendChild(li);
             });
-            html += '</ul>';
+            resultEl.appendChild(ul);
         }
-
-        resultEl.innerHTML = html;
         resultEl.classList.remove('hidden');
 
     } catch {

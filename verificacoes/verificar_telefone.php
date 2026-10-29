@@ -3,6 +3,7 @@ require_once dirname(__DIR__) . '/includes/csrf.php';   // Sessao endurecida + C
 require_once dirname(__DIR__) . '/includes/config.php';
 require_once dirname(__DIR__) . '/includes/auth.php';
 require_once dirname(__DIR__) . '/includes/sms.php';
+require_once dirname(__DIR__) . '/includes/tentativas.php';   // SEG-02/SEG-07: limite de códigos e de envios
 
 $tipoUsuario = isset($_SESSION['jovem_id']) ? 'jovem' : (isset($_SESSION['empresa_id']) ? 'empresa' : null);
 $idUsuario = $_SESSION['jovem_id'] ?? $_SESSION['empresa_id'] ?? null;
@@ -15,6 +16,7 @@ if (!$tipoUsuario || !$idUsuario) {
 $tabela = ($tipoUsuario === 'jovem') ? 'jovens' : 'empresas';
 $mensagemSucesso = null;
 $mensagemErro = null;
+$chave_conta = "verif_tel|{$tabela}|" . intval($idUsuario);   // contadores desta conta (SEG-02/SEG-07)
 
 // Busca dados atuais do usuário
 $stmt = $conn->prepare("SELECT telefone, telefone_verificado, codigo_telefone, expiracao_telefone FROM {$tabela} WHERE id = ? LIMIT 1");
@@ -33,8 +35,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_enviar_sms'])) {
     csrf_require();
     $novoTelefone = trim($_POST['telefone'] ?? '');
 
-    if (empty($novoTelefone) || normalizarTelefoneE164($novoTelefone) === null) {
+    if (empty($novoTelefone) || mb_strlen($novoTelefone) > 20 || normalizarTelefoneE164($novoTelefone) === null) {
+        // SEG-15: tamanho limitado (um celular com DDD e máscara, ex.: +55 (11) 98765-4321, tem até 19 caracteres)
         $mensagemErro = "Digite um número de celular válido, com DDD (ex: (11) 98765-4321).";
+    } elseif (($espera_envio = jc_tent_envio_permitido($chave_conta)) > 0) {
+        // SEG-07: intervalo mínimo e teto por hora de SMS para a conta e para o IP (SMS custa)
+        jc_log_seguranca('verificacao.telefone.limitada', 'aviso');
+        $mensagemErro = jc_tent_msg_envio($espera_envio);
     } else {
         $novoCodigo = sprintf("%06d", random_int(0, 999999));
         $novaExpiracao = date('Y-m-d H:i:s', strtotime('+15 minutes'));
@@ -62,8 +69,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_validar_codigo']
     csrf_require();
     $codigoDigitado = trim($_POST['codigo'] ?? '');
     $agora = date('Y-m-d H:i:s');
+    $espera = jc_tent_espera('codigo_ip', jc_tent_ip(), JC_TENT_CODIGO_IP);
 
-    if (!empty($codigoDigitado) && $user['codigo_telefone'] !== null
+    if ($espera > 0) {
+        jc_log_seguranca('verificacao.telefone.bloqueada', 'aviso', ['motivo' => 'muitas_tentativas']);
+        $mensagemErro = jc_tent_msg($espera);
+    } elseif (!empty($codigoDigitado) && $user['codigo_telefone'] !== null
         && hash_equals((string) $user['codigo_telefone'], $codigoDigitado)
         && $user['expiracao_telefone'] >= $agora) {
         $update = $conn->prepare("UPDATE {$tabela} SET telefone_verificado = 1, codigo_telefone = NULL, expiracao_telefone = NULL WHERE id = ?");
@@ -71,12 +82,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_validar_codigo']
         $update->execute();
         $update->close();
 
+        jc_tent_zerar('codigo_conta', $chave_conta);
         jc_log_seguranca('verificacao.telefone.sucesso', 'info');
         header("Location: ../dashboard/index.php?phone_verified=1");
         exit;
     } else {
-        jc_log_seguranca('verificacao.telefone.falha', 'aviso');
-        $mensagemErro = "Código incorreto ou expirado. Tente novamente.";
+        jc_tent_registrar('codigo_ip', jc_tent_ip());
+        $erros_codigo = jc_tent_registrar('codigo_conta', $chave_conta);
+        if ($erros_codigo >= JC_TENT_CODIGO_CONTA) {
+            // SEG-02: 5 erros cancelam o código; um novo SMS precisa ser pedido
+            $update = $conn->prepare("UPDATE {$tabela} SET codigo_telefone = NULL, expiracao_telefone = NULL WHERE id = ?");
+            $update->bind_param("i", $idUsuario);
+            $update->execute();
+            $update->close();
+            $user['codigo_telefone'] = null;
+            jc_tent_zerar('codigo_conta', $chave_conta);
+            jc_log_seguranca('verificacao.telefone.codigo_cancelado', 'aviso', ['motivo' => 'muitas_tentativas']);
+            $mensagemErro = "Código incorreto muitas vezes. Por segurança, ele foi cancelado: peça um novo SMS.";
+        } else {
+            jc_log_seguranca('verificacao.telefone.falha', 'aviso');
+            $mensagemErro = "Código incorreto ou expirado. Tente novamente.";
+        }
+        jc_tent_atraso($erros_codigo);
     }
 }
 ?>
@@ -122,7 +149,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_validar_codigo']
             <?= csrf_field() ?>
             <div class="form-group" style="margin-bottom: 12px; text-align: left;">
                 <label class="form-label" for="telCelular">Número do Celular (com DDD)</label>
-                <input type="tel" name="telefone" id="telCelular" autocomplete="tel" class="form-control" placeholder="(11) 99999-9999" 
+                <input type="tel" name="telefone" id="telCelular" autocomplete="tel" class="form-control" placeholder="(11) 99999-9999" maxlength="20"
                        value="<?= htmlspecialchars($user['telefone'] ?? '') ?>" required>
             </div>
             <button type="submit" class="btn btn-secondary btn-full">

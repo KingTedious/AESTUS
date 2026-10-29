@@ -1,5 +1,10 @@
 # Resultados dos testes executados
 
+> **Classificação: CONFIDENCIAL (uso interno da equipe).** Registra roteiros de teste, inclusive de ataques reproduzidos na réplica.
+> Não copie para o texto público do TCC, slides ou repositórios públicos: use a versão resumida de
+> [CLASSIFICACAO.md](CLASSIFICACAO.md#versões-resumidas-para-o-tcc). Desde a v4.60 a pasta `docs/` não é
+> entregue pelo Apache (confira com `scripts\seguranca\verificar_protecao.bat`).
+
 > Gerado a partir dos arquivos de resultado da réplica de desenvolvimento (execuções de 10/10/2026 sobre o código que virou a v4.00; mudanças posteriores foram só de comentários, conferidas por comparação de tokens). "Aprovado"/"Reprovado" vem do próprio teste; nada aqui foi marcado à mão. Observações cortadas em 160 caracteres e com e-mails/caminhos substituídos. Os scripts ficam na réplica e **não fazem parte do repositório** (ver [TESTES.md](TESTES.md#testes-automatizados-da-réplica)).
 
 ## Resumo
@@ -30,6 +35,10 @@
 | [DOC](#doc--auditoria-de-documentação-10102026) | Auditoria de documentação (10/10/2026) | 7 | 6 | — |
 
 **Total: 959/962 aprovados.** Reprovações: ver S5V (2 casos, iguais na versão anterior v3.48) e DOC-001 (falha de segurança SEG-01, esperada).
+
+Versões posteriores, em seções próprias: [V456](#v456--versões-455-e-456), [V458](#v458--php-74-e-80-e-exclusão-da-pasta), [V459](#v459--linux) e
+[V460](#v460--correção-de-segurança-e-propriedade-intelectual) (correção de segurança; 17 verificações na réplica e os
+roteiros que faltam rodar no PC). DOC-001 deixou de valer como falha depois do Lote A (SEG-01 corrigido).
 
 ## S3R — Stage 3 — regressão funcional (HTTP)
 
@@ -307,11 +316,16 @@ Arquivo de resultado: `tests/navegacao_s4_result.json` · 68/68 aprovados.
 | S4N-012 | empresa logado: início, começar, logins e cadastros → dashboard/empresa.php | aprovado | — |
 | S4N-013 | painel do jovem: perfil, candidaturas, favoritos, sair e detalhes com voltar=painel | aprovado | [] |
 | S4N-014 | painel do jovem → páginas internas abrem (200) | aprovado | [] |
-| S4N-015 | detalhes da vaga (voltar=painel) → "←" vai para ../dashboard/jovem.php | aprovado |  href="../dashboard/jovem.php" class="icon-btn"            title="Voltar ao painel" aria- |
-| S4N-016 | detalhes da vaga (voltar=favoritos) → "←" vai para favoritos.php | aprovado |  href="favoritos.php" class="icon-btn"            title="Voltar aos favoritos" aria-label |
-| S4N-017 | detalhes da vaga (voltar=candidaturas) → "←" vai para ../candidaturas/minhas.php | aprovado |  href="../candidaturas/minhas.php" class="icon-btn"            title="Voltar às minhas ca |
-| S4N-018 | detalhes da vaga (voltar=—) → "←" vai para listar.php | aprovado |  href="listar.php" class="icon-btn"            title="Voltar para a lista de vagas" aria- |
-| S4N-019 | detalhes da vaga (voltar=https://evil.example/) → "←" vai para listar.php | aprovado |  href="listar.php" class="icon-btn"            title="Voltar para a lista de vagas" aria- |
+| S4N-015 | detalhes da vaga (voltar=painel) → "←" vai para ../dashboard/jovem.php | aprovado |  href="../dashboard/jovem.php" class="icon-btn"
+            title="Voltar ao painel" aria- |
+| S4N-016 | detalhes da vaga (voltar=favoritos) → "←" vai para favoritos.php | aprovado |  href="favoritos.php" class="icon-btn"
+            title="Voltar aos favoritos" aria-label |
+| S4N-017 | detalhes da vaga (voltar=candidaturas) → "←" vai para ../candidaturas/minhas.php | aprovado |  href="../candidaturas/minhas.php" class="icon-btn"
+            title="Voltar às minhas ca |
+| S4N-018 | detalhes da vaga (voltar=—) → "←" vai para listar.php | aprovado |  href="listar.php" class="icon-btn"
+            title="Voltar para a lista de vagas" aria- |
+| S4N-019 | detalhes da vaga (voltar=https://evil.example/) → "←" vai para listar.php | aprovado |  href="listar.php" class="icon-btn"
+            title="Voltar para a lista de vagas" aria- |
 | S4N-020 | vaga já candidatada: "✓ Já candidatado · ver status" leva às candidaturas | aprovado | — |
 | S4N-021 | detalhes → "Candidatar-se" leva a origem adiante | aprovado | — |
 | S4N-022 | favoritos: título abre os detalhes (voltar=favoritos) e logo/atalhos levam ao painel e candidaturas | aprovado | — |
@@ -1209,4 +1223,44 @@ S/N passaram a aparecer também quando a entrada não é um terminal.
 
 **Pendente num Linux de verdade:** XAMPP para Linux (`/opt/lampp`) e Apache/MariaDB do sistema (systemd, `sudo`,
 usuário do Apache gravando em `logs/`, `AllowOverride` para os `.htaccess`) e a abertura do navegador com `xdg-open`.
+
+**Correção (v4.60, PI-12):** os testes acima usaram uma **cópia da pasta do PC**, não um clone do Git. O índice do
+Git ainda registrava `Candidaturas/minhas.php` (C maiúsculo); num clone feito no Linux a pasta nascia
+`Candidaturas/` e "Minhas candidaturas" dava 404. A grafia foi corrigida no índice na v4.60 e o clone foi testado
+(V460-013).
+
+## V460 — correção de segurança e propriedade intelectual
+
+Executados em 29/10/2026 na réplica Linux (PHP 8.3.6, Python 3.13, Chromium via Playwright), **sem banco de dados,
+sem Apache e sem Windows**. O que depende deles está na tabela de pendentes, com o roteiro para rodar no PC.
+
+| ID | Verificação | Resultado | Observação |
+|---|---|---|---|
+| V460-001 | `php -l` em todos os `.php` | **93/93** | — |
+| V460-002 | Compatibilidade com PHP 7.4 (verificador heurístico: funções e sintaxe do 8.0+) | **0 ocorrências** | `includes/compat.php` cobre `str_contains`/`str_starts_with`/`str_ends_with` |
+| V460-003 | Python (`IA/recomendar.py`, `IA/verificar_ambiente.py`) compila | **2/2** | — |
+| V460-004 | Sintaxe dos scripts `sh` (4 `.sh` e o gancho `pre-commit`) | **5/5** | — |
+| V460-005 | Regras do `.htaccess` da raiz simuladas (mesmas expressões, PCRE) sobre 197 caminhos reais, 42 variantes de nome e 14 páginas legítimas, em dois modelos (Apache resolve ou não o nome verdadeiro do Windows) | **0 falhas** | com as regras da primeira passagem, 9 variantes passavam (`.git./HEAD`, `.git%20/HEAD`, `GIT~1/HEAD`, `.git::$INDEX_ALLOCATION/HEAD`, `ENV~1`...): corrigido na segunda passagem. Não substitui o teste no Apache |
+| V460-006 | Limite de tentativas (`includes/tentativas.php`), unidade | **17/17** | bloqueio no 5º erro, janela deslizante, chave sem e-mail/IP em claro, intervalo e teto de envios, IP só de `REMOTE_ADDR`, faxina, sem pasta = sem bloqueio |
+| V460-007 | HTTP no servidor embutido: cabeçalhos em 5 páginas, erros escondidos por padrão e visíveis com `JC_EXIBIR_ERROS=1`, logout, cookie `HttpOnly`/`SameSite=Lax` | **41/41** | — |
+| V460-008 | `jc_sessao_entrar()` (identidade única, token CSRF novo, impressão da senha) | **7/7** | — |
+| V460-009 | Flask: `Host` local aceito (127.0.0.1, localhost, `[::1]`), externo e disfarçado recusados (403), sem cabeçalho CORS, corpo acima de 512 KB recusado (413) | **12/12** | — |
+| V460-010 | IA Advisor no Chromium, código antigo × novo, com resposta simulada contendo HTML e `<script>` | **7/7** | antes: a marcação virava elemento; depois: aparece como texto, com a mesma estrutura e estilo |
+| V460-011 | Contas de demonstração com e sem `JC_AMBIENTE=producao`; `banco-seed` em produção | **6/6**; código **3** | — |
+| V460-012 | `regressao_isolada.php` sem MySQL | para com código **2** | nada é criado |
+| V460-013 | Git sintético com o índice do PC (156 arquivos) + comandos do `git_correcao_seguranca.bat` + gancho `pre-commit` + clone no Linux | **23/23** | `geminiAPI.env` e `repomix-output.xml` saem do índice e ficam na pasta; grafia vira renomeação (R100); gancho recusa `.env`, `*.env` e texto com formato de chave (sem mostrar o valor) e aceita `.env.example`; no clone, `/candidaturas/minhas.php` → 302 e `/Candidaturas/minhas.php` → 404 |
+| V460-014 | `php scripts/jovemconnect.php protecao` contra um servidor que **ignora** o `.htaccess` (servidor embutido) | detecta **20** problemas; site 7/7; aviso de `.git` na raiz do `htdocs` | prova que a verificação acusa a exposição (num Apache com o `.htaccess` valendo, o esperado é 0 problemas) |
+| V460-015 | Varredura redigida dos arquivos atuais (13 padrões) | **0 credenciais** | ocorrências esperadas: 30 hashes das contas de demonstração (senha pública), 2 marcadores do `.env.example`, 2 CPFs fictícios em documentação, e-mails de contato institucional (2), do autor no `composer.json` (1) e de exemplo `rh@empresa.com.br` (6) |
+| V460-016 | Links locais dos documentos (arquivos e âncoras) | **0 quebrados** | — |
+| V460-017 | Diagramas Mermaid alterados (login e diagrama ER) renderizam | **2/2** | — |
+
+**Pendentes (exigem o XAMPP, o MySQL ou o Windows do PC):**
+
+| O quê | Como |
+|---|---|
+| Bloqueio real no Apache (inclusive apelidos e nomes 8.3 reais), cabeçalhos, pastas vizinhas, alcance pela rede | `scripts\seguranca\verificar_protecao.bat` e `verificar_protecao.bat -Rede` |
+| Login, limite, códigos, sessões, cadastro privado, currículo com nome aleatório, demonstração, erros do PHP, com banco real de teste | `scripts\seguranca\regressao_isolada.bat` (cerca de 70 verificações: HDR, PUB, PRIV, LOGIN, JOVEM, EMPRESA, IDOR, CAND, CAD, LIM, SESS, IDENT, CV, COD, SAIR, DEMO, PHP) |
+| Configuração do XAMPP, rede, firewall, Git e histórico | `scripts\seguranca\diagnostico_somente_leitura.bat` |
+| Gravação no Git (índice, grafia, commit, tag, envio) | `scripts\seguranca\git_correcao_seguranca.bat` |
+| Sintaxe dos `.ps1` e `.bat` novos | não há PowerShell nem `cmd` na réplica: revisão manual; rodam no PC |
 

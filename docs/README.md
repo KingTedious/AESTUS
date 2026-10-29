@@ -22,6 +22,21 @@ O `README.md` da raiz do projeto continua sendo o guia rápido de instalação.
 > `iniciar_jovemconnect.sh`, `iniciar_ia.sh`, `parar_jovemconnect.sh` e `scripts/linux_comum.sh`, e o ajudante
 > `scripts/jovemconnect.php` com os comandos de cada sistema. Os `.bat` do Windows não mudaram. Testes em
 > [TESTES_RESULTADOS.md](TESTES_RESULTADOS.md#v459--linux).
+>
+> **Atualização v4.60 (29/10/2026) — correção de segurança e de propriedade intelectual.** `.htaccess` na raiz
+> bloqueando os arquivos internos no Apache; limite de tentativas no login e nos códigos; troca de senha encerra
+> as outras sessões; perfil do jovem privado por padrão; currículos com nome aleatório; cabeçalhos de segurança;
+> erros do PHP fora da tela; Flask sem CORS e só com `Host` local; IA Advisor sem `innerHTML`; contas de
+> demonstração bloqueadas com `JC_AMBIENTE=producao`; `geminiAPI.env` e `repomix-output.xml` fora do Git;
+> grafia `candidaturas/` corrigida no Git; novos documentos de classificação, autoria, origem dos ativos,
+> titularidade e evidências; scripts em `scripts/seguranca/`. Situação de cada item:
+> [SEGURANCA_E_PRIVACIDADE.md](SEGURANCA_E_PRIVACIDADE.md#situação-na-v460) e
+> [RELATORIO_CORRECAO_SEGURANCA.md](RELATORIO_CORRECAO_SEGURANCA.md).
+>
+> **Complemento v4.60 (29/10/2026, respostas do responsável).** Licença "todos os direitos reservados"
+> (`LICENSE`); autoria, origem dos ativos e titularidade atualizadas; achado TER-01 (termos da API do Gemini);
+> roteiro do dia da apresentação ([APRESENTACAO.md](APRESENTACAO.md)); `configurar_assinatura.bat`,
+> `inventariar_versoes_antigas.bat` e `liberar_logins.bat`. Nenhum código do site mudou.
 
 ## O projeto em poucas linhas
 
@@ -67,6 +82,13 @@ flowchart LR
 | [MANUTENCAO_E_EVOLUCAO.md](MANUTENCAO_E_EVOLUCAO.md) | convenções, áreas de risco, como evoluir, **pendências** |
 | [GLOSSARIO.md](GLOSSARIO.md) | termos do projeto |
 | [MATRIZ_DE_DEPENDENCIAS.md](MATRIZ_DE_DEPENDENCIAS.md) | quem inclui/chama o quê; arquivo → função → tabela |
+| [CLASSIFICACAO.md](CLASSIFICACAO.md) | **v4.60**: classificação da informação (público, interno, confidencial, dados pessoais, segredos, artefatos), versões resumidas para o TCC, pontuação do Match exibida (PI-07) |
+| [AUTORIA_E_ORIGEM.md](AUTORIA_E_ORIGEM.md) | **v4.60**: registro factual de autoria, linha do tempo, ferramentas de IA, decisões e limitações |
+| [ORIGEM_DOS_ATIVOS.md](ORIGEM_DOS_ATIVOS.md) | **v4.60**: imagens, logotipos, ícones, fontes, bibliotecas e serviços de terceiros (avisos em `THIRD_PARTY_NOTICES.md`, na raiz) |
+| [TITULARIDADE_E_LICENCA.md](TITULARIDADE_E_LICENCA.md) | **v4.60**: perguntas de titularidade, licença, marca e uso de IA que exigem decisão humana |
+| [PROCEDIMENTO_EVIDENCIAS.md](PROCEDIMENTO_EVIDENCIAS.md) | **v4.60**: assinatura de commits e tags, manifesto SHA-256, `git bundle`, inventário das versões anteriores ao Git e cópias independentes |
+| [APRESENTACAO.md](APRESENTACAO.md) | **v4.60**: dia da apresentação — Tailscale Serve × Funnel, banco de demonstração, visitantes, limite de tentativas e limpeza |
+| [RELATORIO_CORRECAO_SEGURANCA.md](RELATORIO_CORRECAO_SEGURANCA.md) | **v4.60**: relatório da correção (achados, testes, pendências, validação no XAMPP e no Linux) |
 
 Documentos temáticos anteriores (mantidos e revisados):
 [CONFIGURACAO.md](CONFIGURACAO.md) (`.env`) · [MIGRACOES.md](MIGRACOES.md) · [SEED_DEMO.md](SEED_DEMO.md) ·
@@ -106,9 +128,13 @@ Documentos temáticos anteriores (mantidos e revisados):
 
 ## Atenção
 
-- **Falha crítica pendente:** a recuperação de senha permite trocar a senha de outra conta
-  ([SEG-01](SEGURANCA_E_PRIVACIDADE.md#seg-01)). Não foi corrigida — aguarda autorização (continua
-  pendente depois da Stage 7, que não mexeu nesse fluxo).
+- A falha crítica da recuperação de senha ([SEG-01](SEGURANCA_E_PRIVACIDADE.md#seg-01)) foi **corrigida no
+  Lote A** (12/10/2026).
+- Os documentos marcados **CONFIDENCIAL** (algoritmo do Match, mapa do código, rotas, moderação, segurança e
+  resultados de testes) não devem ir para o texto público do TCC: use as versões resumidas de
+  [CLASSIFICACAO.md](CLASSIFICACAO.md#versões-resumidas-para-o-tcc).
+- Depois de copiar o projeto para outro computador (ex.: escola), rode `scripts\seguranca\verificar_protecao.bat`
+  com o Apache ligado.
 - A Central administrativa só funciona depois da migração da Stage 7 e da criação do primeiro
   administrador pela linha de comando (não existe conta padrão).
 - Nunca importe o `schema.sql` num banco com dados.
@@ -117,12 +143,14 @@ Documentos temáticos anteriores (mantidos e revisados):
 
 | Item | Como confirmar |
 |---|---|
-| Apache bloqueia `/.env` e `/schema.sql`? | abrir no navegador do XAMPP (ver SEG-04) |
-| `.htaccess` de `logs/` e `uploads/curriculos/` funcionam? | abrir `logs/app.log` pelo navegador (esperado 403) |
+| Apache bloqueia `/.env`, `/.git`, `/docs`, `/schema.sql` (v4.60)? | `scripts\seguranca\verificar_protecao.bat` (tabela APROVADO/REPROVADO) |
+| `.htaccess` de `logs/` e `uploads/curriculos/` funcionam? | o mesmo verificador (cria e apaga um arquivo de teste em cada pasta) |
+| Correções da v4.60 no banco real (login, códigos, sessões, cadastro, currículo, demonstração) | `scripts\seguranca\regressao_isolada.bat` (usa um banco de teste novo, apagado no fim) |
+| Rede, firewall, `Listen`, `AllowOverride`, Git e varredura de segredos | `scripts\seguranca\diagnostico_somente_leitura.bat` (somente leitura, saída redigida) |
 | Envio real de e-mail/SMS | `composer install` + credenciais de teste |
 | Modelo `GEMINI_MODEL` padrão existe e aceita esquema JSON | `/ping` + análise contextual com chave nova |
 | `iniciar_ia.bat` em outro computador/pen drive | executar no Windows |
-| `display_errors` e `session.gc_maxlifetime` do php.ini | `phpinfo()` local |
+| `session.gc_maxlifetime` do php.ini (os erros já não aparecem na tela desde a v4.60) | diagnóstico (seção C) |
 | Extensão `intl` ativa (normalização NFC de nomes) | `php -m` no terminal do XAMPP |
 | `scripts/.htaccess` bloqueia `scripts/admin.php` | abrir no navegador (esperado 403/404) |
 | Cookie da Central com `Secure` | publicar com HTTPS e conferir o cookie `JCADMIN` no navegador |

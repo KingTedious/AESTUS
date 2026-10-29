@@ -11,6 +11,13 @@ aplicação.
 | `2026-10-10_stage6_aceite_termos.sql` | Versão e data do aceite dos Termos/Privacidade (`termos_versao`, `termos_aceitos_em` em `jovens` e `empresas`) |
 | `2026-10-11_stage7_admin_moderacao.sql` | Central administrativa e moderação: tabelas `administradores` (nasce **vazia**), `admin_tentativas`, `admin_auditoria`, `moderacao_itens`, `denuncias`; colunas `conta_status`/`conta_status_em` em `jovens` e `empresas` (padrão `ativa`) e `moderacao_status`/`moderacao_motivo`/`moderacao_em` em `vagas` (padrão `aprovada`) — ver [ADMINISTRACAO_E_MODERACAO.md](ADMINISTRACAO_E_MODERACAO.md) |
 
+**v4.60 não tem migração.** As correções de segurança da v4.60 funcionam em qualquer banco já atualizado: o
+limite de tentativas usa arquivos fora do banco, e o cadastro grava `perfil_publico = 0` explicitamente (o
+`DEFAULT 0` do `schema.sql` só vale para instalações novas). Para bancos antigos há só comandos **opcionais**
+sobre a visibilidade dos perfis existentes, que dependem de decisão do responsável:
+[BANCO_DE_DADOS.md](BANCO_DE_DADOS.md#jovens). O hash dos códigos de verificação (SEG-08) ficou de fora
+justamente por exigir migração.
+
 ## Instalação nova × atualização
 
 | Situação | O que usar | O que **não** usar |

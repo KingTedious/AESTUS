@@ -199,13 +199,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $resumo = $campos['resumo_profissional'] !== '' ? $campos['resumo_profissional'] : null;
         try {
             $conn->begin_transaction();
+            // Correção SEG-03 (decisão de produto: privacidade é o padrão): o perfil
+            // nasce PRIVADO (perfil_publico = 0). Empresas só o veem depois de uma
+            // candidatura às vagas delas ou se o próprio jovem ligar, no perfil,
+            // "Permitir que empresas encontrem seu currículo".
             $stmt_ins = $conn->prepare(
                 "INSERT INTO jovens
                     (nome, email, senha, cpf, data_nascimento,
                      cidade, estado, cep, formacao,
                      escolaridade_status, escolaridade_tipo, escolaridade_curso, clt,
-                     area_interesse, resumo_profissional)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                     area_interesse, resumo_profissional, perfil_publico)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)"
             );
             $stmt_ins->bind_param(
                 "ssssssssssssiss",
@@ -233,10 +237,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Stage 7: conteúdo suspeito vai para a fila de moderação (a conta é criada normalmente)
             jc_mod_registrar($conn, 'jovem', $novo_id, $sinais_mod, 'jovem', $novo_id);
 
-            // Login automático após o cadastro
-            $_SESSION['jovem_id']   = $novo_id;
-            $_SESSION['jovem_nome'] = $campos['nome'];
-            jc_session_regenerate();
+            // Login automático após o cadastro (jc_sessao_entrar: troca o ID da sessão,
+            // apaga a identidade de empresa, renova o token CSRF e guarda a referência da senha)
+            jc_sessao_entrar('jovem', $novo_id, (string) $campos['nome'], $senha_hash);
             jc_log_seguranca('cadastro.concluido', 'info', ['tipo' => 'jovem', 'habilidades' => count($habilidades)]);
             // Antes do painel, a pessoa passa pela verificação da conta
             header("Location: ../verificacoes/escolher_verificacao.php");

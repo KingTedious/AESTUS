@@ -160,9 +160,10 @@ main() {
     if ajuda site "$PASTA"; then
         log "  OK: http://localhost/$PASTA/ responde."
         if ! ajuda protecao "$PASTA"; then
-            log "  AVISO: o Apache nao esta aplicando os .htaccess do projeto. Logs e curriculos ficam"
-            log "  acessiveis pelo navegador. Ative 'AllowOverride All' para a pasta do site no Apache"
-            log "  (ex.: /etc/apache2/apache2.conf, bloco <Directory /var/www/>) e reinicie o Apache."
+            log "  AVISO: o Apache nao esta aplicando os .htaccess do projeto. Arquivos internos (.env,"
+            log "  .git, docs, .sql, logs e curriculos) ficam acessiveis pelo navegador. Ative"
+            log "  'AllowOverride All' para a pasta do site no Apache (ex.: /etc/apache2/apache2.conf,"
+            log "  bloco <Directory /var/www/>) e reinicie o Apache. Veja docs/SEGURANCA_E_PRIVACIDADE.md (PI-01)."
         fi
     else
         log "  AVISO: http://localhost/$PASTA/ nao mostrou o JovemConnect."

@@ -198,7 +198,7 @@ $voltarLink = ($tipo === 'empresa')
             <?php if ($tipo === 'empresa'): ?>
             <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
                 <div class="candidate-card-info">
-                    <div class="avatar avatar-md"><?= strtoupper(mb_substr($candidato['nome'], 0, 1)) ?></div>
+                    <div class="avatar avatar-md"><?= htmlspecialchars(strtoupper(mb_substr($candidato['nome'], 0, 1))) ?></div>
                     <div>
                         <div class="candidate-name"><?= htmlspecialchars($candidato['nome']) ?></div>
                         <div class="candidate-sub">

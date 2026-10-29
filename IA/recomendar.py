@@ -21,14 +21,35 @@ Iniciar:
 """
 
 from flask import Flask, request, jsonify
-from flask_cors import CORS
 import os
 import re
 
 app = Flask(__name__)
 
-# CORS liberado apenas para localhost — ajuste em produção
-CORS(app, origins=["http://localhost", "http://127.0.0.1", "http://localhost:80"])
+# ── Segurança da IA local (correção SEG-06) ───────────────────────────────────
+# - Sem CORS: o site chama a IA só pelo PHP (cURL), nunca pelo navegador. Com o
+#   CORS de antes, qualquer página aberta em http://localhost (inclusive de outro
+#   projeto do XAMPP) podia chamar /assistente e /analise_contextual e ler as
+#   respostas, gastando a cota da chave do Gemini sem os limites do PHP.
+# - Só aceita requisições endereçadas a 127.0.0.1/localhost (cabeçalho Host):
+#   barra o "DNS rebinding", em que um site externo tenta falar com a porta local
+#   pelo navegador de quem o visita.
+# - Corpo limitado a 512 KB (o maior pedido real, o da moderação, tem poucos KB).
+# A IA continua escutando só em 127.0.0.1 (ver _abrir_servidor no fim do arquivo).
+app.config["MAX_CONTENT_LENGTH"] = 512 * 1024
+_HOSTS_LOCAIS = {"127.0.0.1", "localhost", "::1"}
+
+
+@app.before_request
+def _somente_local():
+    host = (request.host or "").strip().lower()
+    if host.startswith("["):                       # IPv6: [::1]:5000
+        host = host[1:].split("]", 1)[0]
+    elif host.count(":") == 1:                     # nome:porta
+        host = host.split(":", 1)[0]
+    if host not in _HOSTS_LOCAIS:
+        return jsonify({"erro": "Acesso permitido só pela própria máquina."}), 403
+    return None
 
 # ── Gemini (opcional) ─────────────────────────────────────────────────────────
 GEMINI_KEY   = os.environ.get("GEMINI_API_KEY", "")

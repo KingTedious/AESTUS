@@ -1,0 +1,11 @@
+# Seguranca (PI-01/PI-03): documentacao tecnica interna (algoritmo do Match, funcoes,
+# consultas, regras de seguranca e resultados de testes) - nunca pelo navegador.
+# So vale no Apache com AllowOverride; em outro servidor, bloqueie a pasta na configuracao dele.
+# Conferencia: scripts\seguranca\verificar_protecao.bat ou "php scripts/jovemconnect.php protecao".
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+</IfModule>

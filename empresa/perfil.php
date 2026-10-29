@@ -235,7 +235,7 @@ unset($_SESSION['erro_perfil']);
     <aside class="profile-side">
 
         <div class="profile-side-avatar">
-            <div class="avatar avatar-xl"><?= $inicial ?></div>
+            <div class="avatar avatar-xl"><?= htmlspecialchars($inicial) ?></div>
 
             <!-- VIEW: nome e role como texto -->
             <div id="viewNome">

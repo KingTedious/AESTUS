@@ -20,10 +20,10 @@
 |---|---|---|---|---|
 | PHP | **7.4** desde a v4.58 (`includes/compat.php` para `str_contains`/`str_starts_with`; sem `match` nem tipos de união; `mysqli_report` explícito). Recomendado: **8.1+** | `>=8.0` em `composer.json` e `requirements.txt`; "8.1+" no cabeçalho do `schema.sql` | 8.3.6 (7.4 e 8.0 só por análise do código) | O tipo de retorno `never` não dá erro no 7.4/8.0 (vira nome de classe e a função nunca retorna). Antes da v4.58, o projeto exigia 8.1 na prática e o `iniciar_jovemconnect.bat` parava em PHP mais antigo |
 | MariaDB / MySQL | InnoDB, `utf8mb4`, `ON DUPLICATE KEY UPDATE`, `CHECK` não usado | "MariaDB 10.4+ / MySQL 8.0+" (`schema.sql`) | servidor compatível com MySQL | — |
-| Apache | `.htaccess` com `Require all denied` (2.4) e `Deny from all` (2.2) | "Apache 2.4+" (`requirements.txt`) | não (a réplica usou o servidor embutido do PHP) | precisa de `AllowOverride` para os `.htaccess` |
+| Apache | `.htaccess` com `Require all denied` (2.4) e `Deny from all` (2.2); desde a v4.60, `.htaccess` da raiz com `<If>`, `<FilesMatch>` e `Options -Indexes` (só núcleo do 2.4) | "Apache 2.4+" (`requirements.txt`) | não (a réplica usou o servidor embutido do PHP) | precisa de `AllowOverride All` (ou `Options AuthConfig`) para os `.htaccess`; conferir com `scripts\seguranca\verificar_protecao.bat` |
 | XAMPP | — | "v3.3.0+" (`requirements.txt`, versão do painel) | não | — |
 | Python | **3.10** (anotação `str \| None` avaliada na definição de `analise_gemini`) | "Python 3" (`iniciar_ia.bat`) | 3.13 | — |
-| Flask, flask-cors | qualquer versão com `Flask`, `request`, `jsonify`, `CORS` | sem versão fixa (`requirements.txt`) | Flask 3.1.3 | recomendado fixar versões |
+| Flask (flask-cors sem uso desde a v4.60) | qualquer versão com `Flask`, `request`, `jsonify` | versões fixas em `IA/requirements-ia.txt` | Flask 3.1.3 | — |
 | Composer | — | `composer install` (`README.md`) | não | só para e-mail e SMS |
 | PHPMailer | classe `PHPMailer\PHPMailer\PHPMailer` | `^6.9` | não | — |
 | Twilio SDK | classe `Twilio\Rest\Client` | `^8.3` | não | — |
@@ -47,7 +47,7 @@
 | Pacote | Usado pelo código? | Instalado pelo `iniciar_ia.bat`? |
 |---|---|---|
 | `flask` | sim | sim |
-| `flask-cors` | sim (importado); o PHP usa cURL, então CORS não é necessário para o funcionamento [C] | sim |
+| `flask-cors` | **não** desde a v4.60 (CORS retirado; o PHP usa cURL) [C]; continua na lista fixa para não invalidar `venv` existentes | sim |
 | `mysql-connector-python`, `pandas`, `scikit-learn` | **não** (listados em `requirements.txt` sem uso) | não |
 | `google-generativeai` | opcional (integração antiga; ver [IA_E_MATCH.md](IA_E_MATCH.md#integração-antiga-google-generativeai)) | não; também não está no `requirements.txt` |
 

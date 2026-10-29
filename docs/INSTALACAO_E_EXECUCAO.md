@@ -19,6 +19,9 @@ Num computador com XAMPP e o projeto em `C:\xampp\htdocs\<pasta>`:
    acontece numa janela "JovemConnect - limpeza", que mostra o resultado.
 3. Se a checagem do PHP não bater (por exemplo, um XAMPP antigo), o `iniciar_jovemconnect.bat` mostra o motivo e
    pergunta se continua mesmo assim.
+4. **Desde a v4.60**, depois de ligar o Apache, o `iniciar_jovemconnect.bat` confere se o Apache está bloqueando os
+   arquivos internos (`.env`, `.git`, `docs/`, `.sql`...). Se algo estiver exposto, ele avisa e pergunta se continua:
+   numa rede compartilhada (escola), responda **N** e veja a [seção 13](#13-proteção-dos-arquivos-internos).
 
 **No Linux (v4.59):** com a pasta em `/opt/lampp/htdocs/` (XAMPP para Linux) ou em `/var/www/html/` (Apache do
 sistema), rode no terminal, dentro da pasta do projeto:
@@ -119,6 +122,10 @@ Detalhes: [MIGRACOES.md](MIGRACOES.md). Dados de demonstração (opcional): [SEE
 2. Preencha só o que for usar (todas têm padrão ou são opcionais):
    - `DB_*` — com o XAMPP padrão (`root` sem senha, banco `jovemconnect`) nada precisa ser preenchido.
    - `SMTP_*` — e-mail; `TWILIO_*` — SMS; `GEMINI_API_KEY` — IA.
+   - Segurança (v4.60, todas opcionais): `JC_EXIBIR_ERROS=1` mostra os erros do PHP na tela (só no seu PC de
+     desenvolvimento); `JC_TENTATIVAS_DIR` muda a pasta dos contadores do limite de tentativas;
+     `JC_AMBIENTE=producao` impede as contas de demonstração de entrar (use num servidor real, **não** na
+     apresentação com os dados de demonstração).
 3. O `.env` nunca deve ir para o Git (já está no `.gitignore`).
 
 Lista completa: [CONFIGURACAO.md](CONFIGURACAO.md).
@@ -161,7 +168,7 @@ Lista completa: [CONFIGURACAO.md](CONFIGURACAO.md).
 | Clicar "Match IA" numa vaga | aparece "Match: N%" (com ou sem Flask) |
 | Abrir o assistente ✦ e perguntar algo | resposta da IA ou resposta pronta com aviso |
 | `http://localhost/JovemConnect/logs/app.log` | **403** (pasta protegida) |
-| `http://localhost/JovemConnect/.env` | **deveria dar 403/404** — se mostrar o conteúdo, ver SEG-04 |
+| `http://localhost/JovemConnect/.env` | **403** (v4.60). Para conferir tudo de uma vez: `scripts\seguranca\verificar_protecao.bat` ([seção 13](#13-proteção-dos-arquivos-internos)) |
 | `C:\xampp\php\php.exe scripts\admin.php status` | "Migração da Stage 7: aplicada" e a contagem de administradores |
 | `http://localhost/JovemConnect/scripts/admin.php` | **403/404** (a linha de comando não roda pelo navegador) |
 | Entrar na Central e clicar "Histórico" → "Conferir integridade agora" | "Histórico íntegro" |
@@ -194,8 +201,83 @@ Lista completa: [CONFIGURACAO.md](CONFIGURACAO.md).
 | `"assistente": false` com chave no `.env` | Flask iniciado antes de editar o `.env` | fechar a janela do Flask e rodar o `.bat` de novo |
 | Análise contextual sempre "não disponível" | chave inválida, modelo inexistente, limite | ver `gemini.falha` em `logs/ia.log` (`motivo`) |
 | "Sua sessão expirou ou a página está desatualizada" | token CSRF de outra sessão | recarregar a página |
+| "Muitas tentativas seguidas. Por segurança, aguarde…" (login ou código) | limite de tentativas (v4.60): 5 erros por conta em 15 min | esperar o tempo indicado ou, para liberar na hora (ex.: na apresentação), `C:\xampp\php\php.exe scripts\jovemconnect.php limpar-tentativas` na pasta do projeto |
+| "Código incorreto muitas vezes… ele foi cancelado" | 5 erros no mesmo código (v4.60) | pedir um código novo |
+| "Contas de demonstração não funcionam neste ambiente" | `JC_AMBIENTE=producao` no `.env` | na apresentação com os dados de demonstração, deixe `JC_AMBIENTE` vazio |
+| "A senha desta conta foi alterada…" ao navegar | a senha foi trocada em outro navegador (v4.60 encerra as outras sessões) | entrar de novo com a senha nova |
+| Erro 500 em todas as páginas depois da v4.60 | o Apache não permite as diretivas do `.htaccess` da raiz | ver `C:\xampp\apache\logs\error.log` ("not allowed here") e a [seção 13](#13-proteção-dos-arquivos-internos) |
+| `verificar_protecao.bat` mostra ACESSIVEL | `.htaccess` ignorado (`AllowOverride None`) | [seção 13](#13-proteção-dos-arquivos-internos) |
+| Erros do PHP não aparecem mais na tela | exibição desligada por segurança (v4.60) | ver `C:\xampp\php\logs` ou `C:\xampp\apache\logs\error.log`; no seu PC de desenvolvimento, `JC_EXIBIR_ERROS=1` no `.env` |
 
 Mais procedimentos: [LOGS_E_DIAGNOSTICO.md](LOGS_E_DIAGNOSTICO.md).
+
+## 13. Proteção dos arquivos internos
+
+> **Acesso por Tailscale:** use o **Serve** (só aparelhos da sua conta), nunca o **Funnel** com a configuração
+> padrão do XAMPP: o Funnel põe na internet tudo o que o Apache serve (inclusive o phpMyAdmin e as outras pastas
+> do `htdocs`), e as visitas chegam como se fossem do próprio PC. Roteiro: [APRESENTACAO.md](APRESENTACAO.md).
+
+O projeto fica dentro da pasta pública do Apache (`htdocs`). Sem proteção, quem alcança o computador pela rede
+consegue baixar o `.env` (senhas), a pasta `.git` (código e histórico), a documentação interna e os `.sql`.
+Desde a v4.60, o **`.htaccess` da raiz** bloqueia:
+
+- pastas internas: `.git`, `docs`, `database`, `migrations`, `includes`, `scripts`, `logs`, `uploads/curriculos`,
+  `venv*`, `__pycache__`, `vendor`, `node_modules`;
+- arquivos que começam com ponto (`.env`, `.gitignore`...), que terminam com ponto, espaço ou `~`, ou que têm `:`
+  no nome, e os "apelidos" que o Windows aceita para o mesmo arquivo ou pasta: ponto ou espaço no fim do nome
+  da pasta (`.git.`) e nomes curtos 8.3 (`GIT~1`, `ENV~1`);
+- extensões que não são do site: `env`, `ini`, `conf`, `log`, `sql`, `bak`, `old`, `md`, `txt`, `xml`, `json`,
+  `yml`, `py`, `bat`, `ps1`, `sh`, `pem`, `key`, `zip`, `bundle` e semelhantes;
+- a listagem de pastas (`Options -Indexes`).
+
+Continuam liberados: as páginas `.php` (inclusive `IA/*.php`), CSS, JavaScript, imagens e o que o site usa.
+`docs/`, `database/`, `migrations/` e `includes/` também têm um `.htaccess` próprio (segunda barreira).
+
+**Exigência do Apache.** O `.htaccess` só vale com `AllowOverride All` (ou pelo menos `Options AuthConfig`) na
+pasta do `htdocs` — é o padrão do XAMPP. Com `AllowOverride None`, ele é **ignorado em silêncio** e tudo continua
+exposto; com uma permissão parcial, o Apache responde **erro 500**. As diretivas usadas são do núcleo do Apache
+2.4 (`Require`, `<If>`, `<FilesMatch>`, `Options`): não dependem de módulo opcional.
+
+**Como conferir (Apache ligado):**
+
+```bat
+scripts\seguranca\verificar_protecao.bat
+scripts\seguranca\verificar_protecao.bat -Rede
+```
+
+Ele pede cada arquivo interno que **existe** na pasta (um 404 de arquivo inexistente não prova nada), tenta
+variantes (`.ENV`, `.env.`, `%2eenv`, `::$DATA`, `.git./HEAD`...) e os nomes curtos 8.3 **reais** do disco, confere que o código-fonte `.php` não sai como texto, que
+`logs/` e `uploads/curriculos/` estão fechadas (com um arquivo de teste criado e apagado na hora), que as páginas
+do site continuam respondendo e que os cabeçalhos de segurança estão presentes. Mostra só caminho, código HTTP,
+esperado, observado e APROVADO/REPROVADO — **nunca** o conteúdo. Relatório em
+`logs\verificacao_protecao-<data>.log`. Com `-Rede`, repete testes pelos IPs da rede deste PC.
+
+**Se algo falhar:**
+
+| Resultado | Causa provável | O que fazer |
+|---|---|---|
+| ACESSIVEL em arquivos internos | `AllowOverride None` | em `C:\xampp\apache\conf\httpd.conf`, no bloco `<Directory "C:/xampp/htdocs">`, deixe `AllowOverride All`; reinicie o Apache e rode de novo |
+| ERRO NO SERVIDOR (500) no site | permissão parcial (`AllowOverride` sem `Options` ou `AuthConfig`) | o `error.log` do Apache mostra a diretiva recusada; use `AllowOverride All` |
+| ACESSIVEL (fora do projeto) | outra pasta do `htdocs` (cópia antiga do projeto) ou um repositório Git na **raiz do `htdocs`** | o `.htaccess` do JovemConnect não alcança outras pastas: mova-as para fora do `htdocs` ou proteja-as. O `diagnostico_somente_leitura.bat` (seção G2) mostra o que há lá, sem abrir os arquivos |
+
+**Rede compartilhada (escola).** Mesmo com o `.htaccess` valendo, o site fica acessível a outros computadores da
+rede enquanto o Apache estiver ligado. Se a apresentação for feita no próprio PC, a opção mais segura é o Apache
+escutar só nele mesmo — **mudança no XAMPP daquele computador, que você decide e faz à mão** (afeta outros
+projetos dele):
+
+1. `C:\xampp\apache\conf\httpd.conf`: troque `Listen 80` por `Listen 127.0.0.1:80`.
+2. `C:\xampp\apache\conf\extra\httpd-ssl.conf`: troque `Listen 443` por `Listen 127.0.0.1:443`.
+3. Reinicie o Apache e rode `verificar_protecao.bat -Rede`: os IPs da rede devem aparecer como "Apache NAO escuta".
+4. Para desfazer, volte as duas linhas. Se a apresentação usar outro aparelho, mantenha `Listen 80` e garanta o
+   `.htaccess` valendo.
+
+O MariaDB também deve escutar só no próprio PC: em `C:\xampp\mysql\bin\my.ini`, na seção `[mysqld]`,
+`bind-address=127.0.0.1` (o diagnóstico mostra o valor atual). No Firewall do Windows, a rede da escola deve
+estar como **Pública** e sem regra de entrada liberando o Apache e o MySQL. O servidor de IA (Flask) já escuta só
+em `127.0.0.1` e não precisa de mudança.
+
+**Outros servidores.** `php -S` e nginx **ignoram** o `.htaccess`: use-os só para desenvolvimento, ou recrie as
+mesmas regras na configuração do servidor.
 
 ## Executar sem integrações externas
 

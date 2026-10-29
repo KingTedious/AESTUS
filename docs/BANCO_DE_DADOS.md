@@ -45,7 +45,7 @@ erDiagram
         varchar email UK
         varchar cpf UK
         varchar senha "bcrypt"
-        tinyint perfil_publico "padrão 1"
+        tinyint perfil_publico "padrão 0 (v4.60)"
     }
     empresas {
         int id PK
@@ -255,8 +255,8 @@ Conta do jovem (login, dados pessoais, formação principal, área de interesse,
 | `clt` | `tinyint(1)` | não | `0` | — | — | 1 = já trabalhou em regime CLT | — |
 | `resumo_profissional` | `text` | sim | — | — | — | — | texto livre do jovem |
 | `area_interesse` | `varchar(100)` | sim | — | — | — | — | — |
-| `perfil_publico` | `tinyint(1)` | não | `1` | — | — | 1 = visível para empresas | — |
-| `curriculo` | `varchar(255)` | sim | — | — | — | Caminho do PDF gerado | aponta para PDF com dados pessoais |
+| `perfil_publico` | `tinyint(1)` | não | `0` (antes da v4.60: `1`) | — | — | 1 = visível para empresas (só por escolha do jovem; padrão privado) | — |
+| `curriculo` | `varchar(255)` | sim | — | — | — | Caminho do PDF gerado | aponta para PDF com dados pessoais; desde a v4.60 o nome tem uma parte aleatória (`curriculo_{id}_{16 hex}.pdf`) |
 | `ultimo_login` | `datetime` | sim | — | — | — | — | — |
 | `criado_em` | `timestamp` | não | `CURRENT_TIMESTAMP` | — | — | — | — |
 | `atualizado_em` | `timestamp` | não | `CURRENT_TIMESTAMP` | — | on update CURRENT_TIMESTAMP | — | — |
@@ -276,6 +276,22 @@ Conta do jovem (login, dados pessoais, formação principal, área de interesse,
 **Chaves estrangeiras:** nenhuma.
 
 **Usada por (operações SQL encontradas no arquivo):** `IA/avaliar_ajax.php` (SELECT); `Vagas/avaliar.php` (SELECT); `Vagas/candidatos.php` (SELECT); `Vagas/curriculoIA.php` (SELECT/UPDATE); `dashboard/empresa.php` (SELECT); `includes/candidato.php` (SELECT); `includes/match.php` (SELECT); `includes/termos.php` (SHOW/UPDATE); `jovem/cadastro.php` (INSERT/SELECT); `jovem/excluir_conta.php` (DELETE/SELECT); `jovem/perfil.php` (SELECT/UPDATE); `jovem/processar_login.php` (SELECT/UPDATE); `recuperar_senha.php` (SELECT/UPDATE); `uploads/curriculos.php` (UPDATE); `uploads/ver_curriculo.php` (SELECT); `verificacoes/escolher_verificacao.php` (SELECT); `verificacoes/verificar_email.php` (SELECT/UPDATE); `verificacoes/verificar_telefone.php` (SELECT/UPDATE)
+
+**Visibilidade do perfil (v4.60, SEG-03).** Contas novas nascem **privadas**: o cadastro grava
+`perfil_publico = 0` explicitamente, então nenhuma migração é necessária — vale também em bancos criados com o
+`schema.sql` antigo (padrão `1`). O jovem liga a visibilidade em "Configurações de Visibilidade", no perfil.
+**Contas que já existem não foram alteradas.** Comandos opcionais, para o responsável decidir (faça antes o
+backup verificado de [MIGRACOES.md](MIGRACOES.md)):
+
+```sql
+-- quantas contas estão visíveis hoje (só leitura)
+SELECT COUNT(*) AS publicos FROM jovens WHERE perfil_publico = 1;
+-- alinhar o padrão da coluna num banco antigo (não muda nenhuma conta)
+ALTER TABLE jovens ALTER COLUMN perfil_publico SET DEFAULT 0;
+-- tornar privadas TODAS as contas visíveis (decisão de produto: o banco não registra quem escolheu
+-- ficar visível e quem só herdou o padrão antigo; avise os usuários: cada um pode religar no perfil)
+UPDATE jovens SET perfil_publico = 0 WHERE perfil_publico = 1;
+```
 
 ### `empresas`
 

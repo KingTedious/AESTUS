@@ -7,7 +7,9 @@
 
 ## Situação dos testes no projeto
 
-- **O repositório não contém testes automatizados** (nenhum arquivo de teste, PHPUnit, pytest ou CI) [C].
+- **O repositório não contém testes automatizados de unidade** (nenhum PHPUnit, pytest ou CI) [C]. Desde a v4.60
+  há três roteiros de verificação versionados em `scripts/seguranca/`, para rodar no próprio XAMPP (seção
+  [v4.60](#v460--verificações-no-próprio-xampp)).
 - Os testes abaixo rodaram numa **réplica de desenvolvimento** (Linux, PHP 8.3 com servidor embutido, Flask
   3.1, banco compatível com MySQL, Chromium via Playwright, **Gemini simulado** com chave falsa). Os scripts
   ficam na réplica e não foram copiados para o projeto.
@@ -189,8 +191,8 @@ O "Observado" cita o caso automático correspondente quando houve execução.
 | T-SEG-01 | Respostas não vazam detalhes internos | — | 220 respostas | varrer por "Fatal error", "SQLSTATE", caminhos | nenhum vazamento | S3R | aprovado |
 | T-SEG-02 | Páginas internas exigem login | sem sessão | — | abrir | redireciona | S4N | aprovado |
 | T-SEG-03 | `/ping` não mostra a chave | Flask | — | GET | só booleanos | DOC-007 | aprovado |
-| T-SEG-04 | `.env` não é servido | Apache real | — | GET `/.env` | 403/404 | — | não executado (exige o XAMPP do usuário) |
-| T-SEG-05 | `logs/` e `uploads/curriculos/` bloqueados | Apache real | — | GET direto | 403 | — | não executado (a réplica não usa Apache) |
+| T-SEG-04 | `.env` não é servido | Apache real | — | GET `/.env` | 403/404 | — | não executado (exige o XAMPP do usuário); desde a v4.60 coberto por `verificar_protecao.bat` |
+| T-SEG-05 | `logs/` e `uploads/curriculos/` bloqueados | Apache real | — | GET direto | 403 | — | não executado (a réplica não usa Apache); desde a v4.60 coberto por `verificar_protecao.bat` (arquivo de teste criado e apagado) |
 | T-SEG-06 | XSS no IA Advisor | integração antiga ativa | resumo com instrução maliciosa | analisar | texto escapado | — | não executado (exige Gemini real; risco confirmado no código, SEG-05) |
 
 ### Banco de dados
@@ -238,6 +240,18 @@ O "Observado" cita o caso automático correspondente quando houve execução.
 | T-INT-03 | Respostas inválidas do Gemini | mock: HTML, 400, 429, 500, vazio, quebrado | — | contexto/assistente | indisponível sem erro técnico | S51C, S6I | aprovado |
 | T-INT-04 | `iniciar_ia.bat` no Windows | Windows com Python | — | duplo clique | Flask e navegador abertos | — | não executado (sem Windows nesta auditoria) |
 
+## v4.60 — verificações no próprio XAMPP
+
+Roteiros versionados (não alteram o banco do site nem a pasta; todos gravam um relatório em `logs\`, que fica fora
+do Git). Resultados da réplica em [TESTES_RESULTADOS.md](TESTES_RESULTADOS.md#v460--correção-de-segurança-e-propriedade-intelectual).
+
+| Roteiro | Precisa de | O que confere | Saída |
+|---|---|---|---|
+| `scripts\seguranca\verificar_protecao.bat` (`-Rede` opcional) | Apache ligado | arquivos internos existentes bloqueados (403/404), variantes e apelidos do Windows (inclusive os nomes curtos 8.3 reais), código-fonte, listagem, `logs/` e `uploads/curriculos/` fechadas, site funcionando, cabeçalhos, pastas vizinhas do `htdocs` | 0 = aprovado, 1 = reprovação, 2 = Apache fora |
+| `scripts\seguranca\regressao_isolada.bat` (`--manter` opcional) | MySQL do XAMPP ligado | num **banco de teste novo** e numa cópia temporária: cabeçalhos (HDR), páginas (PUB/PRIV), login e limite (LOGIN, LIM), acesso por dono (IDOR, PRIV, CAND), cadastro privado (CAD), sessões (SESS, IDENT), currículo (CV), código cancelado (COD), contas de demonstração (DEMO), logout (SAIR), erros do PHP (PHP) | 0 = tudo aprovado, 1 = falha, 2 = ambiente indisponível |
+| `scripts\seguranca\diagnostico_somente_leitura.bat` | — | versões, `Listen`, `AllowOverride`, PHP, MariaDB, rede, firewall, Git e varredura de segredos com saída redigida | relatório |
+| `php scripts\jovemconnect.php protecao` | Apache ligado | versão curta da verificação (roda sozinha no `iniciar_jovemconnect.bat`) | 0/1 |
+
 ## Testes de regressão recomendados
 
 Rodar depois de **qualquer** mudança (prioridade nesta ordem):
@@ -248,7 +262,9 @@ Rodar depois de **qualquer** mudança (prioridade nesta ordem):
 4. Upload e entrega do currículo (T-PER-03, T-PER-04).
 5. Varredura de vazamento de erros (T-SEG-01) e links (81 URLs).
 6. Responsivo e acessibilidade nas páginas alteradas.
-7. Depois de corrigir SEG-01: repetir T-LOG-07 (deve passar a **aprovado**).
+7. ~~Depois de corrigir SEG-01: repetir T-LOG-07~~ (SEG-01 corrigido no Lote A).
+10. (v4.60) Depois de mudar o `.htaccess`, o Apache ou a pasta de lugar: `verificar_protecao.bat`. Depois de mudar
+    login, códigos, sessão, cadastro ou currículo: `regressao_isolada.bat`.
 8. (Stage 7) Central administrativa: entrada com autenticador, limite de tentativas, permissões e CSRF (bloco A);
    suspensão/reativação e efeitos (bloco B); visibilidade das vagas moderadas (bloco C); exemplos de validação e
    moderação (bloco D); conferência do histórico (`php scripts/admin.php verificar-auditoria`, bloco E).
@@ -258,4 +274,4 @@ Rodar depois de **qualquer** mudança (prioridade nesta ordem):
 ## Recomendações
 
 - Versionar uma bateria mínima (por exemplo `tests/` com scripts Python + `requests`) para os itens 1–5.
-- Executar T-SEG-04 e T-SEG-05 no XAMPP real antes de qualquer apresentação pública.
+- Executar T-SEG-04 e T-SEG-05 no XAMPP real antes de qualquer apresentação pública (`verificar_protecao.bat`).

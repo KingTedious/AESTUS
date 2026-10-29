@@ -108,15 +108,20 @@ Itens que mudam fora do Windows/Apache:
 
 1. ~~Trocar `../Assets/css/style.css` por `../assets/css/style.css`~~ — feito na v4.59 (21 arquivos). Ao criar
    páginas novas, escreva caminhos com a grafia exata do disco: o Linux diferencia maiúsculas.
-2. Garantir `AllowOverride` (Apache) ou regras equivalentes (nginx) para `logs/` e `uploads/curriculos/`;
-   negar `.env`, `*.sql`, `composer.*`, `includes/` (SEG-04, SEG-10).
+2. Garantir `AllowOverride All` (Apache) para que o `.htaccess` da raiz (v4.60) e os de `logs/`,
+   `uploads/curriculos/`, `scripts/`, `docs/`, `database/`, `migrations/` e `includes/` valham; em nginx, recriar as
+   mesmas regras (SEG-04, SEG-10). Conferir com `scripts\seguranca\verificar_protecao.bat`. Manter fora do
+   `htdocs` cópias antigas do projeto e qualquer repositório Git (SEG-35).
 3. Para uso local, `iniciar_jovemconnect.sh` / `iniciar_ia.sh` (v4.59). Num servidor, um serviço do systemd que rode
    `venv/bin/python IA/recomendar.py` (a IA já grava a porta em `logs/ia_porta.json` e sai limpa com SIGTERM).
 4. HTTPS (o cookie de sessão já recebe `Secure` automaticamente em HTTPS).
-5. `display_errors=Off` e `FLASK_DEBUG` desligado.
+5. `display_errors=Off` (o projeto já desliga a exibição desde a v4.60; não definir `JC_EXIBIR_ERROS`) e
+   `FLASK_DEBUG` desligado.
 6. (Stage 7) Central administrativa: HTTPS (o cookie `JCADMIN` só recebe `Secure` em HTTPS), restringir `/admin/`
    por IP se possível, negar `scripts/` (já há `.htaccess`) e usar no site um usuário do banco com só
    `SELECT, INSERT` em `admin_auditoria` (SEG-29).
+7. (v4.60) `JC_AMBIENTE=producao` no `.env` do servidor: as contas de demonstração deixam de entrar e o
+   `banco-seed` se recusa.
 
 ## Funcionalidades que dependem de serviços externos
 
@@ -130,20 +135,22 @@ Itens que mudam fora do Windows/Apache:
 
 ## Pendências que exigem mudança de código
 
-**Nenhuma foi corrigida na auditoria de 10/10/2026; aguardam autorização.** Detalhes e evidências em
-[SEGURANCA_E_PRIVACIDADE.md](SEGURANCA_E_PRIVACIDADE.md). Na Stage 7 (11/10/2026), dentro do escopo autorizado,
-foram resolvidos SEG-18 (esquema de site/LinkedIn) e SEG-24 (limite do resumo em `Vagas/curriculoIA.php`) e
-tratado em parte SEG-19 (salário e carga horária); **SEG-01 continua pendente**.
+**Situação atual (v4.60): ver [SEGURANCA_E_PRIVACIDADE.md](SEGURANCA_E_PRIVACIDADE.md#situação-na-v460).**
+Resolvidos desde a auditoria de 10/10/2026: SEG-18 e SEG-24 (Stage 7), SEG-01 (Lote A), SEG-11 (Lote B) e, na
+v4.60, SEG-02, SEG-03 (contas novas), SEG-04, SEG-05, SEG-06 (vetores do navegador e da rede), SEG-07 (em parte),
+SEG-09, SEG-10, SEG-13, SEG-15 (tamanho) e os novos SEG-31 a SEG-34 e SEG-36 — vários com validação no XAMPP ainda
+pendente (`scripts\seguranca\verificar_protecao.bat` e `regressao_isolada.bat`). A tabela abaixo é a de 10/10,
+com a situação de cada linha atualizada.
 
 | Prioridade | Pendência | Ref. |
 |---|---|---|
-| 1 — urgente | Corrigir a tomada de conta na recuperação de senha | SEG-01 |
-| 2 | Limite de tentativas em login e códigos; limite de envio de e-mail/SMS | SEG-02, SEG-07 |
-| 2 | Decidir visibilidade padrão do perfil (opt-in) e o modo de sugestões do painel da empresa | SEG-03 |
-| 2 | Bloquear `.env`/`schema.sql`/`includes/` na web (testar primeiro no XAMPP) | SEG-04 |
-| 3 | IA Advisor com `textContent` | SEG-05 |
-| 3 | Segredo compartilhado PHP↔Flask; remover CORS | SEG-06 |
-| 3 | Hash dos códigos; invalidar sessões ao trocar a senha | SEG-08, SEG-09 |
+| — | ~~Corrigir a tomada de conta na recuperação de senha~~ (Lote A) | SEG-01 |
+| — | ~~Limite de tentativas em login e códigos; limite de envio de e-mail/SMS~~ (v4.60; falta teto diário de envios) | SEG-02, SEG-07 |
+| 2 | ~~Visibilidade padrão do perfil (opt-in)~~ (v4.60, contas novas). Falta decidir: contas antigas (SQL opcional em [BANCO_DE_DADOS.md](BANCO_DE_DADOS.md#jovens)) | SEG-03 |
+| 2 | ~~Bloquear `.env`/`schema.sql`/`includes/` na web~~ (v4.60). Falta: rodar `verificar_protecao.bat` no XAMPP de casa e da escola | SEG-04 |
+| — | ~~IA Advisor com `textContent`~~ (v4.60) | SEG-05 |
+| 4 | ~~Remover CORS~~ (v4.60, com `Host` local). Segredo compartilhado PHP↔Flask: só se o Flask um dia sair da máquina local | SEG-06 |
+| 3 | Hash dos códigos (exige migração); ~~invalidar sessões ao trocar a senha~~ (v4.60) | SEG-08, SEG-09 |
 | — | `schema.sql` só para instalação nova, sem `DROP` e sem dados (feito no Lote B da remediação) | SEG-11 |
 | 4 | Caminho `Assets/` → `assets/` | feito na v4.59 |
 | 4 | `type="url"` do site impede salvar o perfil da empresa | — |
@@ -156,7 +163,7 @@ tratado em parte SEG-19 (salário e carga horária); **SEG-01 continua pendente*
 | 5 | Mensagem "Mandamos um código" mesmo sem envio | SEG-23 |
 | 5 | `requirements.txt`: remover pacotes sem uso, mínimo de PHP para 8.1 em `composer.json` | — |
 | 5 | Carregar a fonte OpenDyslexic ou renomear a opção | — |
-| 2 | (Stage 7) Login de jovens e empresas sem limite de tentativas — a Central tem o seu; o site público continua sem | SEG-02 |
+| — | ~~(Stage 7) Login de jovens e empresas sem limite de tentativas~~ (v4.60) | SEG-02 |
 | 3 | (Stage 7) "Perfil verificado" marcado pela própria empresa (continua no formulário) | SEG-17 |
 | 3 | (Stage 7) Contrato e área da vaga sem lista branca no servidor | SEG-19 |
 | 4 | (Stage 7) Segredo TOTP dos administradores em texto no banco (cifrar com chave do `.env`) | SEG-28 |
@@ -193,7 +200,7 @@ tratado em parte SEG-19 (salário e carga horária); **SEG-01 continua pendente*
 | `IA/avaliar_ajax.php` | comentário `// 'match' ou 'curriculo'` (há também `analise` e `contexto`) | registrado |
 | `includes/termos.php` | manda editar o texto em `includes/institucional.php` (está em `includes/documentos.php`) | registrado |
 | `empresa/processar_login.php` | diz que a empresa de teste tem senha em texto puro (é o jovem) | registrado |
-| `requirements.txt` | PHP 8.0; "flask-cors essencial para o PHP" | registrado |
+| `requirements.txt` | PHP 8.0; "flask-cors essencial para o PHP" | comentário do flask-cors **corrigido** na v4.60; PHP 8.0 continua registrado |
 | `includes/logger.php` | "comparação sem acentos"; ".env" lido pelo logger | registrado |
 | `index.php` | "Gerador de currículos profissional" | registrado |
 
@@ -201,6 +208,13 @@ tratado em parte SEG-19 (salário e carga horária); **SEG-01 continua pendente*
 
 1. Comece por [README.md](README.md) → [ARQUITETURA.md](ARQUITETURA.md) → [FLUXOS_E_FLUXOGRAMAS.md](FLUXOS_E_FLUXOGRAMAS.md).
 2. Antes de mexer num arquivo, procure-o em [ARQUIVOS_E_FUNCOES.md](ARQUIVOS_E_FUNCOES.md) e na matriz.
-3. Trate SEG-01 antes de qualquer demonstração pública.
+3. Antes de qualquer demonstração em rede compartilhada, rode `scripts\seguranca\verificar_protecao.bat` (SEG-01 já foi corrigido no Lote A).
 4. Versione os testes de regressão.
 5. Nunca use uma chave de API já exposta; gere uma nova e mantenha-a só no `.env`.
+6. Ao criar arquivo ou pasta interna nova, confira se o `.htaccess` da raiz a cobre e classifique-a em
+   [CLASSIFICACAO.md](CLASSIFICACAO.md); ao incluir imagem, fonte ou biblioteca, registre em
+   [ORIGEM_DOS_ATIVOS.md](ORIGEM_DOS_ATIVOS.md).
+7. A cada versão: commit e tag assinados (configuração única: `scripts\seguranca\configurar_assinatura.bat`) e
+   pacote de evidências ([PROCEDIMENTO_EVIDENCIAS.md](PROCEDIMENTO_EVIDENCIAS.md)).
+8. Depois da apresentação: TER-01 (adequar o Gemini aos termos), PI-07, PI-14, PI-16 e SEG-08, aceitos só até
+   lá ([RELATORIO_CORRECAO_SEGURANCA.md](RELATORIO_CORRECAO_SEGURANCA.md), seção 9).

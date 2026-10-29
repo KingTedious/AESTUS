@@ -1,0 +1,44 @@
+#!/bin/sh
+# ======================================================================
+#  JovemConnect - gancho pre-commit (correcao PI-17)
+#
+#  Recusa o commit quando ele levaria ao Git:
+#    - arquivos de segredo ou de copia do codigo: .env, *.env (menos o
+#      .env.example), repomix-output.*, chaves (.pem/.key/.p12/.pfx), *.bundle;
+#    - conteudo NOVO com formato de chave conhecida (Google/Gemini, GitHub,
+#      Twilio, chave privada). So o NOME do arquivo aparece, nunca o valor.
+#  Local e simples: nao substitui a revisao do que vai no commit.
+#
+#  Instalacao (o git_correcao_seguranca.bat oferece fazer isto):
+#    copy scripts\seguranca\pre-commit .git\hooks\pre-commit
+#  Caso legitimo e raro (ex.: texto de exemplo que parece chave):
+#    git commit --no-verify
+# ======================================================================
+
+falhou=0
+padrao='AIza[0-9A-Za-z_-]{35}|-----BEGIN [A-Z ]*PRIVATE KEY-----|gh[pousr]_[0-9A-Za-z]{36,}|(AC|SK)[0-9a-f]{32}'
+
+git diff --cached --name-only --diff-filter=ACMR > "${TMPDIR:-/tmp}/jc_precommit_$$" 2>/dev/null
+while IFS= read -r f; do
+    [ -z "$f" ] && continue
+    case "$f" in
+        *.env.example) ;;
+        .env|*/.env|*.env|repomix-output.*|*/repomix-output.*|*.pem|*.key|*.p12|*.pfx|*.bundle)
+            echo "pre-commit: '$f' nao deve ir para o Git (segredo ou copia do codigo)."
+            falhou=1
+            continue
+            ;;
+    esac
+    # conteudo que esta no commit (versao preparada), linhas novas apenas
+    if git diff --cached -U0 -- "$f" 2>/dev/null | grep '^+' | grep -v '^+++' | grep -Eq "$padrao"; then
+        echo "pre-commit: '$f' tem um trecho com formato de chave/token. Tire o valor (use o .env)."
+        falhou=1
+    fi
+done < "${TMPDIR:-/tmp}/jc_precommit_$$"
+rm -f "${TMPDIR:-/tmp}/jc_precommit_$$"
+
+if [ "$falhou" -ne 0 ]; then
+    echo "pre-commit: commit recusado. Nada foi alterado; corrija e faca o commit de novo."
+    echo "            (se tiver certeza de que nao e segredo: git commit --no-verify)"
+fi
+exit $falhou

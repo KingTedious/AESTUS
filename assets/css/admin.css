@@ -274,7 +274,42 @@ body.adm-simples { justify-content: center; align-items: center; padding: 24px 1
   body.adm { background: #fff; color: #000; }
 }
 
-/* ── Ícones (Lucide, licença ISC/MIT — mesmos da style.css + flag, history, painel, ban, play) ── */
+/* ── Ícones (Lucide, licença ISC/MIT — mesmos da style.css + flag, history, painel, ban, play) ──
+   Avisos de licença exigidos (copiados da style.css; ver THIRD_PARTY_NOTICES.md):
+
+   ISC License
+   Copyright (c) 2026 Lucide Icons and Contributors
+   Permission to use, copy, modify, and/or distribute this software for any
+   purpose with or without fee is hereby granted, provided that the above
+   copyright notice and this permission notice appear in all copies.
+   THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+   WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+   MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+   ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+   WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+   ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+   OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+   Ícones derivados do Feather (alert-triangle, arrow-left, arrow-right,
+   calendar, check, chevron-down, clock, download, external-link, info, key,
+   loader, lock, log-out, plus, search, smartphone, trash, type, x-circle, x):
+   The MIT License (MIT)
+   Copyright (c) 2013-present Cole Bemis
+   Permission is hereby granted, free of charge, to any person obtaining a copy
+   of this software and associated documentation files (the "Software"), to deal
+   in the Software without restriction, including without limitation the rights
+   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+   copies of the Software, and to permit persons to whom the Software is
+   furnished to do so, subject to the following conditions:
+   The above copyright notice and this permission notice shall be included in all
+   copies or substantial portions of the Software.
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+   SOFTWARE. */
 .i {
   display: inline-block; width: 1em; height: 1em; flex-shrink: 0; vertical-align: -0.14em;
   background-color: currentColor;

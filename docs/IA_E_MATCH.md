@@ -1,5 +1,10 @@
 # IA e Match
 
+> **Classificação: CONFIDENCIAL (uso interno da equipe).** Contém o algoritmo exato do Match (critérios, pontos, ajuste e normalização) e as regras da análise com IA.
+> Não copie para o texto público do TCC, slides ou repositórios públicos: use a versão resumida de
+> [CLASSIFICACAO.md](CLASSIFICACAO.md#versões-resumidas-para-o-tcc). Desde a v4.60 a pasta `docs/` não é
+> entregue pelo Apache (confira com `scripts\seguranca\verificar_protecao.bat`).
+
 > Auditoria de 10/10/2026, versão **v4.00**. **[C]** confirmado no código · **[T]** verificado por teste na
 > réplica (com um servidor que imita o Gemini e chave falsa — **nenhuma chamada real ao Gemini foi feita**) ·
 > **[I]** inferido · **[NC]** não confirmado. Complementa [ASSISTENTE_E_IA.md](ASSISTENTE_E_IA.md).
@@ -203,4 +208,6 @@ Onde colocar a chave e como iniciar: [CONFIGURACAO.md](CONFIGURACAO.md) e
 | `/assistente` | POST | `mensagem`, `historico`, `contexto` | `{disponivel, resposta?, motivo?}` | sim |
 | `/ping` | GET | — | estado em booleanos, modelo, versão | não |
 
-O Flask não tem autenticação; aceita conexões só de `127.0.0.1` (SEG-06).
+O Flask não tem autenticação; aceita conexões só de `127.0.0.1` (SEG-06). Desde a v4.60 também não tem CORS,
+recusa com 403 pedidos cujo cabeçalho `Host` não seja local (proteção contra *DNS rebinding*) e com 413 corpos
+acima de 512 KB; as rotas POST só aceitam JSON, que outro site não consegue enviar sem CORS.

@@ -25,8 +25,10 @@
      banco-nome             imprime o nome do banco (DB_NAME)
      banco-apagar <nome>    DROP DATABASE — só se <nome> == DB_NAME e não for do sistema
      ia-parar               fecha SÓ a IA desta pasta (pid/instância de logs/ia_porta.json)
-     protecao <pasta>       0 se o Apache bloqueia logs/ e uploads/curriculos/ pelo navegador
-                            (os .htaccess funcionam); 1 se um arquivo de teste foi servido
+     protecao <pasta>       0 se o Apache bloqueia as pastas e os arquivos internos (.env, .git,
+                            docs, .sql, .py, logs, curriculos) e o site continua no ar;
+                            1 se algo interno foi servido ou se o site foi afetado
+     limpar-tentativas      libera logins/codigos bloqueados pelo limite de tentativas
    ============================================================ */
 
 if (PHP_SAPI !== 'cli') {
@@ -256,10 +258,23 @@ case 'site':
     exit($http === 200 && stripos($corpo, 'JovemConnect') !== false ? 0 : 1);
 
 case 'protecao':
-    // Cria um arquivo de teste em cada pasta protegida, pede pelo Apache e apaga.
-    // 403/404 = protegido; 200 com o conteúdo = o .htaccess NÃO está valendo (AllowOverride).
+    // Confere no Apache de verdade se a protecao (.htaccess) esta valendo.
+    // 1. pastas que recebem arquivos: cria um arquivo de teste, pede pelo Apache e apaga;
+    // 2. arquivos internos que EXISTEM nesta pasta (.env, .git, docs, .sql, .py...):
+    //    so o codigo HTTP - o conteudo NUNCA e mostrado (pode ter senhas);
+    // 3. truques de nome do Windows (x.php., x.php::$DATA, maiusculas): o codigo-fonte
+    //    nao pode sair como texto;
+    // 4. paginas e arquivos do site: NAO podem estar bloqueados (nem erro 500).
+    // 403/404 num arquivo que existe = protegido. 0 = tudo certo; 1 = algo exposto ou quebrado.
+    // Teste completo, com tabela: scripts\seguranca\verificar_protecao.bat (Windows).
     $pasta = rawurlencode($arg !== '' ? $arg : basename($RAIZ));
-    $expostas = [];
+    $base = "http://127.0.0.1/{$pasta}";
+    $problemas = 0;
+    [$http_ini] = http_get("{$base}/index.php");
+    if ($http_ini === 0) {
+        diz('  Apache nao respondeu em ' . $base . '/ (ligado? nome da pasta certo?). Nada foi testado.');
+        exit(1);
+    }
     foreach (['logs', 'uploads/curriculos'] as $p) {
         $nome = 'teste_protecao_' . bin2hex(random_bytes(4)) . '.txt';
         $arq = $RAIZ . '/' . $p . '/' . $nome;
@@ -267,16 +282,99 @@ case 'protecao':
             diz('  ' . $p . ': nao consegui criar o arquivo de teste (pulei).');
             continue;
         }
-        [$http, $corpo] = http_get("http://127.0.0.1/{$pasta}/{$p}/{$nome}");
+        [$http, $corpo] = http_get("{$base}/{$p}/{$nome}");
         @unlink($arq);
         if ($http === 200 && strpos($corpo, 'jovemconnect-teste') !== false) {
-            $expostas[] = $p;
+            $problemas++;
             diz('  ' . $p . '/: ABERTA pelo navegador (o .htaccess nao esta valendo)');
         } else {
             diz('  ' . $p . '/: protegida (HTTP ' . $http . ')');
         }
     }
-    exit($expostas ? 1 : 0);
+    // Arquivos internos: so os que existem (um 404 de arquivo inexistente nao prova nada)
+    $internos = ['.env', '.env.example', '.gitignore', '.htaccess', 'geminiAPI.env', 'repomix-output.xml',
+                 'schema.sql', 'nextupdaqtes.sql', 'composer.json', 'README.md', 'requirements.txt',
+                 'iniciar_jovemconnect.bat', 'iniciar_ia.sh', '.git/HEAD', '.git/config', 'docs/README.md',
+                 'docs/IA_E_MATCH.md', 'database/seed_demo.sql', 'migrations/2026-10-11_stage7_admin_moderacao.sql',
+                 'includes/config.php', 'scripts/admin.php', 'IA/recomendar.py', 'IA/requirements-ia.txt',
+                 'venv/pyvenv.cfg', 'logs/app.log', 'logs/ia_porta.json'];
+    $variantes = ['.ENV' => '.env', 'README.md.' => 'README.md', 'docs/README.md%20' => 'docs/README.md',
+                  '%2eenv' => '.env', 'DOCS/README.md' => 'docs/README.md', 'Schema.SQL' => 'schema.sql',
+                  // apelidos do Windows para a mesma pasta/arquivo: ponto ou espaco no fim e nome curto 8.3
+                  // (o verificar_protecao.bat testa os nomes curtos REAIS do disco)
+                  '.git./HEAD' => '.git/HEAD', '.git%20/HEAD' => '.git/HEAD', 'GIT~1/HEAD' => '.git/HEAD',
+                  'ENV~1' => '.env', 'includes./config.php' => 'includes/config.php'];
+    $testes = [];
+    foreach ($internos as $rel) {
+        if (file_exists($RAIZ . '/' . $rel)) {
+            $testes[$rel] = $rel;
+        }
+    }
+    foreach ($variantes as $url => $real) {
+        if (file_exists($RAIZ . '/' . $real)) {
+            $testes[$url] = $real;
+        }
+    }
+    $exp = 0;
+    foreach ($testes as $url => $real) {
+        [$http] = http_get("{$base}/{$url}");
+        if ($http === 403 || $http === 404) {
+            continue;
+        }
+        $exp++;
+        $problemas++;
+        diz('  ACESSIVEL (deveria ser 403/404): ' . $url . ' (HTTP ' . $http . ')');
+    }
+    diz('  arquivos internos: ' . (count($testes) - $exp) . ' de ' . count($testes) . ' protegidos (403/404)');
+    // Codigo-fonte nao pode sair como texto (nomes que o Windows trata como o proprio .php)
+    foreach (['index.php.', 'index.php::$DATA', 'index.php%20', 'includes/config.php.'] as $url) {
+        [$http, $corpo] = http_get("{$base}/{$url}");
+        if ($http === 200 && strpos($corpo, '<?php') !== false) {
+            $problemas++;
+            diz('  CODIGO-FONTE EXPOSTO: ' . $url);
+        }
+    }
+    // Listagem de pastas
+    [$http, $corpo] = http_get("{$base}/assets/");
+    if ($http === 200 && stripos($corpo, 'Index of') !== false) {
+        $problemas++;
+        diz('  LISTAGEM DE PASTA LIGADA: assets/ (Options -Indexes nao esta valendo)');
+    }
+    // O site nao pode ter sido bloqueado
+    $site = ['index.php' => [200], 'jovem/login.php' => [200], 'empresa/login.php' => [200],
+             'documentos.php' => [200], 'assets/css/style.css' => [200],
+             'assets/img/marca/jovemconnect-icone-32.png' => [200], 'IA/avaliar_ajax.php' => [401, 405]];
+    $site_ok = 0;
+    foreach ($site as $url => $esperado) {
+        [$http] = http_get("{$base}/{$url}");
+        if (in_array($http, $esperado, true)) {
+            $site_ok++;
+        } else {
+            $problemas++;
+            diz('  SITE AFETADO: ' . $url . ' respondeu HTTP ' . $http . ' (esperado ' . implode('/', $esperado) . ')');
+        }
+    }
+    diz('  paginas e arquivos do site: ' . $site_ok . ' de ' . count($site) . ' respondendo normalmente');
+    // Fora do projeto (so aviso; nao conta como problema do projeto): um repositorio Git na
+    // raiz do htdocs fica exposto pelo mesmo Apache e o .htaccess do JovemConnect nao o alcanca.
+    if (is_file(dirname($RAIZ) . '/.git/HEAD')) {
+        [$http] = http_get('http://127.0.0.1/.git/HEAD');
+        if ($http !== 0 && $http !== 403 && $http !== 404) {
+            diz('  AVISO (fora do projeto): http://127.0.0.1/.git/HEAD respondeu HTTP ' . $http
+                . ' - ha um repositorio Git na raiz do htdocs (docs/INSTALACAO_E_EXECUCAO.md).');
+        }
+    }
+    diz($problemas === 0 ? '  RESULTADO: protecao valendo neste Apache.'
+                         : '  RESULTADO: ' . $problemas . ' problema(s). Veja docs/SEGURANCA_E_PRIVACIDADE.md (PI-01).');
+    exit($problemas ? 1 : 0);
+
+case 'limpar-tentativas':
+    // Libera quem foi bloqueado pelo limite de tentativas (login/codigos) antes do prazo.
+    // So apaga os contadores deste projeto (pasta temporaria propria); nada no banco.
+    require_once $RAIZ . '/includes/tentativas.php';
+    $n = jc_tent_limpar_tudo();
+    diz('  Contadores de tentativas apagados: ' . $n . '. Logins e codigos liberados.');
+    exit(0);
 
 case 'banco-nome':
     diz($DB['nome']);
@@ -332,6 +430,11 @@ case 'banco-instalar':
     exit($total > 0 ? 0 : 1);
 
 case 'banco-seed':
+    // Correção 2.5: o seed tem contas com senha pública; nunca num ambiente de produção
+    if (strtolower(trim((string) getenv('JC_AMBIENTE'))) === 'producao') {
+        diz('  Recusado: JC_AMBIENTE=producao no .env. Os dados de demonstracao (senha publica) nao sao carregados em producao.');
+        exit(3);
+    }
     $c = conectar($DB);
     if (!$c) {
         exit(2);

@@ -129,7 +129,7 @@ CREATE TABLE `jovens` (
   `clt`                 TINYINT(1)   NOT NULL DEFAULT 0 COMMENT '1 = já trabalhou em regime CLT',
   `resumo_profissional` TEXT         DEFAULT NULL,
   `area_interesse`      VARCHAR(100) DEFAULT NULL,
-  `perfil_publico`      TINYINT(1)   NOT NULL DEFAULT 1 COMMENT '1 = visível para empresas',
+  `perfil_publico`      TINYINT(1)   NOT NULL DEFAULT 0 COMMENT '1 = visível para empresas (só por escolha do jovem; padrão privado)',
   -- arquivos
   `curriculo`           VARCHAR(255) DEFAULT NULL   COMMENT 'Caminho do PDF gerado',
   -- controle

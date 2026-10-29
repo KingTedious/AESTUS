@@ -35,7 +35,8 @@ Plataforma de empregabilidade que conecta jovens em busca do primeiro emprego
 **Jeito rápido (computador novo, escola, apresentação):** com a pasta em
 `C:\xampp\htdocs\`, dê dois cliques em **`iniciar_jovemconnect.bat`**. Ele confere o PHP (se algo
 não bater, como um XAMPP antigo, mostra o motivo e pergunta se continua mesmo assim),
-liga o Apache e o MySQL do XAMPP (se ainda não estiverem ligados), pergunta se pode
+liga o Apache e o MySQL do XAMPP (se ainda não estiverem ligados), confere se o Apache está bloqueando os
+arquivos internos (`.env`, `.git`, documentação; avisa e pergunta se algo estiver exposto), pergunta se pode
 criar o banco e instalar o `schema.sql` (só em banco vazio; oferece os dados de
 demonstração), inicia a IA e abre o site. Para desligar, use
 **`parar_jovemconnect.bat`**: ele fecha a IA e **pergunta** se deve apagar o banco do
@@ -87,7 +88,8 @@ Os passos abaixo são o jeito manual.
 ```
 ├── index.php, comecar.php, documentos.php   página inicial, escolha jovem/empresa, Termos/Privacidade
 ├── admin/      Central administrativa (contas, vagas, moderação, histórico, segurança)
-├── scripts/    admin.php: criação de administradores pela linha de comando (bloqueado para o navegador)
+├── scripts/    admin.php (administradores pela linha de comando), jovemconnect.php (ajudante dos .bat/.sh) e
+│               seguranca/ (verificação do Apache, diagnóstico, regressão, evidências) — bloqueado para o navegador
 ├── jovem/      cadastro, login, perfil (próprio e visto pela empresa), excluir conta
 ├── empresa/    cadastro, login, perfil, locais de trabalho, excluir conta
 ├── dashboard/  painéis do jovem e da empresa
@@ -100,7 +102,8 @@ Os passos abaixo são o jeito manual.
 ├── logs/       registros JSON (pasta protegida, fora do Git)
 ├── migrations/ alterações aditivas do banco, em ordem de data
 ├── database/   seed_demo.sql (dados fictícios) e diagnostico_somente_leitura.sql
-├── docs/       documentação técnica
+├── docs/       documentação técnica (interna; bloqueada para o navegador)
+├── .htaccess   bloqueio dos arquivos internos no Apache (desde a v4.60)
 └── schema.sql  estrutura completa do banco (só instalação nova; sem dados)
 ```
 
@@ -116,6 +119,10 @@ Os passos abaixo são o jeito manual.
 | [docs/ASSISTENTE_E_IA.md](docs/ASSISTENTE_E_IA.md) | Assistente com IA, alternativas sem IA e roteiro de testes |
 | [docs/LOGS.md](docs/LOGS.md) | Formato, eventos, retenção e privacidade dos logs |
 | [docs/ADMINISTRACAO_E_MODERACAO.md](docs/ADMINISTRACAO_E_MODERACAO.md) | Central administrativa, permissões, moderação, denúncias e auditoria |
+| [docs/CLASSIFICACAO.md](docs/CLASSIFICACAO.md) | O que é público, interno, confidencial, dado pessoal ou segredo; versões resumidas para o TCC |
+| [docs/AUTORIA_E_ORIGEM.md](docs/AUTORIA_E_ORIGEM.md), [docs/ORIGEM_DOS_ATIVOS.md](docs/ORIGEM_DOS_ATIVOS.md), [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) | Autoria, uso de IA, origem e licenças de imagens, ícones, fontes e bibliotecas |
+| [docs/TITULARIDADE_E_LICENCA.md](docs/TITULARIDADE_E_LICENCA.md), [docs/PROCEDIMENTO_EVIDENCIAS.md](docs/PROCEDIMENTO_EVIDENCIAS.md) | Titularidade, licença e pontos para o contrato; assinatura, hashes e backups |
+| [docs/APRESENTACAO.md](docs/APRESENTACAO.md) | Roteiro do dia da apresentação: montar, apresentar e limpar |
 
 Os textos de **Termos de Uso** e **Política de Privacidade** (`includes/documentos.php`)
 são **minutas** e precisam de revisão jurídica antes de uso real.
@@ -123,14 +130,18 @@ são **minutas** e precisam de revisão jurídica antes de uso real.
 ## Segurança (resumo)
 
 Senhas com `password_hash`; consultas com *prepared statements*; token CSRF em
-todos os formulários e chamadas AJAX; cookie de sessão HttpOnly/SameSite;
-currículos e logs em pastas bloqueadas para o navegador (via `.htaccess`, no Apache); empresas só veem
-candidatos que se candidataram às suas vagas ou que deixaram o perfil visível (ligado por padrão); dados pessoais fora dos logs e mascarados
+todos os formulários e chamadas AJAX; cookie de sessão HttpOnly/SameSite; limite de tentativas no login e
+nos códigos de verificação; troca de senha encerra as outras sessões; cabeçalhos de segurança; erros do PHP
+fora da tela; arquivos internos (`.env`, `.git`, documentação, `.sql`) e as pastas de currículos e logs
+bloqueados para o navegador pelo `.htaccess` (no Apache — confira com `scripts\seguranca\verificar_protecao.bat`);
+currículos com nome aleatório; empresas só veem candidatos que se candidataram às suas vagas ou que tornaram o
+perfil visível (**desligado por padrão** desde a v4.60); dados pessoais fora dos logs e mascarados
 antes de ir para a IA. Textos enviados pelos formulários passam por validação e
 moderação no servidor (código executável é recusado; indícios de golpe,
 discriminação ou ofensa vão para revisão humana). A Central administrativa tem
 sessão própria, segundo fator, limite de tentativas, permissões conferidas no
-servidor e histórico encadeado por hash. Nunca coloque chaves ou senhas no código ou no Git.
+servidor e histórico encadeado por hash. Contas de demonstração não entram com `JC_AMBIENTE=producao`.
+Nunca coloque chaves ou senhas no código ou no Git; o `repomix-output.xml` é gerado só localmente.
 Riscos conhecidos e pendências: [docs/SEGURANCA_E_PRIVACIDADE.md](docs/SEGURANCA_E_PRIVACIDADE.md).
 
 ## Contato
@@ -140,3 +151,8 @@ startupaestus@gmail.com
 ## Autor
 
 Gabriel Sassati — Desenvolvedor Principal
+
+## Licença
+
+Todos os direitos reservados. Ver [LICENSE](LICENSE). Componentes de terceiros mantêm as próprias licenças
+([THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)).

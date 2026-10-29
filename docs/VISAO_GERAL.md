@@ -51,7 +51,7 @@ Na v4.00 não existia perfil de administrador. Desde a Stage 7 existe a Central 
 | Aplicação | PHP 8.1+ recomendado; 7.4 e 8.0 em modo de compatibilidade desde a v4.58 (`includes/compat.php`), `mysqli` | `composer.json` declara `>=8.0` |
 | Banco | MariaDB 10.4+ / MySQL 8.0+, InnoDB, `utf8mb4` | cabeçalho do `schema.sql` |
 | Dependências PHP opcionais | PHPMailer 6.9, Twilio SDK 8.3 (via Composer) | `composer.json`; pasta `vendor/` não versionada |
-| Serviço de IA | Python 3.10+ + Flask + flask-cors (versões fixas), porta 5000 por padrão (ou a próxima livre de 5001–5010), só `127.0.0.1` | `IA/recomendar.py`, `IA/requirements-ia.txt` |
+| Serviço de IA | Python 3.10+ + Flask (versões fixas; o flask-cors segue na lista, sem uso desde a v4.60), porta 5000 por padrão (ou a próxima livre de 5001–5010), só `127.0.0.1` e só pedidos com `Host` local | `IA/recomendar.py`, `IA/requirements-ia.txt` |
 | IA generativa (opcional) | Google Gemini via REST (`GEMINI_MODEL`, padrão `gemini-3.5-flash-lite`) | `IA/recomendar.py` |
 | Front-end | HTML gerado pelo PHP, CSS único (`assets/css/style.css`, 3.153 linhas), JavaScript sem framework | — |
 | Serviços de terceiros no navegador | ViaCEP, BrasilAPI (CNPJ), Google Fonts, link do Google Maps | `jovem/cadastro.php`, `empresa/cadastro.php`, `style.css`, `Vagas/listar.php` |
@@ -281,10 +281,10 @@ Levantamento por engenharia reversa (não havia documento de requisitos no repos
 ## Limites conhecidos (resumo)
 
 - Sem `composer install`, **nenhum e-mail ou SMS é enviado** (verificação e recuperação de senha ficam inúteis) [C].
-- **Recuperação de senha permite tomar a conta de outra pessoa** [C][T] — pendência crítica.
+- ~~**Recuperação de senha permite tomar a conta de outra pessoa**~~: corrigido no Lote A (12/10/2026) [C][T].
 - Vagas só podem ser publicadas e removidas (remoção física, apaga candidaturas) [C].
 - Listagens sem paginação [C].
-- O perfil do jovem nasce **público para empresas** (`perfil_publico = 1`) [C].
+- ~~O perfil do jovem nasce **público para empresas** (`perfil_publico = 1`)~~: desde a v4.60 nasce **privado** e só o jovem o torna visível; contas antigas não mudaram [C].
 - A nota do Match usa comparação de texto (substring), sem distância real nem habilidades [C][T].
 - ~~O caminho `../Assets/css/style.css` (com "A" maiúsculo) só funcionava em sistemas que não diferenciam maiúsculas~~: corrigido na v4.59, e o projeto roda no Linux [C].
 

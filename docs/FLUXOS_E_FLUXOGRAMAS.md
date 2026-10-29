@@ -157,7 +157,7 @@ flowchart TD
 | 7 | 302 para a verificação; ou a página com erros (senhas não são repreenchidas). |
 | 8 | 403 CSRF; duplicidade (1062); erro interno com rollback. |
 | 9 | ViaCEP fora → cidade digitada à mão; sem a migração de termos → conta criada sem registro do aceite. |
-| 10 | Conta com `perfil_publico = 1` (padrão), `email_verificado = 0`, sessão aberta. [T: suíte cadastro 50/50] |
+| 10 | Conta com `perfil_publico = 0` (padrão desde a v4.60; antes, `1`), `email_verificado = 0`, sessão aberta. [T: suíte cadastro 50/50, sobre a versão anterior] |
 
 ---
 
@@ -214,9 +214,13 @@ flowchart TD
     C -- "inválido" --> E403["403"]
     C -- "ok" --> V{"e-mail válido e senha preenchida?"}
     V -- "não" --> FAIL["login.falha (campos_invalidos)<br/>erro_login → 302 login.php"]
-    V -- "sim" --> Q["SELECT … WHERE email = ?<br/>password_verify"]
-    Q -- "falhou" --> FAIL2["login.falha (credenciais)<br/>mensagem genérica"]
-    Q -- "ok" --> OK["grava {tipo}_id/{tipo}_nome<br/>jc_session_regenerate()<br/>jovem: UPDATE ultimo_login<br/>login.sucesso"]
+    V -- "sim" --> LIM{"v4.60: limite de tentativas<br/>(5 por conta, 30 por IP em 15 min)"}
+    LIM -- "atingido" --> BLQ["login.bloqueado (muitas_tentativas)<br/>Muitas tentativas… aguarde → 302 login.php"]
+    LIM -- "ok" --> Q["SELECT … WHERE email = ?<br/>password_verify"]
+    Q -- "falhou" --> FAIL2["login.falha (credenciais)<br/>v4.60: registra a tentativa e espera até 2 s<br/>mensagem genérica"]
+    Q -- "ok" --> DEMO{"v4.60: JC_AMBIENTE=producao<br/>e conta de demonstração?"}
+    DEMO -- "sim" --> BLQ2["login.bloqueado (conta_demonstracao)"]
+    DEMO -- "não" --> OK["jc_sessao_entrar(): apaga a outra identidade,<br/>grava {tipo}_id/{tipo}_nome e jc_senha_ref,<br/>novo ID de sessão e token CSRF; zera o contador<br/>jovem: UPDATE ultimo_login<br/>login.sucesso"]
     OK --> D["302 ../dashboard/{tipo}.php"]
     D -.-> SAIR["GET logout.php → log logout<br/>session_unset + cookie expirado + destroy<br/>302 index.php"]
 ```
@@ -242,6 +246,10 @@ flowchart TD
 ```
 
 ### Recuperação de senha (com a falha SEG-01)
+
+> A falha SEG-01 foi **corrigida no Lote A** (12/10/2026): a autorização fica presa à conta do pedido e o código é
+> de uso único. Na v4.60 entraram o intervalo e o teto de pedidos de código (resposta igual, sem revelar contas)
+> e o cancelamento do código depois de 5 erros. O diagrama abaixo registra a versão v4.00, com a falha.
 
 ```mermaid
 flowchart LR

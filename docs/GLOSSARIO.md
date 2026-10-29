@@ -9,7 +9,7 @@
 | **Jovem** | Conta de candidato (pessoa física, CPF). Identificada por `$_SESSION['jovem_id']`. | `jovens`, `jovem/` |
 | **Empresa** | Conta de contratante (CNPJ). Identificada por `$_SESSION['empresa_id']`. | `empresas`, `empresa/` |
 | **Perfil profissional** | Dados do jovem visíveis em `jovem/perfil.php`: formação, área de interesse, habilidades, experiências, resumo e currículo. Tem duas visões: a do dono e a da empresa (sem CPF, CEP, endereço, telefone, nascimento). | `jovem/perfil.php`, `includes/candidato.php` |
-| **Perfil público** | Opção "Permitir que empresas encontrem seu currículo nas buscas" (`perfil_publico`). Ligada por padrão. Libera o perfil a **qualquer** empresa logada. | `jovens.perfil_publico` |
+| **Perfil público** | Opção "Permitir que empresas encontrem seu currículo nas buscas" (`perfil_publico`). **Desligada por padrão desde a v4.60** (antes, ligada); só o próprio jovem a liga. Libera o perfil a **qualquer** empresa logada. | `jovens.perfil_publico` |
 | **Formação principal** | Nível + curso/ano + situação, guardados em `jovens` (`formacao`, `escolaridade_tipo`, `escolaridade_curso`, `escolaridade_status`). | `includes/formacao.php` |
 | **Formação adicional** | Outras formações em `formacao_jovem`. Não entram na nota do Match. | `jovem/perfil.php` |
 | **Currículo** | PDF enviado pelo jovem (`uploads/curriculos/curriculo_{id}.pdf`), entregue só por `uploads/ver_curriculo.php`. Não há gerador de currículo. | `uploads/` |

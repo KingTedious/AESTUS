@@ -273,7 +273,7 @@ $stmt_c->close();
             <!-- Cabeçalho -->
             <div class="candidate-card-head">
                 <div class="candidate-card-info">
-                    <div class="avatar avatar-md"><?= $inicial ?></div>
+                    <div class="avatar avatar-md"><?= htmlspecialchars($inicial) ?></div>
                     <div>
                         <div class="candidate-name"><?= htmlspecialchars($row['nome']) ?></div>
                         <div class="candidate-sub">

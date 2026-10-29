@@ -57,3 +57,28 @@ if (!function_exists('carregarEnv')) {
 }
 
 carregarEnv();
+
+/**
+ * Correção de segurança (4.5): erros do PHP fora da página.
+ * O php.ini do XAMPP vem com display_errors ligado: um aviso do PHP mostraria
+ * na tela caminhos do servidor, nomes de arquivo e trechos de SQL a qualquer
+ * visitante. Por padrão os erros vão só para o log do PHP (no XAMPP:
+ * C:\xampp\php\logs\php_error_log); as exceções continuam no logs/app.log.
+ * Para VER os erros na tela enquanto desenvolve: JC_EXIBIR_ERROS=1 no .env.
+ * A linha de comando (scripts/*.php) não muda.
+ */
+if (!function_exists('jc_configurar_erros')) {
+    function jc_configurar_erros(): void {
+        static $feito = false;
+        if ($feito || PHP_SAPI === 'cli') {
+            return;
+        }
+        $feito = true;
+        if (getenv('JC_EXIBIR_ERROS') !== '1') {
+            @ini_set('display_errors', '0');
+            @ini_set('display_startup_errors', '0');
+        }
+        @ini_set('log_errors', '1');
+    }
+}
+jc_configurar_erros();

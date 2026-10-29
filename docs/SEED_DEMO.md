@@ -21,6 +21,10 @@ Cria dados **fictícios** para apresentar e testar a plataforma:
 - CPFs e CNPJs têm dígitos verificadores inválidos de propósito e o domínio
   `.example` é reservado: nada corresponde a pessoas ou empresas reais.
 
+**Na apresentação** ([APRESENTACAO.md](APRESENTACAO.md)): use estas contas para as demonstrações com IA;
+visitantes que criarem conta usam só dados inventados (CPF de 11 números quaisquer, e-mail `@estande.example`).
+Se aparecer "Muitas tentativas", `liberar_logins.bat` libera.
+
 ## Como aplicar
 
 Pré-requisito: banco criado pelo `schema.sql` atual **ou** banco antigo com as
@@ -38,7 +42,11 @@ phpMyAdmin → banco `jovemconnect` → aba **SQL** → cole o conteúdo de
   15 jovens, 18 vagas, 15 candidaturas e 2 locais; a contagem antiga de 19 vagas incluía
   a vaga de exemplo do `schema.sql` anterior.
 
-**Não use em produção** (a senha é pública). Para remover, exclua as contas de
+**Não use em produção** (a senha é pública). Desde a v4.60, num servidor real coloque `JC_AMBIENTE=producao`
+no `.env`: as contas `@demo.jovemconnect.example` deixam de entrar (mensagem "Contas de demonstração não funcionam
+neste ambiente") e `php scripts/jovemconnect.php banco-seed` se recusa a carregar este arquivo (código de saída 3).
+O `iniciar_jovemconnect.bat` só oferece os dados de demonstração quando **você** confirma; o `schema.sql` nunca
+os carrega. Na apresentação com os dados de demonstração, deixe `JC_AMBIENTE` vazio. Para remover, exclua as contas de
 demonstração pelo próprio site (Perfil → Excluir conta) ou, no phpMyAdmin, apague
 as linhas de `jovens` e `empresas` com e-mail `@demo.jovemconnect.example` — o
 banco remove em cascata o que for ligado a elas.

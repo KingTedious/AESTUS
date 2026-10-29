@@ -169,10 +169,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Stage 7: conteúdo suspeito vai para a fila de moderação (a conta é criada normalmente)
             jc_mod_registrar($conn, 'empresa', $novo_id, $mod['sinais'], 'empresa', $novo_id);
 
-            // Login automático após o cadastro
-            $_SESSION['empresa_id']   = $novo_id;
-            $_SESSION['empresa_nome'] = $campos['nome_empresa'];
-            jc_session_regenerate();
+            // Login automático após o cadastro (jc_sessao_entrar: troca o ID da sessão,
+            // apaga a identidade de jovem, renova o token CSRF e guarda a referência da senha)
+            jc_sessao_entrar('empresa', $novo_id, (string) $campos['nome_empresa'], $senha_hash);
             jc_log_seguranca('cadastro.concluido', 'info', ['tipo' => 'empresa']);
             // Antes do painel, a empresa passa pela verificação da conta
             header("Location: ../verificacoes/escolher_verificacao.php");

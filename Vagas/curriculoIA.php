@@ -161,7 +161,7 @@ $resumo_atual = htmlspecialchars(
     <div class="card fade-up" style="margin-bottom:16px;padding:16px 20px;">
         <div class="d-flex align-center gap-12">
             <div class="avatar avatar-sm">
-                <?= strtoupper(mb_substr($jovem['nome'], 0, 1)) ?>
+                <?= htmlspecialchars(strtoupper(mb_substr($jovem['nome'], 0, 1))) ?>
             </div>
             <div>
                 <p style="font-size:13px;font-weight:600;">

@@ -2,6 +2,7 @@
 require_once dirname(__DIR__) . '/includes/csrf.php';   // Sessao endurecida + CSRF
 require_once dirname(__DIR__) . '/includes/config.php';
 require_once dirname(__DIR__) . '/includes/mailer.php';
+require_once dirname(__DIR__) . '/includes/tentativas.php';   // SEG-02/SEG-07: limite de códigos e de envios
 
 // Identifica se é Jovem ou Empresa logada
 $tipoUsuario = isset($_SESSION['jovem_id']) ? 'jovem' : (isset($_SESSION['empresa_id']) ? 'empresa' : null);
@@ -19,6 +20,7 @@ $tabela = ($tipoUsuario === 'jovem') ? 'jovens' : 'empresas';
 $colNome = ($tabela === 'jovens') ? 'nome' : 'nome_empresa AS nome';
 $mensagemSucesso = null;
 $mensagemErro = null;
+$chave_conta = "verif_email|{$tabela}|" . intval($idUsuario);   // contadores desta conta (SEG-02/SEG-07)
 
 if (!function_exists('gerarEEnviarCodigoEmail')) {
     // Gera um novo código, grava no banco e envia por e-mail. Reaproveitada
@@ -55,8 +57,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_verificar'])) {
     }
 
     $agora = date('Y-m-d H:i:s');
+    $espera = jc_tent_espera('codigo_ip', jc_tent_ip(), JC_TENT_CODIGO_IP);
 
-    if (!empty($codigoDigitado) && $user['codigo_verificacao'] !== null
+    if ($espera > 0) {
+        jc_log_seguranca('verificacao.email.bloqueada', 'aviso', ['motivo' => 'muitas_tentativas']);
+        $mensagemErro = jc_tent_msg($espera);
+    } elseif (!empty($codigoDigitado) && $user['codigo_verificacao'] !== null
         && hash_equals((string) $user['codigo_verificacao'], $codigoDigitado)
         && $user['expiracao_codigo'] >= $agora) {
         // Marca e-mail como verificado e limpa os tokens temporários (código não é reutilizável)
@@ -65,12 +71,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_verificar'])) {
         $update->execute();
         $update->close();
 
+        jc_tent_zerar('codigo_conta', $chave_conta);
         jc_log_seguranca('verificacao.email.sucesso', 'info');
         header("Location: ../dashboard/index.php?verified=1");
         exit;
     } else {
-        jc_log_seguranca('verificacao.email.falha', 'aviso');
-        $mensagemErro = "Código incorreto ou expirado. Verifique a caixa de entrada ou solicite o reenvio.";
+        jc_tent_registrar('codigo_ip', jc_tent_ip());
+        $erros_codigo = jc_tent_registrar('codigo_conta', $chave_conta);
+        if ($erros_codigo >= JC_TENT_CODIGO_CONTA) {
+            // SEG-02: 5 erros cancelam o código; um novo precisa ser pedido
+            $update = $conn->prepare("UPDATE {$tabela} SET codigo_verificacao = NULL, expiracao_codigo = NULL WHERE id = ?");
+            $update->bind_param("i", $idUsuario);
+            $update->execute();
+            $update->close();
+            jc_tent_zerar('codigo_conta', $chave_conta);
+            jc_log_seguranca('verificacao.email.codigo_cancelado', 'aviso', ['motivo' => 'muitas_tentativas']);
+            $mensagemErro = "Código incorreto muitas vezes. Por segurança, ele foi cancelado: use \"Reenviar código\" para receber outro.";
+        } else {
+            jc_log_seguranca('verificacao.email.falha', 'aviso');
+            $mensagemErro = "Código incorreto ou expirado. Verifique a caixa de entrada ou solicite o reenvio.";
+        }
+        jc_tent_atraso($erros_codigo);
     }
 }
 
@@ -83,7 +104,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_reenviar'])) {
     $user = $stmt->get_result()->fetch_assoc();
     $stmt->close();
 
-    if (gerarEEnviarCodigoEmail($conn, $tabela, $idUsuario, $user['email'], $user['nome'])) {
+    if (($espera_envio = jc_tent_envio_permitido($chave_conta)) > 0) {   // SEG-07
+        jc_log_seguranca('verificacao.email.limitada', 'aviso');
+        $mensagemErro = jc_tent_msg_envio($espera_envio);
+    } elseif (gerarEEnviarCodigoEmail($conn, $tabela, $idUsuario, $user['email'], $user['nome'])) {
         $mensagemSucesso = "Novo código enviado para " . htmlspecialchars($user['email']) . "!";
     } else {
         $mensagemErro = "Não foi possível enviar o e-mail agora. Tente novamente em instantes.";
@@ -107,7 +131,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $temCodigoValido = !empty($user['codigo_verificacao']) && $user['expiracao_codigo'] >= $agora;
 
     if (!$temCodigoValido) {
-        if (gerarEEnviarCodigoEmail($conn, $tabela, $idUsuario, $user['email'], $user['nome'])) {
+        if (($espera_envio = jc_tent_envio_permitido($chave_conta)) > 0) {   // SEG-07: recarregar a página não dispara e-mails sem fim
+            $mensagemErro = jc_tent_msg_envio($espera_envio);
+        } elseif (gerarEEnviarCodigoEmail($conn, $tabela, $idUsuario, $user['email'], $user['nome'])) {
             $mensagemSucesso = "Enviamos um código para " . htmlspecialchars($user['email']) . "!";
         } else {
             $mensagemErro = "Não foi possível enviar o e-mail agora. Você pode tentar novamente pelo botão abaixo.";

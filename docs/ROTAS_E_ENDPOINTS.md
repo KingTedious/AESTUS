@@ -1,5 +1,10 @@
 # Rotas e endpoints
 
+> **Classificação: CONFIDENCIAL (uso interno da equipe).** Lista todas as entradas do sistema (páginas, AJAX e rotas do Flask), com as regras de acesso.
+> Não copie para o texto público do TCC, slides ou repositórios públicos: use a versão resumida de
+> [CLASSIFICACAO.md](CLASSIFICACAO.md#versões-resumidas-para-o-tcc). Desde a v4.60 a pasta `docs/` não é
+> entregue pelo Apache (confira com `scripts\seguranca\verificar_protecao.bat`).
+
 > Gerado na auditoria de documentação de 10/10/2026 sobre a versão **v4.00** (tag `v4.00`). Legenda: **[C]** confirmado no código · **[I]** inferido (com a evidência indicada) · **[NC]**/**[N]** não confirmado.
 
 Todas as entradas HTTP do sistema: páginas PHP (GET/POST), endpoints AJAX (JSON) e rotas do Flask. Não existe roteador central: **cada arquivo `.php` é uma rota** (o caminho da URL é o caminho do arquivo a partir da pasta do projeto, por exemplo `http://localhost/JovemConnect/Vagas/listar.php`).
@@ -10,7 +15,8 @@ Todas as entradas HTTP do sistema: páginas PHP (GET/POST), endpoints AJAX (JSON
 - **Autenticação**: sessão PHP com `jovem_id` ou `empresa_id` (`includes/session.php`). Sem sessão, as páginas redirecionam (302) para o login; os endpoints JSON respondem 401.
 - **Erro inesperado**: exceção não tratada em qualquer página que inclua `includes/config.php` → HTTP 500 genérico (HTML ou `{"error": ...}`), detalhes só em `logs/app.log` (`erro.inesperado`).
 - **Banco indisponível**: `includes/config.php` responde 503 em texto.
-- **Flask**: escuta só em `127.0.0.1`, na porta 5000 por padrão (ou a próxima livre de 5001–5010); o navegador nunca o chama diretamente (só o PHP, via cURL, no endereço de `jc_ia_url()`).
+- **Flask**: escuta só em `127.0.0.1`, na porta 5000 por padrão (ou a próxima livre de 5001–5010); o navegador nunca o chama diretamente (só o PHP, via cURL, no endereço de `jc_ia_url()`). Desde a v4.60: sem CORS, **403** para pedidos cujo `Host` não seja `127.0.0.1`, `localhost` ou `::1`, e **413** para corpo acima de 512 KB, em todas as rotas.
+- **Páginas PHP (v4.60)**: todas as que usam `jc_session_start()` enviam `X-Content-Type-Options`, `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy`, `Content-Security-Policy` (`frame-ancestors`, `base-uri`, `form-action`) e `Permissions-Policy`. O login e as telas de código mostram "Muitas tentativas seguidas…" quando o limite é atingido (mesmo código HTTP de antes; nenhum contrato de resposta mudou).
 
 ## Resumo por área
 

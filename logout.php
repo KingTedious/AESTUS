@@ -2,7 +2,8 @@
 /* ============================================================
    logout.php — Encerramento de sessão
    ============================================================ */
-session_start();
+require_once __DIR__ . '/includes/session.php';
+jc_session_start();   // mesma sessão endurecida do resto do site (antes: session_start() cru)
 
 // ── Captura dados antes de destruir (chaves reais do projeto) ─────────────────
 $nome_usuario = $_SESSION['jovem_nome']   ?? $_SESSION['empresa_nome'] ?? 'Desconhecido';

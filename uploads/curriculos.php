@@ -70,10 +70,21 @@ if ($magic !== '%PDF') {
     exit;
 }
 
-// ── 3. Gera nome seguro e determinístico ──────────────────────────────────────
-//    curriculo_{id}.pdf — um arquivo por jovem, sobrescreve o anterior.
-//    Não usa o nome original do arquivo (evita path traversal).
-$nome_arquivo = "curriculo_{$jovem_id}.pdf";
+// ── 3. Gera nome seguro e IMPREVISÍVEL ────────────────────────────────────────
+//    curriculo_{id}_{16 hex aleatórios}.pdf. Não usa o nome original do arquivo
+//    (evita path traversal). Correção SEG-10: antes o nome era fixo
+//    (curriculo_{id}.pdf); se o .htaccess da pasta deixasse de valer (outro
+//    servidor, AllowOverride None), qualquer um baixaria TODOS os currículos
+//    trocando o número. Com o sufixo aleatório, o endereço não é adivinhável.
+//    O PDF continua saindo só por uploads/ver_curriculo.php (com permissão),
+//    que lê o nome gravado no banco — nada muda para quem usa o site.
+$stmt_ant = $conn->prepare("SELECT curriculo FROM jovens WHERE id = ? LIMIT 1");
+$stmt_ant->bind_param("i", $jovem_id);
+$stmt_ant->execute();
+$anterior = (string) ($stmt_ant->get_result()->fetch_assoc()['curriculo'] ?? '');
+$stmt_ant->close();
+
+$nome_arquivo = "curriculo_{$jovem_id}_" . bin2hex(random_bytes(8)) . ".pdf";
 
 // ── 4. Cria o diretório de destino se não existir ─────────────────────────────
 $dir_destino = dirname(__DIR__) . "/uploads/curriculos/";
@@ -105,6 +116,16 @@ if (!$stmt->execute()) {
 }
 
 $stmt->close();
+
+// ── 6b. Apaga o arquivo anterior deste jovem (nome antigo fixo ou aleatório) ──
+//    Só arquivos do próprio jovem e no formato gerado aqui; nunca o recém-enviado.
+foreach (array_unique([basename($anterior), "curriculo_{$jovem_id}.pdf"]) as $velho) {
+    if ($velho !== '' && $velho !== $nome_arquivo
+        && preg_match('/^curriculo_' . $jovem_id . '(_[a-f0-9]{16})?\.pdf$/', $velho)
+        && is_file($dir_destino . $velho)) {
+        @unlink($dir_destino . $velho);
+    }
+}
 
 // ── 7. Sucesso — redireciona com feedback ─────────────────────────────────────
 $_SESSION['sucesso_upload'] = 'Currículo atualizado com sucesso!';

@@ -116,8 +116,9 @@ sequenceDiagram
 | `uploads/` | Envio e entrega protegida do currículo; `uploads/curriculos/` guarda os PDFs (`.htaccess` nega acesso direto) |
 | `IA/` | Endpoints AJAX de IA e o serviço Flask `recomendar.py` |
 | `includes/config.php` | Conexão com o banco (variáveis `DB_*` do `.env`), tratamento de exceções sem expor detalhes |
-| `includes/env.php` | Lê o `.env` da raiz sem sobrescrever variáveis do sistema |
-| `includes/session.php`, `includes/csrf.php` | Sessão endurecida e token CSRF (formulários: campo `csrf_token`; AJAX: cabeçalho `X-CSRF-Token`) |
+| `includes/env.php` | Lê o `.env` da raiz sem sobrescrever variáveis do sistema; desde a v4.60 desliga a exibição de erros do PHP na página (`JC_EXIBIR_ERROS=1` religa) |
+| `includes/session.php`, `includes/csrf.php` | Sessão endurecida e token CSRF (formulários: campo `csrf_token`; AJAX: cabeçalho `X-CSRF-Token`); desde a v4.60, cabeçalhos de segurança em toda página e `jc_sessao_entrar()` (login único por sessão, ID e token novos, impressão da senha) |
+| `includes/tentativas.php` (v4.60) | Limite de tentativas de login e de códigos e intervalo entre envios de e-mail/SMS; contadores fora da pasta pública |
 | `includes/logger.php` | Logs JSON com redação de dados pessoais (veja [LOGS.md](LOGS.md) e [LOGS_E_DIAGNOSTICO.md](LOGS_E_DIAGNOSTICO.md)) |
 | `includes/etapas.php` | Formulário em etapas (cadastros) |
 | `includes/termos.php`, `includes/documentos.php`, `includes/institucional.php` | Versão e registro do aceite; texto dos Termos/Privacidade; modais do rodapé |
@@ -132,6 +133,8 @@ sequenceDiagram
 | `schema.sql`, `migrations/`, `database/seed_demo.sql` | Estrutura do banco, migrações aditivas, dados de demonstração |
 | `iniciar_ia.bat`, `requirements.txt` | Inicialização do Flask no Windows e dependências Python |
 | `logs/` | Arquivos de log (protegidos por `.htaccess`) |
+| `.htaccess` da raiz (v4.60) | Bloqueia pelo Apache as pastas e arquivos internos (`.git`, `.env`, `docs/`, `.sql`, `.py`, scripts, backups) e a listagem de pastas; `docs/`, `database/`, `migrations/` e `includes/` têm também o seu ([INSTALACAO_E_EXECUCAO.md](INSTALACAO_E_EXECUCAO.md#13-proteção-dos-arquivos-internos)) |
+| `scripts/seguranca/` (v4.60) | Verificador da proteção do Apache, diagnóstico somente leitura, regressão isolada, pacote de evidências e gancho `pre-commit` |
 | `admin/` (Stage 7) | Central administrativa: uma página por tela, todas começando com `jc_admin_exigir('permissão')` |
 | `includes/admin/` (Stage 7) | Núcleo da Central: sessão `JCADMIN`, permissões, limite de tentativas, TOTP, histórico encadeado, serviços, layout |
 | `includes/validacao.php`, `includes/moderacao.php` (Stage 7) | Camada 1 (validação estrutural, mapa de campos) e camada 2 (regras de moderação, fila, denúncias) |
@@ -161,7 +164,9 @@ sequenceDiagram
 
 | Camada | Mecanismo | Onde |
 |---|---|---|
-| Identidade | sessão PHP com `jovem_id`/`jovem_nome` ou `empresa_id`/`empresa_nome` | gravadas em `*/processar_login.php` e nos cadastros |
+| Identidade | sessão PHP com `jovem_id`/`jovem_nome` ou `empresa_id`/`empresa_nome` (uma só por sessão desde a v4.60) | gravadas por `jc_sessao_entrar()` em `*/processar_login.php` e nos cadastros |
+| (v4.60) Força bruta | 5 falhas por conta e 30 por IP em 15 min no login; 5 erros cancelam um código de 6 dígitos; intervalo e teto por hora nos envios | `includes/tentativas.php` |
+| (v4.60) Troca de senha | a sessão guarda uma impressão da senha; se ela mudar, as outras sessões terminam na requisição seguinte | `includes/conta_status.php` → `jc_conta_verificar_sessao` |
 | Página protegida | teste inline `if (!isset($_SESSION['jovem_id']))` → 302 para o login (cada página faz o seu; `verificar_autenticacao()` de `includes/auth.php` existe mas **não é chamada**) | páginas de `jovem/`, `empresa/`, `Vagas/`, `dashboard/` |
 | Endpoint JSON | 401 sem sessão | `IA/avaliar_ajax.php`, `Vagas/favoritar.php` |
 | Tipo de usuário | a página testa a chave do tipo esperado (jovem × empresa) | idem |
@@ -186,7 +191,7 @@ Os fluxos com diagramas estão em [FLUXOS_E_FLUXOGRAMAS.md](FLUXOS_E_FLUXOGRAMAS
 | Flask indisponível | Match local; assistente com respostas prontas; currículo 503; `flask.falha` | `includes/match.php`, `IA/*` |
 | Gemini com erro | `{disponivel:false}`; motivo em `ia.log` (`gemini.falha`) | `IA/recomendar.py` |
 | E-mail/SMS sem biblioteca ou credencial | função retorna `false`; detalhe só no `error_log` do PHP | `includes/mailer.php`, `includes/sms.php` |
-| Warnings/notices do PHP | seguem `display_errors` do servidor (não há `set_error_handler`) | — |
+| Warnings/notices do PHP | desde a v4.60 **não** aparecem na página (vão ao log do PHP), salvo com `JC_EXIBIR_ERROS=1`; não há `set_error_handler` | `includes/env.php` |
 
 ## Configuração dos serviços
 
@@ -235,8 +240,8 @@ Regra em `includes/candidato.php`, usada no perfil (`jovem/perfil.php?id=`), no 
 vê o candidato quando:
 
 1. o jovem se candidatou a uma vaga **desta** empresa; ou
-2. o jovem deixou ligado "Permitir que empresas encontrem seu currículo nas buscas" (`perfil_publico = 1`,
-   que é o **padrão** do banco para toda conta nova [C]).
+2. o jovem ligou "Permitir que empresas encontrem seu currículo nas buscas" (`perfil_publico = 1`). Desde a
+   v4.60 toda conta nova nasce com `0` (privada) [C]; até a v4.59 o padrão era `1`.
 
 Sem relação: resposta "Perfil indisponível" (HTTP 404, igual para "não existe"), registrada como
 `acesso.negado` em `logs/seguranca.log` [C][T].

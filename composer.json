@@ -2,6 +2,7 @@
     "name": "gabrielsassati/jovemconnect",
     "description": "Plataforma de conexão entre jovens talentos e empresas.",
     "type": "project",
+    "license": "proprietary",
     "require": {
         "php": ">=8.0",
         "phpmailer/phpmailer": "^6.9",

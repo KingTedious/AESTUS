@@ -4,6 +4,7 @@ require_once __DIR__ . '/includes/config.php';
 require_once __DIR__ . '/includes/mailer.php';
 require_once __DIR__ . '/includes/documentos.php';    // JC_CONTATO_EMAIL (aviso de indisponibilidade)
 require_once __DIR__ . '/includes/recuperacao.php';   // estado do fluxo (remediação, Lote A)
+require_once __DIR__ . '/includes/tentativas.php';    // SEG-02/SEG-07: limite de códigos e de envios
 
 /* ============================================================
    recuperar_senha.php — "Esqueci minha senha" (jovens e empresas)
@@ -36,6 +37,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_solicitar_codigo
     } elseif ($recuperacao_indisponivel) {
         jc_log_seguranca('senha.recuperacao_indisponivel', 'aviso');
         $mensagemErro = jc_rec_msg_indisponivel();
+    } elseif (($espera_envio = jc_tent_envio_permitido('recuperacao|' . $emailInput)) > 0) {
+        // SEG-07: intervalo mínimo e teto por hora de pedidos para o mesmo e-mail e
+        // para o mesmo IP. Vale com ou sem cadastro (a resposta não revela contas).
+        jc_log_seguranca('senha.recuperacao_limitada', 'aviso');
+        $mensagemErro = jc_tent_msg_envio($espera_envio);
     } else {
         $conta = jc_rec_buscar_conta($conn, $emailInput);
         $envio = 'sem_conta';
@@ -68,19 +74,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_validar_codigo_r
     if (jc_rec_etapa($_SESSION) !== 3) {   // já validado nesta sessão (ex.: clique duplo): segue para a etapa 3
         $codigoDigitado = trim((string) ($_POST['codigo'] ?? ''));
         $conta = jc_rec_conta_pendente($_SESSION);
+        // SEG-02: erros contados por conta (sem conta: pela sessão, para a resposta ser a mesma)
+        $chave_codigo = 'rec|' . ($conta !== null ? $conta['tabela'] . '|' . $conta['id'] : 'sem_conta|' . session_id());
+        $espera = jc_tent_espera('codigo_ip', jc_tent_ip(), JC_TENT_CODIGO_IP);
         $agora = time();
-        $codigoOk = $conta !== null && jc_rec_consumir_codigo(
+        $codigoOk = $espera === 0 && $conta !== null && jc_rec_consumir_codigo(
             $conn, $conta, $codigoDigitado, date('Y-m-d H:i:s', $agora), date('Y-m-d H:i:s', $agora + JC_REC_VALIDADE_SEG)
         );
 
-        if ($codigoOk) {
+        if ($espera > 0) {
+            $mensagemErro = jc_tent_msg($espera);
+            jc_log_seguranca('senha.codigo_bloqueado', 'aviso', ['motivo' => 'muitas_tentativas']);
+        } elseif ($codigoOk) {
+            jc_tent_zerar('codigo_conta', $chave_codigo);
             jc_rec_autorizar($_SESSION, $agora);   // autorização SÓ para a conta deste pedido
             jc_session_regenerate();               // nova identificação de sessão para a etapa autorizada
             jc_log_seguranca('senha.codigo_validado', 'info', ['tipo' => $conta['tabela'] === 'jovens' ? 'jovem' : 'empresa']);
         } else {
-            // Mesma mensagem para conta inexistente, código errado, expirado ou já usado
-            $mensagemErro = "Código incorreto ou expirado.";
-            jc_log_seguranca('senha.codigo_recusado', 'aviso');
+            jc_tent_registrar('codigo_ip', jc_tent_ip());
+            $erros_codigo = jc_tent_registrar('codigo_conta', $chave_codigo);
+            if ($erros_codigo >= JC_TENT_CODIGO_CONTA) {
+                // SEG-02: 5 erros cancelam o código (adivinhar 1 em 1.000.000 fica inviável)
+                if ($conta !== null) {
+                    jc_rec_invalidar($conn, $conta);
+                }
+                jc_tent_zerar('codigo_conta', $chave_codigo);
+                jc_rec_limpar($_SESSION);
+                $mensagemErro = "Código incorreto muitas vezes. Por segurança, ele foi cancelado: peça um novo código.";
+                jc_log_seguranca('senha.codigo_cancelado', 'aviso', ['motivo' => 'muitas_tentativas']);
+            } else {
+                // Mesma mensagem para conta inexistente, código errado, expirado ou já usado
+                $mensagemErro = "Código incorreto ou expirado.";
+                jc_log_seguranca('senha.codigo_recusado', 'aviso');
+            }
+            jc_tent_atraso($erros_codigo);
         }
     }
 }

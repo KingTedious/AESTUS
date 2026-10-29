@@ -14,7 +14,8 @@
 | Apache com `AllowOverride` | servidor | `.htaccess` de `logs/` e `uploads/curriculos/` | recomendado | pastas protegidas ficam públicas (SEG-10) |
 | `phpmailer/phpmailer ^6.9` (Composer) | biblioteca | `includes/mailer.php` | para e-mail | verificação de e-mail e recuperação não enviam nada |
 | `twilio/sdk ^8.3` (Composer) | biblioteca | `includes/sms.php` | para SMS | verificação de telefone não envia |
-| Python 3 + `flask`, `flask-cors` | serviço | `IA/recomendar.py` | não | Match em PHP; assistente com respostas prontas; IA Advisor indisponível |
+| Python 3 + `flask` (`flask-cors` instalado, sem uso desde a v4.60) | serviço | `IA/recomendar.py` | não | Match em PHP; assistente com respostas prontas; IA Advisor indisponível |
+| `includes/tentativas.php` (v4.60) | módulo PHP | `jovem/processar_login.php`, `empresa/processar_login.php`, `recuperar_senha.php`, `verificacoes/verificar_email.php`, `verificacoes/verificar_telefone.php`, `scripts/jovemconnect.php` (`limpar-tentativas`) | sim | sem a pasta dos contadores, o site segue sem limite (`tentativas.sem_pasta`) |
 | `pandas`, `scikit-learn`, `mysql-connector-python` | listadas em `requirements.txt` | **nenhum código** | não | — (podem sair do `requirements.txt`) |
 | `google-generativeai` | biblioteca opcional | integração antiga em `recomendar.py` | não | ausente de `requirements.txt`; integração fica inativa |
 | Google Gemini (REST) | API | `/analise_contextual`, `/assistente` | não | recursos de IA indisponíveis, com aviso |

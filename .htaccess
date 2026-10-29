@@ -1,0 +1,52 @@
+# ======================================================================
+#  JovemConnect - protecao da pasta do projeto no Apache (XAMPP)
+#
+#  O projeto fica dentro do htdocs, a pasta publica do Apache. Sem este
+#  arquivo, quem alcancasse a porta 80 baixaria como arquivo comum o .env
+#  (credenciais), a pasta .git (codigo e historico), o repomix, docs/, os
+#  .sql, os .py, os .bat e o venv. Aqui so ficam acessiveis as paginas
+#  (.php), o CSS, o JavaScript e as imagens.
+#
+#  Requisitos: Apache 2.4 e "AllowOverride All" na pasta htdocs (padrao do
+#  XAMPP). Com "AllowOverride None" este arquivo e IGNORADO EM SILENCIO; se
+#  faltar uma classe de permissao (ex.: Options), o Apache responde 500.
+#  Por isso existe o verificador, que testa o Apache de verdade:
+#      scripts\seguranca\verificar_protecao.bat   (Windows)
+#      php scripts/jovemconnect.php protecao      (Windows e Linux)
+#
+#  Camadas (uma falha nao abre o arquivo):
+#   1. este arquivo, para pastas internas e tipos de arquivo;
+#   2. um .htaccess "nega tudo" dentro de cada pasta interna
+#      (docs, database, migrations, includes, scripts, logs, uploads/curriculos).
+#  Detalhes e testes: docs/SEGURANCA_E_PRIVACIDADE.md (PI-01).
+# ======================================================================
+
+# 1. Sem listagem de pastas, sem SSI e sem CGI dentro do projeto
+#    (o htdocs do XAMPP vem com "Options Indexes ... Includes ExecCGI").
+Options -Indexes -Includes -ExecCGI
+
+# 2. Pastas internas, em qualquer nivel, inclusive as que o Git ignora e que
+#    por isso nao tem .htaccess proprio (.git, venv, venv.antigo-*, __pycache__).
+#    <If> e do proprio Apache 2.4 (nao depende de modulo); "i" = sem diferenca
+#    entre maiusculas e minusculas, como no disco do Windows. Tambem barra os
+#    "apelidos" que o Windows aceita para o mesmo nome: ponto ou espaco no fim
+#    (".git."), nome curto 8.3 ("GIT~1", "ENV~1") e ":" (fluxos do NTFS). A
+#    ultima condicao confere o caminho ja resolvido no disco (para o .git).
+<If "%{REQUEST_URI} =~ m#/(\.git|\.svn|\.hg|\.vscode|\.idea|\.venv|venv[^/]*|__pycache__|node_modules|vendor|docs|database|migrations|includes|scripts|logs|uploads/curriculos)[.\s]*(/|$)#i || %{REQUEST_URI} =~ m#(~[0-9]|:)# || %{REQUEST_FILENAME} =~ m#/\.git[.\s]*(/|$)#i">
+    Require all denied
+</If>
+
+# 3. Arquivos ocultos (.env, .env.example, .gitignore, .htaccess...), nomes
+#    terminados em ponto, espaco ou "~", nomes com ":" e nomes curtos 8.3 com
+#    "~numero" (no Windows, "x.php.", "x.php::$DATA" e "X~1.PHP" abrem o proprio
+#    arquivo - e o codigo-fonte ou o segredo sairia como texto).
+<FilesMatch "(?i)(^\.|[.\s~]$|:|~[0-9])">
+    Require all denied
+</FilesMatch>
+
+# 4. Arquivos que nao sao paginas: configuracao, segredos, banco, logs,
+#    documentacao, scripts, Python, copias de seguranca e pacotes.
+#    (O .php, o .css, o .js e as imagens continuam liberados.)
+<FilesMatch "(?i)\.(env|ini|inc|conf|cfg|config|log(\.[\w-]+)?|sql|sqlite3?|db|bak|backup|old|orig|save|swp|swo|tmp|temp|dist|lock|md|markdown|txt|xml|json|ya?ml|toml|py|pyc|pyo|pyd|ipynb|bat|cmd|ps1|psm1|vbs|sh|bash|phar|pem|key|crt|cer|p12|pfx|jks|bundle|patch|diff|zip|tar|gz|tgz|bz2|7z|rar)$">
+    Require all denied
+</FilesMatch>
