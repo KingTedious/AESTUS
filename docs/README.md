@@ -36,7 +36,8 @@ O `README.md` da raiz do projeto continua sendo o guia rápido de instalação.
 > **Complemento v4.60 (29/10/2026, respostas do responsável).** Licença "todos os direitos reservados"
 > (`LICENSE`); autoria, origem dos ativos e titularidade atualizadas; achado TER-01 (termos da API do Gemini);
 > roteiro do dia da apresentação ([APRESENTACAO.md](APRESENTACAO.md)); `configurar_assinatura.bat`,
-> `inventariar_versoes_antigas.bat` e `liberar_logins.bat`. Nenhum código do site mudou.
+> `inventariar_versoes_antigas.bat` e `liberar_logins.bat`. Na interface, só o aviso "© … Todos os direitos
+> reservados" nos rodapés e o logotipo da Aestus ("Criado por") na página inicial.
 
 ## O projeto em poucas linhas
 

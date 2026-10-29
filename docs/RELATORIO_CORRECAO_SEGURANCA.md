@@ -58,7 +58,9 @@ registra o que foi corrigido, como foi testado e o que ainda depende de você.
    `ORIGEM_DOS_ATIVOS.md`, `TITULARIDADE_E_LICENCA.md`, `CLASSIFICACAO.md` e `PROCEDIMENTO_EVIDENCIAS.md`;
    novos `LICENSE` (todos os direitos reservados), `docs/APRESENTACAO.md`, `liberar_logins.bat`,
    `configurar_assinatura.bat` e `inventariar_versoes_antigas.bat`. Achado novo **TER-01**: o uso do Gemini
-   não atende aos termos da API (idade mínima de 18 anos; plano gratuito). Nenhum código do site mudou.
+   não atende aos termos da API (idade mínima de 18 anos; plano gratuito). Na interface, só entraram o aviso
+   "© 2026 JovemConnect · Aestus. Todos os direitos reservados." (página inicial, documentos, início do cadastro,
+   logins e Central) e o logotipo da Aestus com "Criado por" no rodapé da página inicial.
 
 ## 2. Estado inicial e estado final
 
@@ -101,7 +103,9 @@ com `.htaccess` (`logs/`, `uploads/curriculos/`, `scripts/`) e nenhum na raiz; `
 `verificacoes/verificar_telefone.php`, `Vagas/avaliar.php`, `Vagas/candidatos.php`, `Vagas/curriculoIA.php`,
 `dashboard/empresa.php`, `assets/css/admin.css` (só comentário de licença), `scripts/jovemconnect.php`,
 `iniciar_jovemconnect.bat`, `iniciar_jovemconnect.sh`, `README.md`, `composer.json` (campo `license`),
-`THIRD_PARTY_NOTICES.md` (texto das imagens e da licença).
+`THIRD_PARTY_NOTICES.md` (texto das imagens e da licença), e o aviso de direitos autorais: `index.php`, `documentos.php`, `comecar.php`,
+`jovem/login.php`, `empresa/login.php`, `includes/documentos.php` (`jc_copyright()`), `includes/admin/layout.php`,
+`assets/css/style.css`, `assets/css/admin.css` e o novo `assets/img/marca/aestus-horizontal.png`.
 
 **Alterados — documentação em `docs/` (22):** `README.md`, `ADMINISTRACAO_E_MODERACAO.md`, `ARQUITETURA.md`,
 `ARQUIVOS_E_FUNCOES.md`, `BANCO_DE_DADOS.md`, `CONFIGURACAO.md`, `FLUXOS_E_FLUXOGRAMAS.md`, `GLOSSARIO.md`,

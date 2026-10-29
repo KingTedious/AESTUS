@@ -29,7 +29,7 @@ if (isset($_SESSION['empresa_id'])) {
     <title>JovemConnect — O seu primeiro passo para o sucesso profissional</title>
     <meta name="description"
           content="Conectamos jovens talentos com empresas que valorizam o aprendizado e o crescimento.">
-    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/style.css?v=4.60">
     <link rel="icon" type="image/png" sizes="32x32" href="assets/img/marca/jovemconnect-icone-32.png">
     <link rel="apple-touch-icon" href="assets/img/marca/jovemconnect-icone-180.png">
 <script>
@@ -162,7 +162,7 @@ if ('IntersectionObserver' in window && !matchMedia('(prefers-reduced-motion: re
     <!-- Assinatura da organização-mãe (logotipo da equipe; ver docs/ORIGEM_DOS_ATIVOS.md) -->
     <p class="footer-criado" data-revelar style="--ordem:2">
         <span class="footer-criado-texto">Criado por</span>
-        <img src="assets/img/marca/aestus-horizontal.png" alt="Aestus" width="760" height="296" loading="lazy">
+        <img src="assets/img/marca/aestus-horizontal.png" alt="Aestus" width="113" height="44" style="height:44px;width:auto" loading="lazy">
     </p>
     <?php require_once __DIR__ . '/includes/documentos.php'; ?>
     <p class="footer-copy"><?= htmlspecialchars(jc_copyright()) ?></p>

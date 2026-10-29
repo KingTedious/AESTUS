@@ -30,6 +30,7 @@
 | `assets/img/marca/jovemconnect-simbolo.png` | 910×910 · 52.565 · `a40f5d1372242810` | C2PA (idem) | idem | idem | idem |
 | `assets/img/marca/jovemconnect-simbolo-claro.png` | 910×910 · 51.336 · `67997fba00174b70` | C2PA (idem) | idem | idem | idem |
 | `assets/img/marca/jovemconnect-icone-180.png` | 180×180 · 17.258 · `846b5d2db31b9801` | C2PA (idem) | ícone derivado do símbolo | idem | idem |
+| `assets/img/marca/aestus-horizontal.png` | 760×296 · 128.710 · `9a38ae8979d351fe` | C2PA (mesmo texto dos demais), acrescentado automaticamente na entrega do arquivo pelo Claude; os pixels são idênticos aos do recorte. Recortado e reduzido do PNG enviado pelo responsável em 29/10/2026 (3000×3000, fundo transparente) | logotipo da **Aestus**, criação da equipe (mesmo autor dos logotipos do JovemConnect) [Declarado]; usado no rodapé da página inicial ("Criado por") | marca própria; todos os direitos reservados | guardar os arquivos editáveis |
 | `assets/img/marca/jovemconnect-icone-32.png` | 32×32 · 7.501 · `189850b750aba328` | C2PA (idem) | ícone derivado do símbolo | idem | idem |
 
 Observações:
@@ -44,6 +45,10 @@ Observações:
   tem uma exceção geral para uso educacional que cubra reproduzir uma foto numa página; numa apresentação
   restrita a alunos o risco prático é baixo, mas o uso continua sem autorização. Antes de qualquer uso
   público (site no ar, vídeo, divulgação), troque por fotos próprias ou com licença documentada.
+- **De onde vem o C2PA (verificado em 29/10/2026):** ao entregar `aestus-horizontal.png`, o ambiente do Claude
+  acrescentou o manifesto C2PA ao arquivo automaticamente, sem mudar nenhum pixel (o recorte local não tinha
+  manifesto). Isso confirma que o C2PA dos logotipos indica só que o arquivo **passou** pelo Claude na entrega,
+  não que o Claude desenhou.
 - **Correção do relatório PI:** ele registrou "sem metadados" nos logotipos horizontal, vertical e símbolo.
   A verificação de 29/10/2026 encontrou o manifesto C2PA em **todos os oito** PNG (arquivos sem alteração
   desde 22/10).

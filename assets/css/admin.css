@@ -119,6 +119,7 @@ p { margin: 0 0 10px; }
 .adm-titulo { font-size: 1.5rem; margin: 0 0 18px; }
 .adm-rodape { border-top: 1px solid var(--borda); padding: 14px 20px; color: var(--texto-3); font-size: 13px; background: var(--bg-surface); }
 .adm-rodape p { margin: 0; }
+.adm-rodape .adm-copy { margin-top: 4px; font-size: 12px; }
 
 .adm-migalhas ol { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; font-size: 13px; color: var(--texto-3); }
 .adm-migalhas li + li::before { content: "/"; margin-right: 6px; color: var(--texto-3); }

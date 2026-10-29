@@ -43,6 +43,8 @@ descrevendo a v4.56, salvo onde há a marca "v4.60".
 | `scripts/seguranca/inventariar_versoes_antigas.ps1` + `.bat` | inventário só de leitura das pastas das versões anteriores ao Git: datas e SHA-256 de cada arquivo, fora da pasta e do `htdocs` | `INVENTARIO.csv`, `RESUMO.txt`, `SHA256SUMS.txt` |
 | `liberar_logins.bat` (raiz) | atalho para a apresentação: libera logins e códigos travados pelo limite de tentativas | chama `scripts/jovemconnect.php limpar-tentativas` |
 | `LICENSE` (raiz) | todos os direitos reservados | — |
+| `jc_copyright()` em `includes/documentos.php` | aviso "© 2026 JovemConnect · Aestus. Todos os direitos reservados." (o ano final acompanha o ano atual) | usado no rodapé da página inicial, em `documentos.php`, `comecar.php`, nos logins do jovem e da empresa e no rodapé da Central (`jc_admin_fim()`) |
+| `assets/img/marca/aestus-horizontal.png` | logotipo da Aestus no rodapé da página inicial ("Criado por") | classes `.footer-criado`, `.footer-copy` e `.auth-copy` em `style.css` |
 | `scripts/seguranca/pre-commit` | gancho opcional que recusa segredos e artefatos no commit | só nomes de arquivo na saída |
 | `scripts/seguranca/git_correcao_seguranca.bat` | roteiro de gravação da v4.60 no Git, com confirmação a cada passo | nunca usa `--force` nem recria tags |
 | `THIRD_PARTY_NOTICES.md` (raiz) | avisos de licença de terceiros | — |

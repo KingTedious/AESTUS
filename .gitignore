@@ -20,6 +20,7 @@ vendor/
 
 # Logs e Cache
 *.log
+*.log.*
 error_log
 
 # Banco de Dados Local
