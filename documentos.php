@@ -41,6 +41,7 @@ header('X-Content-Type-Options: nosniff');
         · Contato: <a href="mailto:<?= htmlspecialchars(JC_CONTATO_EMAIL) ?>"><?= htmlspecialchars(JC_CONTATO_EMAIL) ?></a>
         <?php endif; ?>
     </p>
+    <p class="doc-rodape footer-copy"><?= htmlspecialchars(jc_copyright()) ?></p>
 </main>
 </body>
 </html>

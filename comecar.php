@@ -63,6 +63,8 @@ if (isset($_SESSION['empresa_id'])) {
     <p style="text-align:center;margin-top:16px;">
         <a href="index.php" class="back-link"><span class="i i-arrow-left" aria-hidden="true"></span> Voltar para a página inicial</a>
     </p>
+    <?php require_once __DIR__ . '/includes/documentos.php'; ?>
+    <p class="footer-copy auth-copy"><?= htmlspecialchars(jc_copyright()) ?></p>
 
 </div>
 </div>

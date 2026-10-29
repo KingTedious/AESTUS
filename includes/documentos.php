@@ -131,3 +131,17 @@ if (!function_exists('jc_documentos')) {
         return '<ul class="doc-resumo">' . $itens . '</ul>';
     }
 }
+
+if (!function_exists('jc_copyright')) {
+    /**
+     * Aviso de direitos autorais mostrado nos rodapés (mesmo titular do arquivo LICENSE).
+     * "© 2026" no primeiro ano; depois, "© 2026–<ano atual>".
+     */
+    function jc_copyright(): string
+    {
+        $inicio = 2026;
+        $atual  = (int) date('Y');
+        $anos   = $atual > $inicio ? $inicio . '–' . $atual : (string) $inicio;
+        return '© ' . $anos . ' JovemConnect · Aestus. Todos os direitos reservados.';
+    }
+}

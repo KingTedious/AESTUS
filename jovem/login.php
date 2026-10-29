@@ -138,6 +138,9 @@ if (isset($_SESSION['empresa_id'])) {
         <a href="cadastro.php" id="footerLink" class="font-semibold">Cadastre-se agora</a>
     </div>
 
+    <?php require_once dirname(__DIR__) . '/includes/documentos.php'; ?>
+    <p class="footer-copy auth-copy"><?= htmlspecialchars(jc_copyright()) ?></p>
+
 </div><!-- /.auth-card -->
 </div><!-- /.auth-page -->
 

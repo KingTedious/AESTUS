@@ -159,6 +159,13 @@ if ('IntersectionObserver' in window && !matchMedia('(prefers-reduced-motion: re
         <button type="button" class="footer-link" data-jc-modal-abrir="modalPrivacidade" aria-haspopup="dialog"><span class="i i-shield" aria-hidden="true"></span> Privacidade</button>
         <button type="button" class="footer-link" data-jc-modal-abrir="modalContato" aria-haspopup="dialog"><span class="i i-mail" aria-hidden="true"></span> Contato</button>
     </nav>
+    <!-- Assinatura da organização-mãe (logotipo da equipe; ver docs/ORIGEM_DOS_ATIVOS.md) -->
+    <p class="footer-criado" data-revelar style="--ordem:2">
+        <span class="footer-criado-texto">Criado por</span>
+        <img src="assets/img/marca/aestus-horizontal.png" alt="Aestus" width="760" height="296" loading="lazy">
+    </p>
+    <?php require_once __DIR__ . '/includes/documentos.php'; ?>
+    <p class="footer-copy"><?= htmlspecialchars(jc_copyright()) ?></p>
 </footer>
 
 <?php include __DIR__ . '/includes/institucional.php'; ?>

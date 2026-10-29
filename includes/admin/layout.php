@@ -177,8 +177,10 @@ if (!function_exists('jc_admin_inicio')) {
     /** Fecha a página. */
     function jc_admin_fim(): void {
         $min = intdiv(jc_admin_ocioso_seg(), 60);
+        require_once dirname(__DIR__) . '/documentos.php';
         echo '</main></div><footer class="adm-rodape"><p>Sessão encerrada após ' . $min . ' min sem uso. '
-           . 'Toda ação administrativa fica registrada no histórico.</p></footer>';
+           . 'Toda ação administrativa fica registrada no histórico.</p>'
+           . '<p class="adm-copy">' . jc_e(jc_copyright()) . '</p></footer>';
         echo '<script src="../assets/js/admin.js?v=7.0" nonce="' . jc_e(jc_admin_nonce()) . '"></script>';
         echo '</body></html>';
     }

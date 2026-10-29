@@ -945,6 +945,31 @@ textarea.form-control {
   display: inline-flex; align-items: center; gap: 5px;
 }
 .footer-links a:hover { color: var(--text-secondary); opacity: 1; }
+/* "Criado por" + logotipo da Aestus */
+.footer-criado {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 28px;
+}
+.footer-criado-texto {
+  font-size: 12px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.footer-criado img {
+  height: 44px;
+  width: auto;
+}
+/* Aviso de direitos autorais (jc_copyright, includes/documentos.php) */
+.footer-copy {
+  margin-top: 24px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.auth-copy { text-align: center; margin-top: 20px; }
 /* Item do rodapé sem página ainda (mesmo visual, sem link) */
 .footer-link-breve {
   font-size: 13px;
