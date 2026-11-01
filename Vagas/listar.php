@@ -414,6 +414,40 @@ if (!empty($area)) {
 
 $where_sql = !empty($where) ? "AND " . implode(" AND ", $where) : "";
 
+// ── Paginação: 20 vagas por página (carrega só a página atual) ────────────────
+// Antes a página trazia TODAS as vagas de uma vez (resposta sem limite). Agora o
+// banco devolve só as 20 da página pedida (LIMIT/OFFSET) e o COUNT dá o total para
+// montar a navegação. O COUNT reaproveita os mesmos filtros/params; o LEFT JOIN de
+// favoritos não multiplica linhas (UNIQUE jovem_id+vaga_id), então COUNT(*) = nº de vagas.
+$por_pagina = 20;
+$pagina     = max(1, (int) ($_GET['pagina'] ?? 1));
+
+$sql_total = "SELECT COUNT(*) AS n
+              FROM vagas v
+              JOIN empresas e ON v.empresa_id = e.id
+              LEFT JOIN favoritos f ON f.vaga_id = v.id AND f.jovem_id = ?
+              WHERE 1=1" . jc_vagas_visiveis_sql($conn, 'v') . " {$where_sql}";
+$stmt_t = $conn->prepare($sql_total);
+$stmt_t->bind_param($types, ...$params);
+$stmt_t->execute();
+$total_vagas = (int) ($stmt_t->get_result()->fetch_assoc()['n'] ?? 0);
+$stmt_t->close();
+
+$total_paginas = max(1, (int) ceil($total_vagas / $por_pagina));
+if ($pagina > $total_paginas) {
+    $pagina = $total_paginas;   // nunca passa da última página
+}
+$offset = ($pagina - 1) * $por_pagina;
+
+// URL de uma página preservando os filtros atuais (busca, cidade, estado, área)
+$pg_filtros = array_filter(
+    ['busca' => $busca, 'cidade' => $cidade, 'estado' => $estado, 'area' => $area],
+    static fn($v) => $v !== ''
+);
+$pg_url = static function (int $p) use ($pg_filtros): string {
+    return 'listar.php?' . http_build_query($pg_filtros + ['pagina' => $p]);
+};
+
 $sql = "SELECT
             v.id, v.titulo, v.descricao, v.cidade, v.estado,
             v.salario, v.carga_horaria, v.area, v.tipo_contrato,
@@ -424,13 +458,17 @@ $sql = "SELECT
         LEFT JOIN favoritos f
                ON f.vaga_id = v.id AND f.jovem_id = ?
         WHERE 1=1" . jc_vagas_visiveis_sql($conn, 'v') . " {$where_sql}
-        ORDER BY v.criado_em DESC";
+        ORDER BY v.criado_em DESC
+        LIMIT ? OFFSET ?";
 
+// A página atual: só as $por_pagina vagas a partir de $offset
+$tipos_pg  = $types . "ii";
+$params_pg = array_merge($params, [$por_pagina, $offset]);
 $stmt = $conn->prepare($sql);
-$stmt->bind_param($types, ...$params);
+$stmt->bind_param($tipos_pg, ...$params_pg);
 $stmt->execute();
-$result     = $stmt->get_result();
-$total_vagas = $result->num_rows;
+$result    = $stmt->get_result();
+$n_pagina  = $result->num_rows;   // quantas vagas nesta página (para "Mostrando X-Y de N")
 $stmt->close();
 
 // ── Áreas distintas para o filtro lateral ────────────────────────────────────
@@ -560,7 +598,7 @@ $areas_result = $conn->query(
         <div class="page-heading fade-up">
             <h1>Vagas Disponíveis</h1>
             <p class="text-secondary" style="margin-top:4px;font-size:14px;">
-                Mostrando <?= $total_vagas ?> resultado<?= $total_vagas !== 1 ? 's' : '' ?>
+                Mostrando <?= $total_vagas ? ($offset + 1) . '–' . ($offset + $n_pagina) . ' de ' : '' ?><?= $total_vagas ?> vaga<?= $total_vagas !== 1 ? 's' : '' ?>
                 <?php if (!empty($busca)): ?>
                     para "<strong><?= htmlspecialchars($busca) ?></strong>"
                 <?php endif; ?>
@@ -580,6 +618,43 @@ $areas_result = $conn->query(
                 jc_card_vaga($vaga, '');   // includes/card_vaga.php (detalhe volta para esta lista)
             endwhile; ?>
         </div><!-- /#gridVagas -->
+
+        <?php if ($total_paginas > 1): ?>
+        <?php
+            // Janela de páginas: 1 … (atual-2 .. atual+2) … última
+            $jp = range(max(1, $pagina - 2), min($total_paginas, $pagina + 2));
+            $paginas = array_values(array_unique(array_merge([1], $jp, [$total_paginas])));
+            sort($paginas);
+        ?>
+        <nav class="pager" aria-label="Paginação das vagas"
+             style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:center;margin-top:28px;">
+            <?php if ($pagina > 1): ?>
+            <a class="btn btn-ghost btn-sm" rel="prev" href="<?= htmlspecialchars($pg_url($pagina - 1)) ?>">
+                <span class="i i-arrow-left" aria-hidden="true"></span> Anterior
+            </a>
+            <?php endif; ?>
+
+            <?php $ant = 0; foreach ($paginas as $p): ?>
+                <?php if ($ant && $p > $ant + 1): ?>
+                <span aria-hidden="true" style="padding:0 4px;color:var(--text-muted);">…</span>
+                <?php endif; ?>
+                <?php if ($p === $pagina): ?>
+                <span class="btn btn-primary btn-sm" aria-current="page" aria-label="Página <?= $p ?>, atual"><?= $p ?></span>
+                <?php else: ?>
+                <a class="btn btn-ghost btn-sm" href="<?= htmlspecialchars($pg_url($p)) ?>" aria-label="Página <?= $p ?>"><?= $p ?></a>
+                <?php endif; ?>
+                <?php $ant = $p; endforeach; ?>
+
+            <?php if ($pagina < $total_paginas): ?>
+            <a class="btn btn-ghost btn-sm" rel="next" href="<?= htmlspecialchars($pg_url($pagina + 1)) ?>">
+                Próxima <span class="i i-arrow-right" aria-hidden="true"></span>
+            </a>
+            <?php endif; ?>
+        </nav>
+        <p class="text-secondary" style="text-align:center;font-size:13px;margin-top:10px;">
+            Página <?= $pagina ?> de <?= $total_paginas ?>
+        </p>
+        <?php endif; ?>
 
         <?php else: ?>
 

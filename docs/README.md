@@ -38,6 +38,13 @@ O `README.md` da raiz do projeto continua sendo o guia rápido de instalação.
 > roteiro do dia da apresentação ([APRESENTACAO.md](APRESENTACAO.md)); `configurar_assinatura.bat`,
 > `inventariar_versoes_antigas.bat` e `liberar_logins.bat`. Na interface, só o aviso "© … Todos os direitos
 > reservados" nos rodapés e o logotipo da Aestus ("Criado por") na página inicial.
+>
+> **Atualização v4.61 (31/10/2026) — paginação da lista de vagas.** A lista (`Vagas/listar.php`) passou a ser
+> **paginada em 20 por página** (`LIMIT`/`OFFSET` no servidor; cada página carrega só as suas 20, com navegação
+> Anterior/Próxima que preserva os filtros). Antes a página trazia todas as vagas numa resposta só, que crescia
+> sem limite. Motivada pelo teste de estresse
+> ([RELATORIO_TESTE_DE_ESTRESSE.md](RELATORIO_TESTE_DE_ESTRESSE.md)). Só `Vagas/listar.php` mudou; testes em
+> [TESTES_RESULTADOS.md](TESTES_RESULTADOS.md#v461--paginação-da-lista-de-vagas).
 
 ## O projeto em poucas linhas
 

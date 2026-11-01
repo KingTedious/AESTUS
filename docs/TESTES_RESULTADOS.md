@@ -1264,3 +1264,24 @@ sem Apache e sem Windows**. O que depende deles está na tabela de pendentes, co
 | Gravação no Git (índice, grafia, commit, tag, envio) | `scripts\seguranca\git_correcao_seguranca.bat` |
 | Sintaxe dos `.ps1` e `.bat` novos | não há PowerShell nem `cmd` na réplica: revisão manual; rodam no PC |
 
+## V461 — Paginação da lista de vagas
+
+Executado em 31/10/2026 na réplica Linux (PHP 8.3.6, Flask, banco compatível com MySQL), sobre a base da v4.59 com
+só o `Vagas/listar.php` paginado — a correção de segurança da v4.60 foi validada à parte (seção V460). Motivado pelo
+teste de estresse, que mostrou a lista crescendo sem limite (~108 KB com 18 vagas → ~7,5 MB com 2.000). A mudança é
+só em `Vagas/listar.php` (modo listagem); o detalhe `?id=` e o resto não mudaram.
+
+| ID | Verificação | Resultado |
+|---|---|---|
+| V461-001 | Paginação (`t_paginacao.py`): fatiamento 20/20/5 em 45 vagas; sem sobreposição; faixa "X–Y de N"; "Página N de M"; Anterior/Próxima nas pontas certas | **15/15** |
+| V461-002 | Limites: `?pagina=9999` cai na última; `?pagina=0`, `-5` e `abc` caem na primeira; sem `?pagina` = página 1 | passou |
+| V461-003 | Filtros preservados: `?area=TI` reduz o total e os links de página mantêm `area=TI`; link "Próxima" aponta para `pagina=2` | passou |
+| V461-004 | Payload limitado: com 205 vagas a página 1 ainda traz 20 cards e o tamanho fica ~constante vs 45 vagas (não cresce com o total) | passou |
+| V461-005 | Lista vazia: 0 cards, sem navegação, estado "Nenhuma vaga encontrada" | passou |
+| V461-006 | Cards (`t_cards.py`, comportamento dos cards com a lista paginada) | **32/33** (a única falha é o registro dos erros simulados pelo próprio teste, como nas versões anteriores) |
+| V461-007 | Regressão completa (21 suítes) com a lista paginada | 21/21 suítes no padrão; só as 7 falhas pré-existentes da v4.59 (3 em formação original, 4 em cadastro), nenhuma ligada à paginação; 0 tracebacks |
+
+**Medição (réplica):** cada página passou a ~117 KB (20 cards) / ~99 KB (15 cards), **constante** com o total,
+contra ~204 KB (55 vagas) e ~7,5 MB (2.000 vagas) da versão sem paginação. A latência por página na réplica
+(~0,33 s) é quase toda o custo fixo do Dolt na consulta a `information_schema` (ver o teste de estresse, L-02),
+que **não** existe no MariaDB; o que importa é que a latência e o tamanho **não crescem** com o número de vagas.

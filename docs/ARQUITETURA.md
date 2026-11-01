@@ -217,7 +217,7 @@ Detalhes: [CONFIGURACAO.md](CONFIGURACAO.md).
 | `includes/candidato.php` | uma mudança altera, ao mesmo tempo, perfil, currículo e Match |
 | `assets/css/style.css` (3.153 linhas, regras sobrescritas mais adiante) | ordem da cascata importa; ver [ARQUIVOS_E_FUNCOES.md](ARQUIVOS_E_FUNCOES.md) |
 | Sessão PHP com arquivo bloqueante | chamadas longas (`curriculo`, até 6 s) seguram a sessão; `match`, `contexto` e o assistente liberam com `session_write_close()` |
-| Listagens sem paginação | `Vagas/listar.php`, painéis e `Vagas/candidatos.php` crescem com o banco |
+| Listagens sem paginação | `Vagas/candidatos.php` ainda cresce com o banco. `Vagas/listar.php` é paginado (20/página) desde a v4.61; os painéis já são limitados (painel do jovem: 6) |
 | Flask rodando no servidor de desenvolvimento (`app.run`) | adequado ao uso local; não é um servidor de produção (sem gerenciador de processos, reinício ou limites) [C] |
 | Cache da análise contextual em memória | perde-se a cada reinício do Flask |
 

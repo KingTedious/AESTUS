@@ -32,7 +32,7 @@ Na v4.00 não existia perfil de administrador. Desde a Stage 7 existe a Central 
 | Recuperação de senha por código | `recuperar_senha.php` | [C]; **falha crítica de segurança** — ver [SEGURANCA_E_PRIVACIDADE.md](SEGURANCA_E_PRIVACIDADE.md#seg-01) |
 | Perfil do jovem (formação estruturada, habilidades, experiências, currículo PDF, visibilidade) | `jovem/perfil.php`, `uploads/curriculos.php` | [C] [T] |
 | Perfil da empresa e locais de trabalho | `empresa/perfil.php`, `empresa/locais.php` | [C] [T] |
-| Vagas: listar, filtrar, detalhar, publicar, remover | `Vagas/` | [C] [T]; não há edição nem encerramento de vaga |
+| Vagas: listar (paginado, 20/página, v4.61), filtrar, detalhar, publicar, remover | `Vagas/` | [C] [T]; não há edição nem encerramento de vaga |
 | Candidaturas e status (Recebido, Visualizado, Em análise, Aprovado, Reprovado) | `Vagas/candidatar.php`, `Vagas/candidatos.php`, `candidaturas/minhas.php` | [C] [T] |
 | Favoritos (estrela em todos os cards de vaga do jovem, desde a v4.56) | `Vagas/favoritar.php`, `Vagas/favoritos.php`, `includes/card_vaga.php` | [C] [T] |
 | Painel do jovem com as 6 vagas mais recentes e "Ver todas as vagas" (v4.56) | `dashboard/jovem.php` → `Vagas/listar.php` | [C] [T] |
