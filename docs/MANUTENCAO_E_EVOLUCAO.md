@@ -93,7 +93,7 @@ aumentaria o que se perde por engano (SEG-11/AUD-002).
 
 1. `php -l` em todo arquivo alterado; `python -m py_compile IA/recomendar.py`.
 2. Regressão mínima de [TESTES.md](TESTES.md#testes-de-regressão-recomendados).
-3. Ver `logs/app.log` e `logs/seguranca.log` durante os testes: `erro.inesperado` indica regressão.
+3. Ver `logs/site/app.log` e `logs/seguranca/seguranca.log` durante os testes: `erro.inesperado` indica regressão.
 4. Para mudanças só de comentário: comparar tokens do PHP sem comentários (técnica usada na Stage 6).
 
 ## Investigar efeitos colaterais

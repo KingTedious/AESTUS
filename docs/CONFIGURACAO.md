@@ -56,7 +56,7 @@ mensagem, print), revogue-a no painel do Google e gere outra.
 
 | Variável | Padrão | Uso |
 |---|---|---|
-| `JC_LOG_DIR` | `logs/` do projeto | Pasta dos logs (PHP e Flask) |
+| `JC_LOG_DIR` | `logs/` do projeto | Pasta dos logs (PHP e Flask); desde a v4.62 cada tipo vai para uma subpasta dela (`site/`, `seguranca/`, `ia/`), ver [LOGS.md](LOGS.md) |
 | `JC_LOG_MAX_MB` | `2` | Tamanho máximo de um arquivo de log do PHP antes de abrir outro |
 | `JC_LOG_DIAS` | `30` | Por quantos dias os arquivos antigos são guardados |
 

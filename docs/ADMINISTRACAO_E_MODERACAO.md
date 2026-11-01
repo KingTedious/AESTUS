@@ -122,7 +122,7 @@ Não existe exclusão de administrador: use `desativar` (o histórico continua a
 | Reautenticação | suspender/reativar contas, corrigir textos de contas e vagas, trocar a senha e encerrar outras sessões exigem a senha (e o código) se a última confirmação tiver mais de **5 minutos** |
 | Confirmação | toda ação que altera algo exige marcar "Confirmo..." e escrever uma **justificativa** (10 a 500 caracteres) |
 | Cabeçalhos | `Content-Security-Policy` com *nonce* (sem scripts de terceiros), `X-Frame-Options: DENY`, `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer` |
-| Erros | mensagens claras sem detalhes técnicos; erro inesperado mostra "nada foi alterado" e o **código da requisição**, que localiza o erro em `logs/app.log` |
+| Erros | mensagens claras sem detalhes técnicos; erro inesperado mostra "nada foi alterado" e o **código da requisição**, que localiza o erro em `logs/site/app.log` |
 | Entrada sem registro | se não for possível gravar a entrada no histórico, o login é **cancelado** (não existe sessão administrativa sem registro) |
 
 Recomendações para publicar fora do computador local: usar **HTTPS** (o cookie passa a ser `Secure`), restringir
@@ -166,7 +166,7 @@ comando** — nunca por migração ou SQL solto. Nenhuma tela da Central permite
 | Vaga (`vaga.php`) | texto da vaga, local de trabalho, estado, sinais das regras, histórico de moderação, correção de texto, moderação e o botão da análise por IA |
 | Moderação (`moderacao.php`) | fila (pendentes por padrão, risco alto primeiro; também resolvidos), filtros por estado, origem (regra/denúncia), risco e tipo de recurso; o detalhe de um item mostra o **conteúdo atual** do campo, lido do registro original, e as regras explicadas |
 | Histórico (`auditoria.php`) | todos os registros, com filtros; botão "Conferir integridade agora" |
-| Segurança (`seguranca.php`) | contagens de logins que falharam/deram certo e bloqueios ativos por e-mail/IP (o banco só tem hashes: mostra quantas vezes, não quem), as falhas e negações registradas no histórico e os últimos eventos do `logs/seguranca.log`, com filtro por tipo (já sem dados sensíveis) |
+| Segurança (`seguranca.php`) | contagens de logins que falharam/deram certo e bloqueios ativos por e-mail/IP (o banco só tem hashes: mostra quantas vezes, não quem), as falhas e negações registradas no histórico e os últimos eventos do `logs/seguranca/seguranca.log`, com filtro por tipo (já sem dados sensíveis) |
 | Configurações (`configuracoes.php`) | estado do ambiente (migração, Flask, IA configurada ou não — sem mostrar segredos), trocar a própria senha, encerrar as outras sessões |
 
 A interface usa HTML semântico, rótulos em todos os campos, foco visível, mensagens com `role="status"`/`role="alert"`,
@@ -421,7 +421,7 @@ comando.
 
 - `hash = SHA-256(hash do registro anterior + campos deste registro)` (o primeiro usa 64 zeros). Alterar ou
   apagar um registro do meio quebra a cadeia.
-- **Espelho** em `logs/seguranca.log`: cada registro gera a linha `admin.<ação>` com o ID do registro (`registro`)
+- **Espelho** em `logs/seguranca/seguranca.log`: cada registro gera a linha `admin.<ação>` com o ID do registro (`registro`)
   e o começo do hash (`elo`), gravada **só depois do COMMIT**. Comparar o espelho com a tabela revela registros
   **apagados no fim** (que a cadeia sozinha não denuncia) e registros trocados por alguém que refez a cadeia.
 - **Conferência**: na Central ("Conferir integridade agora", também registrada) ou no terminal

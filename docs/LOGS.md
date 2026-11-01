@@ -3,11 +3,20 @@
 Uma linha **JSON** por evento, na pasta `logs/` (ou `JC_LOG_DIR`). A pasta é
 bloqueada para o navegador (`logs/.htaccess`) e os arquivos `*.log` ficam fora do Git.
 
-| Arquivo | Quem grava | Conteúdo |
-|---|---|---|
-| `app.log` | PHP | funcionamento: erros, Match, IA, Flask, vagas, candidaturas, assistente |
-| `seguranca.log` | PHP | auditoria: login, cadastro, conta, CSRF recusado, acesso negado, limite do assistente (com IP anonimizado) |
-| `ia.log` | Flask | cada requisição (rota, status, tempo) e falhas do Gemini (motivo) |
+**Desde a v4.62, uma subpasta por assunto** (resumo também em `logs/LEIAME.txt`):
+
+| Subpasta | Arquivos | Quem grava | Conteúdo |
+|---|---|---|---|
+| `logs/site/` | `app.log`, `app-AAAAMMDD-HHMMSS.log` | PHP (`jc_log`) | ações do site: erros, Match, IA, Flask, vagas, candidaturas, locais, assistente |
+| `logs/seguranca/` | `seguranca.log`, `seguranca-AAAAMMDD-HHMMSS.log` | PHP (`jc_log_seguranca`) | logins, cadastros, verificações, recuperação de senha, conta, CSRF recusado, acesso negado, denúncias, limite do assistente, espelho da auditoria da Central (com IP anonimizado) |
+| `logs/ia/` | `ia.log`, `ia.log.AAAA-MM-DD`, `iniciar_ia.log` (Linux: `ia_console.log`) | Flask e `iniciar_ia` | cada requisição (rota, status, tempo), falhas do Gemini (motivo) e o diagnóstico de início da IA |
+| `logs/sistema/` | `iniciar_jovemconnect.log` | `iniciar_jovemconnect` | diagnóstico de início do projeto |
+| `logs/testes/` | `verificacao_protecao-*.log`, `regressao_isolada-*.log`, `diagnostico_seguranca-*.log` | roteiros de `scripts/seguranca/` | resultados das verificações de segurança |
+| raiz de `logs/` | `ia_porta.json`, `ia.lock` | Flask | **estado** da IA (porta e instância única), não são logs |
+
+Arquivos antigos que ainda estejam na raiz são movidos para a subpasta certa por
+`php scripts/jovemconnect.php organizar-logs` (o `iniciar_jovemconnect` faz isso a cada início; nunca apaga
+nem sobrescreve; arquivo em uso fica para a próxima vez).
 
 Exemplo:
 

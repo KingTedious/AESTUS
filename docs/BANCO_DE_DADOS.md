@@ -649,7 +649,7 @@ Histórico das ações administrativas, **somente inclusão**, encadeado por has
 | `motivo_codigo` | `varchar(60)` | sim | — | código do motivo |
 | `justificativa` | `varchar(500)` | sim | — | texto do administrador, com e-mails e números longos mascarados |
 | `campos` | `varchar(300)` | sim | — | **nomes** dos campos alterados (nunca os valores) |
-| `req_id` | `varchar(32)` | sim | — | correlação com `logs/app.log` e `logs/seguranca.log` |
+| `req_id` | `varchar(32)` | sim | — | correlação com `logs/site/app.log` e `logs/seguranca/seguranca.log` |
 | `ip_anon` | `varchar(45)` | sim | — | IP com o último bloco zerado; `cli` na linha de comando |
 | `hash_anterior`, `hash` | `char(64)` | não | — | SHA-256 do registro anterior / deste registro |
 

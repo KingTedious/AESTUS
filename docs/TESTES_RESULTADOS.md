@@ -1285,3 +1285,20 @@ só em `Vagas/listar.php` (modo listagem); o detalhe `?id=` e o resto não mudar
 contra ~204 KB (55 vagas) e ~7,5 MB (2.000 vagas) da versão sem paginação. A latência por página na réplica
 (~0,33 s) é quase toda o custo fixo do Dolt na consulta a `information_schema` (ver o teste de estresse, L-02),
 que **não** existe no MariaDB; o que importa é que a latência e o tamanho **não crescem** com o número de vagas.
+
+## V462 — Logs organizados em subpastas
+
+Réplica Linux, 01/11/2026 (PHP 8.3, Python 3.13 com Flask 3.1.3), sem banco nem Apache.
+
+| ID | Teste | Resultado |
+|---|---|---|
+| V462-001 | `jc_log()` e `jc_log_seguranca()` com `JC_LOG_DIR` temporário: gravam em `site/app.log` e `seguranca/seguranca.log`; nada na raiz; campo `email` continua `[removido]` e IP anonimizado | passou |
+| V462-002 | Leitor da Central (`jc_admin_eventos_seguranca`) lê o evento na subpasta nova | passou (1 evento) |
+| V462-003 | `organizar-logs` com 15 arquivos de exemplo na raiz: 12 movidos para `site/`, `seguranca/`, `ia/`, `sistema/` e `testes/`; `ia_porta.json`, `ia.lock` e um arquivo desconhecido ficam; `app.log` já existente na subpasta **não** é sobrescrito (o antigo vira `app-anterior-…`) | passou |
+| V462-004 | Flask (`IA/recomendar.py` importado com `JC_LOG_DIR` temporário): `log_ia()` grava em `ia/ia.log`; `/ping` 200 | passou |
+| V462-005 | `php -l` e checagem de compatibilidade PHP 7.4 nos PHP alterados; `bash -n` nos `.sh`; `py_compile` | passou |
+| V462-006 | Links da documentação | sem links novos quebrados |
+
+**No PC (pendente):** rodar o `iniciar_jovemconnect.bat` (move os logs antigos), conferir as subpastas em `logs\`,
+entrar no site e ver os eventos em **Central → Segurança**, e rodar o `verificar_protecao.bat` (relatório em
+`logs\testes\`).

@@ -72,7 +72,7 @@ Os passos abaixo são o jeito manual.
    e, se você responder **S**, reconstrói o `venv` deste computador com as versões
    fixas de `IA/requirements-ia.txt` (precisa de internet nessa vez), guardando o
    anterior como `venv.antigo-<data>`. **Não copie a pasta `venv` entre
-   computadores.** Diagnóstico em `logs/iniciar_ia.log`.
+   computadores.** Diagnóstico em `logs/ia/iniciar_ia.log`.
    A IA usa a porta 5000; se outro programa estiver nela, escolhe a primeira livre
    entre 5001 e 5010 (configurável no `.env`: `JC_IA_PORTA`, `JC_IA_PORTAS_EXTRAS`)
    e grava em `logs/ia_porta.json` — o site lê dali, sem configurar nada.

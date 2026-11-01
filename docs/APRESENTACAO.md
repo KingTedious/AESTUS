@@ -77,7 +77,8 @@ No PC que rodou o site (e em cada computador que rodou localmente):
 2. `parar_jovemconnect.bat` → apagar o banco (com o nome digitado). Nos PCs da escola, se quiser, também a
    pasta do projeto.
 3. Apagar os currículos enviados: `del uploads\curriculos\*.pdf` (o `.htaccess` fica).
-4. Apagar os logs da apresentação: `del logs\*.log*` (o `.htaccess` fica).
+4. Apagar os logs da apresentação: `del /s /q logs\*.log*` (apaga os `.log` de todas as subpastas; o
+   `.htaccess`, o `LEIAME.txt` e o estado da IA ficam).
 5. Apagar as sessões do PHP: `del C:\xampp\tmp\sess_*`.
 6. `liberar_logins.bat` (zera os contadores de tentativas).
 7. Quando for usar de novo: `iniciar_jovemconnect.bat` recria o banco com a demonstração.

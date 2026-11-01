@@ -8,10 +8,12 @@
 
 | Origem | Arquivo | Como grava | Conteúdo |
 |---|---|---|---|
-| PHP — funcionamento | `logs/app.log` (ou `JC_LOG_DIR`) | `jc_log()` em `includes/logger.php` | erros, Match, IA, Flask, vagas, candidaturas, locais, assistente |
-| PHP — segurança | `logs/seguranca.log` | `jc_log_seguranca()` | login, cadastro, verificação, recuperação, exclusão, CSRF, acesso negado, limite do assistente; **IP anonimizado** |
-| Flask | `logs/ia.log` | `log_ia()` em `IA/recomendar.py` | `flask.requisicao` (rota, status, tempo) e `gemini.falha` (motivo) |
+| PHP — funcionamento | `logs/site/app.log` (ou `JC_LOG_DIR`) | `jc_log()` em `includes/logger.php` | erros, Match, IA, Flask, vagas, candidaturas, locais, assistente |
+| PHP — segurança | `logs/seguranca/seguranca.log` | `jc_log_seguranca()` | login, cadastro, verificação, recuperação, exclusão, CSRF, acesso negado, limite do assistente; **IP anonimizado** |
+| Flask | `logs/ia/ia.log` | `log_ia()` em `IA/recomendar.py` | `flask.requisicao` (rota, status, tempo) e `gemini.falha` (motivo) |
 | PHP — erros do interpretador e envio de e-mail/SMS | `error_log` do PHP/Apache (fora do projeto; caminho definido no `php.ini` do XAMPP) | `error_log()` em `includes/mailer.php`, `includes/sms.php` | "PHPMailer não encontrado…", falhas SMTP/Twilio, warnings |
+| Início da IA e do projeto | `logs/ia/iniciar_ia.log`, `logs/sistema/iniciar_jovemconnect.log` | `iniciar_ia` e `iniciar_jovemconnect` (.bat/.sh) | passos do início, motivo de falha |
+| Testes de segurança | `logs/testes/` | `scripts/seguranca/*` | relatórios do verificador, da regressão e do diagnóstico |
 | Flask — console | janela "JovemConnect - IA" | `print` na inicialização | estado da chave, erros de importação |
 | Navegador | console do navegador | — | falhas de `fetch`, ViaCEP/BrasilAPI |
 
@@ -77,7 +79,7 @@ Observação: `logout.php` inclui o logger sem `env.php`; se `JC_LOG_DIR` estive
 3. Depois de mudar o `.env`, o PHP lê na próxima requisição; o **Flask só ao reiniciar**.
 4. `http://127.0.0.1:5000/ping` (ou a porta gravada em `logs/ia_porta.json`, se a 5000 estava ocupada):
    `"assistente"`/`"analise_contextual"` mostram se o Flask achou a chave. A inicialização da IA fica registrada em
-   `logs/iniciar_ia.log` e a dos scripts do XAMPP em `logs/iniciar_jovemconnect.log`.
+   `logs/ia/iniciar_ia.log` e a dos scripts do XAMPP em `logs/sistema/iniciar_jovemconnect.log`.
 
 ### Banco de dados
 1. Mensagem "temporariamente indisponível" → `banco.indisponivel` em `app.log` com `errno`

@@ -13,7 +13,7 @@
    Integridade: cada linha tem hash = SHA-256(hash da linha anterior +
    campos desta linha). Alterar ou apagar uma linha do meio quebra a
    cadeia; jc_admin_auditoria_verificar() aponta a primeira linha
-   inconsistente. O espelho em logs/seguranca.log (gravado só depois
+   inconsistente. O espelho em logs/seguranca/seguranca.log (gravado só depois
    do COMMIT) leva o id e o começo do hash de cada linha;
    jc_admin_auditoria_conferir_log() compara os dois e aponta registros
    removidos — inclusive no FIM da tabela, que a cadeia sozinha não
@@ -93,7 +93,7 @@ if (!function_exists('jc_admin_auditar')) {
     }
 
     /**
-     * Espelho do histórico em logs/seguranca.log. Dentro de uma transação, as
+     * Espelho do histórico em logs/seguranca/seguranca.log. Dentro de uma transação, as
      * linhas esperam o COMMIT ('gravar'); se houver ROLLBACK, são descartadas.
      * @param string $op 'adicionar' | 'gravar' | 'descartar'
      */
@@ -283,7 +283,7 @@ if (!function_exists('jc_admin_auditar')) {
     }
 
     /**
-     * Confere o espelho do histórico em logs/seguranca.log (arquivo atual e os
+     * Confere o espelho do histórico em logs/seguranca/seguranca.log (arquivo atual e os
      * mais recentes da rotação) contra a tabela: cada linha "admin.*" do log
      * traz o id do registro e o começo do hash. Registro citado no log que
      * não existe mais no banco = removido (inclusive no FIM da tabela, que a
@@ -295,10 +295,13 @@ if (!function_exists('jc_admin_auditar')) {
         $arquivos = [];
         if (function_exists('jc_log_dir')) {
             $dir = jc_log_dir();
-            if (is_file($dir . '/seguranca.log')) {
-                $arquivos[] = $dir . '/seguranca.log';
+            $pasta = function_exists('jc_log_pasta') ? jc_log_pasta('seguranca') : $dir;
+            foreach (array_unique([$pasta, $dir]) as $d) {   // v4.62: subpasta; antes: raiz de logs/
+                if (is_file($d . '/seguranca.log')) {
+                    $arquivos[] = $d . '/seguranca.log';
+                }
             }
-            $antigos = glob($dir . '/seguranca-*.log') ?: [];
+            $antigos = array_merge(glob($pasta . '/seguranca-*.log') ?: [], $pasta !== $dir ? (glob($dir . '/seguranca-*.log') ?: []) : []);
             rsort($antigos);   // nomes com data: mais novo primeiro
             $arquivos = array_merge($arquivos, array_slice($antigos, 0, max(0, $max_arquivos - count($arquivos))));
         }

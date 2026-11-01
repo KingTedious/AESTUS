@@ -348,14 +348,14 @@ Em ordem sugerida (atualizada com as respostas de 29/10/2026):
 2. Na pasta do projeto, dar dois cliques em `scripts\seguranca\verificar_protecao.bat`.
    - Esperado: todas as linhas **APROVADO**; grupos `interno`, `pasta`, `variante`, `nome8.3`, `fonte`,
      `listagem`, `canario`, `site`, `cabecalho` e `htdocs`. Código de saída 0. Relatório em
-     `logs\verificacao_protecao-<data>.log`.
+     `logs\testes\verificacao_protecao-<data>.log`.
    - `ACESSIVEL`: o `.htaccess` não está valendo → `C:\xampp\apache\conf\httpd.conf`, bloco
      `<Directory "C:/xampp/htdocs">`, `AllowOverride All`; reiniciar o Apache; rodar de novo.
    - `ERRO NO SERVIDOR`/`BLOQUEADO` em `site`: a proteção afetou o site; ver `C:\xampp\apache\logs\error.log`.
    - `ACESSIVEL (fora do projeto)`: SEG-35 (seção 9, item 5).
 3. Para ver o alcance pela rede: `scripts\seguranca\verificar_protecao.bat -Rede`.
 4. Com o MySQL ligado: `scripts\seguranca\regressao_isolada.bat` → "RESULTADO" no fim e relatório em
-   `logs\regressao_isolada-<data>.log`. Nada é gravado no banco `jovemconnect`.
+   `logs\testes\regressao_isolada-<data>.log`. Nada é gravado no banco `jovemconnect`.
 5. Roteiro manual rápido (navegador): entrar como jovem e como empresa; errar a senha 5 vezes numa conta de teste
    (aparece "Muitas tentativas…"; `C:\xampp\php\php.exe scripts\jovemconnect.php limpar-tentativas` libera);
    criar um jovem novo e conferir que o perfil nasce não visível; enviar um currículo e abri-lo pelo perfil;

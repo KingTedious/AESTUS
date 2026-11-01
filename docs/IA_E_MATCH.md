@@ -149,7 +149,7 @@ Na réplica, 1.205 combinações de entrada foram avaliadas pelos dois lados: **
    resposta em JSON validada por esquema; o PHP valida de novo (`jc_match_validar_ia`).
 5. Indisponível (sem chave, Flask fora, erro/limite/tempo do Gemini, resposta inválida, limite da sessão) →
    o navegador recebe só `{disponivel:false}` e mostra "A análise contextual por IA não está disponível
-   agora…". O motivo fica em `logs/app.log` (`match.contexto`) e `logs/ia.log` (`gemini.falha`).
+   agora…". O motivo fica em `logs/site/app.log` (`match.contexto`) e `logs/ia/ia.log` (`gemini.falha`).
 6. O texto aparece com o selo "Gerada por IA (Gemini) · confiança … · não altera a nota", sempre via
    `textContent`.
 

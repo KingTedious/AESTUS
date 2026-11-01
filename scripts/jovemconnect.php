@@ -29,6 +29,8 @@
                             docs, .sql, .py, logs, curriculos) e o site continua no ar;
                             1 se algo interno foi servido ou se o site foi afetado
      limpar-tentativas      libera logins/codigos bloqueados pelo limite de tentativas
+     organizar-logs         (v4.62) move os logs antigos da raiz de logs/ para as subpastas
+                            site/, seguranca/, ia/, sistema/ e testes/ (nunca apaga nem sobrescreve)
    ============================================================ */
 
 if (PHP_SAPI !== 'cli') {
@@ -297,7 +299,8 @@ case 'protecao':
                  'iniciar_jovemconnect.bat', 'iniciar_ia.sh', '.git/HEAD', '.git/config', 'docs/README.md',
                  'docs/IA_E_MATCH.md', 'database/seed_demo.sql', 'migrations/2026-10-11_stage7_admin_moderacao.sql',
                  'includes/config.php', 'scripts/admin.php', 'IA/recomendar.py', 'IA/requirements-ia.txt',
-                 'venv/pyvenv.cfg', 'logs/app.log', 'logs/ia_porta.json'];
+                 'venv/pyvenv.cfg', 'logs/app.log', 'logs/site/app.log', 'logs/seguranca/seguranca.log',
+                 'logs/ia/ia.log', 'logs/ia_porta.json'];
     $variantes = ['.ENV' => '.env', 'README.md.' => 'README.md', 'docs/README.md%20' => 'docs/README.md',
                   '%2eenv' => '.env', 'DOCS/README.md' => 'docs/README.md', 'Schema.SQL' => 'schema.sql',
                   // apelidos do Windows para a mesma pasta/arquivo: ponto ou espaco no fim e nome curto 8.3
@@ -367,6 +370,54 @@ case 'protecao':
     diz($problemas === 0 ? '  RESULTADO: protecao valendo neste Apache.'
                          : '  RESULTADO: ' . $problemas . ' problema(s). Veja docs/SEGURANCA_E_PRIVACIDADE.md (PI-01).');
     exit($problemas ? 1 : 0);
+
+case 'organizar-logs':
+    // v4.62: cada tipo de log na sua subpasta. Move (rename) os arquivos que ainda estao na raiz
+    // de logs/; nunca apaga nem sobrescreve. Arquivo em uso (ex.: ia.log com a IA ligada no
+    // Windows) fica para a proxima vez. ia_porta.json e ia.lock sao estado da IA: ficam na raiz.
+    $dirLogs = rtrim((string) (getenv('JC_LOG_DIR') ?: ($RAIZ . '/logs')), '/\\');
+    if (!is_dir($dirLogs)) {
+        diz('  Pasta de logs nao existe ainda; nada a organizar.');
+        exit(0);
+    }
+    $regras = [
+        'site'      => '/^app(-\d{8}-\d{6})?\.log$/i',
+        'seguranca' => '/^seguranca(-\d{8}-\d{6})?\.log$/i',
+        'ia'        => '/^(ia\.log(\.\d{4}-\d{2}-\d{2})?|iniciar_ia\.log|ia_console\.log)$/i',
+        'sistema'   => '/^iniciar_jovemconnect\.log$/i',
+        'testes'    => '/^(verificacao_protecao|regressao_isolada|diagnostico_seguranca)-[\d-]+\.log$/i',
+    ];
+    $movidos = 0;
+    $emUso = 0;
+    foreach (scandir($dirLogs) ?: [] as $nome) {
+        $origem = $dirLogs . DIRECTORY_SEPARATOR . $nome;
+        if (!is_file($origem)) {
+            continue;
+        }
+        foreach ($regras as $sub => $re) {
+            if (!preg_match($re, $nome)) {
+                continue;
+            }
+            $pasta = $dirLogs . DIRECTORY_SEPARATOR . $sub;
+            if (!is_dir($pasta)) {
+                @mkdir($pasta, 0750, true);
+            }
+            $destino = $pasta . DIRECTORY_SEPARATOR . $nome;
+            if (file_exists($destino)) {   // nunca sobrescreve: guarda com outro nome
+                $destino = $pasta . DIRECTORY_SEPARATOR . preg_replace('/\.log$/i', '', $nome)
+                         . '-anterior-' . date('Ymd-His') . '.log';
+            }
+            if (@rename($origem, $destino)) {
+                $movidos++;
+            } else {
+                $emUso++;
+            }
+            break;
+        }
+    }
+    diz('  Logs organizados: ' . $movidos . ' arquivo(s) movido(s) para as subpastas'
+        . ($emUso ? '; ' . $emUso . ' em uso (ficam para a proxima vez)' : '') . '.');
+    exit(0);
 
 case 'limpar-tentativas':
     // Libera quem foi bloqueado pelo limite de tentativas (login/codigos) antes do prazo.

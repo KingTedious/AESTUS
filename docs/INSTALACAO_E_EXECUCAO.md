@@ -33,7 +33,7 @@ bash parar_jovemconnect.sh      # desliga e, se você quiser, apaga o banco e a 
 
 Fazem o mesmo que os `.bat`, perguntando antes de criar ou apagar qualquer coisa. No Linux eles também oferecem
 liberar a escrita do Apache em `logs/` e `uploads/curriculos/` e conferem se os `.htaccess` estão valendo. A IA
-fica em segundo plano (saída em `logs/ia_console.log`). Pacotes necessários num Linux sem XAMPP, por exemplo no
+fica em segundo plano (saída em `logs/ia/ia_console.log`). Pacotes necessários num Linux sem XAMPP, por exemplo no
 Debian/Ubuntu: `apache2 mariadb-server php php-mysql php-curl php-mbstring python3 python3-venv`.
 
 Os passos abaixo explicam o que esses scripts fazem e como fazer tudo à mão.
@@ -146,7 +146,7 @@ Lista completa: [CONFIGURACAO.md](CONFIGURACAO.md).
    - abre a janela **"JovemConnect - IA"** com `IA\recomendar.py` (fechar a janela desliga a IA) e espera a IA
      confirmar a porta (5000 ou a próxima livre de 5001–5010, gravada em `logs\ia_porta.json`);
    - abre `http://localhost/<pasta>/index.php` no navegador;
-   - grava o diagnóstico em `logs\iniciar_ia.log`.
+   - grava o diagnóstico em `logs\ia\iniciar_ia.log`.
 3. Sem o Windows: `venv/bin/python IA/recomendar.py` na pasta do projeto (comando equivalente ao que o `.bat` executa).
 
 ## 9. Endereços locais
@@ -167,12 +167,12 @@ Lista completa: [CONFIGURACAO.md](CONFIGURACAO.md).
 | Criar uma conta de jovem de teste | cai na tela "Como deseja verificar sua conta?" |
 | Clicar "Match IA" numa vaga | aparece "Match: N%" (com ou sem Flask) |
 | Abrir o assistente ✦ e perguntar algo | resposta da IA ou resposta pronta com aviso |
-| `http://localhost/JovemConnect/logs/app.log` | **403** (pasta protegida) |
+| `http://localhost/JovemConnect/logs/site/app.log` | **403** (pasta protegida) |
 | `http://localhost/JovemConnect/.env` | **403** (v4.60). Para conferir tudo de uma vez: `scripts\seguranca\verificar_protecao.bat` ([seção 13](#13-proteção-dos-arquivos-internos)) |
 | `C:\xampp\php\php.exe scripts\admin.php status` | "Migração da Stage 7: aplicada" e a contagem de administradores |
 | `http://localhost/JovemConnect/scripts/admin.php` | **403/404** (a linha de comando não roda pelo navegador) |
 | Entrar na Central e clicar "Histórico" → "Conferir integridade agora" | "Histórico íntegro" |
-| `logs/app.log` no disco | linhas JSON novas |
+| `logs/site/app.log` no disco | linhas JSON novas |
 
 ## 11. Encerrar
 
@@ -183,8 +183,8 @@ Lista completa: [CONFIGURACAO.md](CONFIGURACAO.md).
 
 | Sintoma | Causa provável | O que fazer |
 |---|---|---|
-| "O sistema está temporariamente indisponível" | MySQL parado ou `DB_*` errado | iniciar o MySQL; conferir `.env`; ver `banco.indisponivel` em `logs/app.log` |
-| "Ocorreu um erro inesperado" | exceção (ex.: banco antigo sem uma coluna) | ver `erro.inesperado` em `logs/app.log` (`errno`/`sqlstate`); aplicar as migrações pendentes |
+| "O sistema está temporariamente indisponível" | MySQL parado ou `DB_*` errado | iniciar o MySQL; conferir `.env`; ver `banco.indisponivel` em `logs/site/app.log` |
+| "Ocorreu um erro inesperado" | exceção (ex.: banco antigo sem uma coluna) | ver `erro.inesperado` em `logs/site/app.log` (`errno`/`sqlstate`); aplicar as migrações pendentes |
 | `iniciar_jovemconnect.bat`: "alguma verificacao nao bateu" | PHP antigo, extensão desligada ou pasta sem permissão | ler a linha marcada; responder **S** para continuar mesmo assim (PHP 7.4/8.0 já passa como compatibilidade) ou **N** para parar |
 | `parar_jovemconnect.bat`: a pasta não some | algum programa usa arquivos dela (janela da IA, editor, terminal aberto nela) | a janela "JovemConnect - limpeza" lista o que sobrou: feche o programa e responda **S** para tentar de novo; diagnóstico em `%TEMP%\jovemconnect_limpeza.log` |
 | Página sem estilo | cópia anterior à v4.59 num servidor que diferencia maiúsculas (`Assets/` × `assets/`) | atualizar o projeto (corrigido na v4.59) |
@@ -196,10 +196,10 @@ Lista completa: [CONFIGURACAO.md](CONFIGURACAO.md).
 | `iniciar_ia.bat`: "o ambiente oficial (venv) nao pode ser usado" | `venv` ausente ou criado em outro PC | responder **S** para reconstruir o `venv` deste PC (o anterior vira `venv.antigo-<data>`) |
 | `iniciar_ia.bat`: "nenhum Python 3.10+ utilizavel" | Python ausente do PATH | instalar o Python 3.13 marcando "Add python.exe to PATH" |
 | `iniciar_ia.bat`: "a instalacao das dependencias falhou" | sem internet/proxy na reconstrução | conectar e rodar de novo (o backup é mantido) |
-| `iniciar_ia.bat`: "a IA nao confirmou a porta" | nenhuma porta livre na faixa ou erro na IA | ver a janela "JovemConnect - IA" e `logs/iniciar_ia.log`; liberar uma porta ou ajustar `JC_IA_PORTAS_EXTRAS` |
+| `iniciar_ia.bat`: "a IA nao confirmou a porta" | nenhuma porta livre na faixa ou erro na IA | ver a janela "JovemConnect - IA" e `logs/ia/iniciar_ia.log`; liberar uma porta ou ajustar `JC_IA_PORTAS_EXTRAS` |
 | `/ping` não abre | Flask fechado, ou rodando em outra porta (5000 ocupada) | a porta em uso está em `logs/ia_porta.json` e na janela da IA; reabrir o `.bat` |
 | `"assistente": false` com chave no `.env` | Flask iniciado antes de editar o `.env` | fechar a janela do Flask e rodar o `.bat` de novo |
-| Análise contextual sempre "não disponível" | chave inválida, modelo inexistente, limite | ver `gemini.falha` em `logs/ia.log` (`motivo`) |
+| Análise contextual sempre "não disponível" | chave inválida, modelo inexistente, limite | ver `gemini.falha` em `logs/ia/ia.log` (`motivo`) |
 | "Sua sessão expirou ou a página está desatualizada" | token CSRF de outra sessão | recarregar a página |
 | "Muitas tentativas seguidas. Por segurança, aguarde…" (login ou código) | limite de tentativas (v4.60): 5 erros por conta em 15 min | esperar o tempo indicado ou, para liberar na hora (ex.: na apresentação), `C:\xampp\php\php.exe scripts\jovemconnect.php limpar-tentativas` na pasta do projeto |
 | "Código incorreto muitas vezes… ele foi cancelado" | 5 erros no mesmo código (v4.60) | pedir um código novo |
@@ -250,7 +250,7 @@ variantes (`.ENV`, `.env.`, `%2eenv`, `::$DATA`, `.git./HEAD`...) e os nomes cur
 `logs/` e `uploads/curriculos/` estão fechadas (com um arquivo de teste criado e apagado na hora), que as páginas
 do site continuam respondendo e que os cabeçalhos de segurança estão presentes. Mostra só caminho, código HTTP,
 esperado, observado e APROVADO/REPROVADO — **nunca** o conteúdo. Relatório em
-`logs\verificacao_protecao-<data>.log`. Com `-Rede`, repete testes pelos IPs da rede deste PC.
+`logs\testes\verificacao_protecao-<data>.log`. Com `-Rede`, repete testes pelos IPs da rede deste PC.
 
 **Se algo falhar:**
 

@@ -22,7 +22,7 @@ if (!function_exists('registrar_log')) {
 // handler, um erro inesperado (chave estrangeira, dado longo demais, coluna
 // inexistente...) virava "Fatal error" com caminho do arquivo, SQL e stack
 // trace na tela (display_errors do XAMPP). Agora os detalhes completos vão
-// para logs/app.log (evento erro.inesperado, via jc_log_excecao) e o usuário recebe só uma mensagem amigável
+// para logs/site/app.log (evento erro.inesperado, via jc_log_excecao) e o usuário recebe só uma mensagem amigável
 // (JSON nos endpoints AJAX). Não engole o erro: ele continua registrado.
 if (!function_exists('jc_excecao_nao_tratada')) {
     function jc_excecao_nao_tratada(Throwable $e): void {

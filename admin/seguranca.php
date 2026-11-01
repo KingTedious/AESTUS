@@ -3,7 +3,7 @@
    admin/seguranca.php — eventos de segurança (Stage 7)
    - números do limite de tentativas da Central (só hashes no banco);
    - acessos negados e envios recusados registrados no histórico;
-   - últimos eventos de logs/seguranca.log (login, cadastro, conta,
+   - últimos eventos de logs/seguranca/seguranca.log (login, cadastro, conta,
      CSRF, acesso negado...), já sem dados sensíveis (o logger remove
      senha, token, e-mail, telefone, CPF e anonimiza o IP).
    ============================================================ */
@@ -53,7 +53,7 @@ echo '<section class="adm-cartao" aria-labelledby="t-log"><h2 id="t-log">Último
    . jc_admin_select_html('evento', 'evento', $prefixos, $prefixo, 'Todos') . '</div>'
    . '<div class="adm-acoes"><button type="submit" class="adm-btn adm-btn-sec">' . jc_admin_icone('filter') . ' Filtrar</button></div></form>';
 if (!$eventos) {
-    echo jc_admin_vazio('Nenhum evento encontrado no log de segurança atual.', 'O arquivo é renovado todo dia (os anteriores ficam na pasta logs/).');
+    echo jc_admin_vazio('Nenhum evento encontrado no log de segurança atual.', 'O arquivo é renovado todo dia (os anteriores ficam na pasta logs/seguranca/).');
 } else {
     echo '<div class="adm-tabela-rolagem adm-mt"><table class="adm-tabela"><caption class="adm-sr">Eventos do log de segurança</caption><thead><tr>'
        . '<th scope="col">Quando</th><th scope="col">Evento</th><th scope="col">Nível</th><th scope="col">Quem</th><th scope="col">Página</th>'

@@ -55,7 +55,7 @@ Antes: `iniciar_ia.bat` aberto; <http://127.0.0.1:5000/ping> responde (se a 5000
    literalmente, sem formatação nem scripts.
 5. Envie 9 mensagens em menos de um minuto → a 9ª recebe "Muitas mensagens em
    pouco tempo".
-6. Confira `logs/app.log`: eventos `assistente.resposta` com `fonte` e `ms`,
+6. Confira `logs/site/app.log`: eventos `assistente.resposta` com `fonte` e `ms`,
    **sem** o texto das mensagens.
 
 **Sem IA**

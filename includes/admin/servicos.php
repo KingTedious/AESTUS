@@ -803,17 +803,20 @@ if (!function_exists('jc_admin_indicadores')) {
         return jc_admin_select($conn, "SELECT id, nome FROM administradores ORDER BY nome");
     }
 
-    // ── Eventos de segurança (logs/seguranca.log) ───────────────────────
+    // ── Eventos de segurança (logs/seguranca/seguranca.log) ───────────────────────
 
     /**
-     * Últimos eventos de logs/seguranca.log (já sem dados sensíveis: o logger
+     * Últimos eventos de logs/seguranca/seguranca.log (já sem dados sensíveis: o logger
      * remove senhas, tokens, e-mails, telefones e CPF antes de gravar).
      */
     function jc_admin_eventos_seguranca(int $limite = 100, string $prefixo = ''): array {
         if (!function_exists('jc_log_dir')) {
             return [];
         }
-        $arquivo = jc_log_dir() . '/seguranca.log';
+        $arquivo = function_exists('jc_log_arquivo') ? jc_log_arquivo('seguranca') : jc_log_dir() . '/seguranca.log';
+        if (!is_file($arquivo) && is_file(jc_log_dir() . '/seguranca.log')) {
+            $arquivo = jc_log_dir() . '/seguranca.log';   // antes da v4.62 (ainda não organizado)
+        }
         if (!is_file($arquivo) || !is_readable($arquivo)) {
             return [];
         }

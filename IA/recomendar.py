@@ -361,9 +361,10 @@ def _config(nome: str, padrao: str = "") -> str:
     return os.environ.get(nome) or _ENV_PROJETO.get(nome) or padrao
 
 # ── Logs estruturados ───────────────────────────────────────────────
-# Uma linha JSON por evento em logs/ia.log (mesma pasta dos logs do PHP; ou
-# JC_LOG_DIR do .env). Cada requisição carrega o identificador X-Request-Id enviado
-# pelo PHP — o mesmo "req" aparece em logs/app.log e em logs/ia.log.
+# Uma linha JSON por evento em logs/ia/ia.log (subpasta "ia" da pasta dos logs do
+# PHP, ou de JC_LOG_DIR do .env; v4.62). Cada requisição carrega o identificador
+# X-Request-Id enviado pelo PHP — o mesmo "req" aparece em logs/site/app.log e em
+# logs/ia/ia.log. ia_porta.json e ia.lock continuam na raiz de logs/ (são estado, não log).
 # Nunca são gravados: textos digitados, dados do perfil, prompts, respostas
 # da IA ou a chave da API. Rotação diária (à meia-noite), guardando os
 # arquivos dos últimos JC_LOG_DIAS dias (padrão 30). Se a pasta não puder ser
@@ -380,7 +381,7 @@ _log_ia = logging.getLogger("jovemconnect.ia")
 _log_ia.setLevel(logging.INFO)
 _log_ia.propagate = False
 try:
-    _pasta_logs = _config("JC_LOG_DIR") or os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
+    _pasta_logs = os.path.join(_config("JC_LOG_DIR") or os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs"), "ia")
     os.makedirs(_pasta_logs, exist_ok=True)
     try:
         _dias = max(1, min(365, int(_config("JC_LOG_DIAS", "30"))))

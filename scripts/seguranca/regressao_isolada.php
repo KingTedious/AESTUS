@@ -19,7 +19,7 @@
 
    Mostra só: teste, resultado e um detalhe técnico curto. Nunca mostra
    senhas (as contas de teste usam senhas aleatórias criadas na hora).
-   Relatório: logs/regressao_isolada-AAAAMMDD-HHMMSS.log (fora do Git).
+   Relatório: logs/testes/regressao_isolada-AAAAMMDD-HHMMSS.log (fora do Git).
 
    Uso (na pasta do projeto, com o MySQL do XAMPP ligado):
      scripts\seguranca\regressao_isolada.bat           (Windows)
@@ -270,8 +270,8 @@ $fim = function (int $codigo) use (&$servidor, &$pipes, $c, $BANCO, $TMP, $MANTE
         }
     }
     diz(sprintf('Tempo: %.1f s', microtime(true) - $INICIO));
-    @mkdir($RAIZ . '/logs', 0775, true);
-    @file_put_contents($RAIZ . '/logs/regressao_isolada-' . $CARIMBO . '.log', implode(PHP_EOL, $SAIDA) . PHP_EOL);
+    @mkdir($RAIZ . '/logs/testes', 0775, true);
+    @file_put_contents($RAIZ . '/logs/testes/regressao_isolada-' . $CARIMBO . '.log', implode(PHP_EOL, $SAIDA) . PHP_EOL);
     exit($codigo);
 };
 
@@ -614,5 +614,5 @@ $aprov = count(array_filter($RESULTADOS, function ($r) { return $r[2]; }));
 $reprov = count($RESULTADOS) - $aprov;
 diz('');
 diz(sprintf('Resumo: %d aprovado(s), %d reprovado(s) de %d.', $aprov, $reprov, count($RESULTADOS)));
-diz('Relatorio: logs/regressao_isolada-' . $CARIMBO . '.log');
+diz('Relatorio: logs/testes/regressao_isolada-' . $CARIMBO . '.log');
 $fim($reprov ? 1 : 0);

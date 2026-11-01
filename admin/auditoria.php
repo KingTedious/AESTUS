@@ -48,10 +48,10 @@ if ($verificacao !== null) {
            . intval($verificacao['primeira_falha']) . ': ' . jc_e($verificacao['detalhe']) . '</div></div>';
     }
     if ($espelho['conferidos'] === 0) {
-        echo '<p class="adm-ajuda">Espelho no log: nenhum registro encontrado em logs/seguranca.log para comparar.</p>';
+        echo '<p class="adm-ajuda">Espelho no log: nenhum registro encontrado em logs/seguranca/seguranca.log para comparar.</p>';
     } elseif ($espelho['ok']) {
         echo '<p class="adm-ajuda">Espelho no log: ' . jc_admin_num($espelho['conferidos'])
-           . ' registros citados em logs/seguranca.log conferidos — todos presentes e iguais no banco.</p>';
+           . ' registros citados em logs/seguranca/seguranca.log conferidos — todos presentes e iguais no banco.</p>';
     } else {
         echo '<div class="adm-alerta adm-alerta-erro" role="alert">' . jc_admin_icone('alert-triangle') . '<div><strong>O log cita registros que não batem com o banco.</strong> ';
         if ($espelho['ausentes']) {
@@ -105,7 +105,7 @@ if ($verificacao !== null) {
 if (jc_admin_pode($admin, 'auditoria.verificar')) {
     echo '<form method="post" action="auditoria.php" class="adm-cartao"><h2>Integridade</h2>'
        . '<p>Cada registro guarda o hash do anterior. A conferência refaz a cadeia inteira, aponta o primeiro registro alterado ou removido '
-       . 'e compara o histórico com o espelho em logs/seguranca.log (o que revela também remoções no fim da tabela). '
+       . 'e compara o histórico com o espelho em logs/seguranca/seguranca.log (o que revela também remoções no fim da tabela). '
        . 'A própria conferência fica registrada no histórico.</p>'
        . jc_admin_csrf_campo()
        . '<button type="submit" class="adm-btn adm-btn-sec">' . jc_admin_icone('shield') . ' Conferir integridade agora</button></form>';
@@ -134,7 +134,7 @@ if (!$r['linhas']) {
     echo '</tbody></table></div>';
     echo jc_admin_paginacao($r['total'], $pagina, $por, 'auditoria.php', $f);
 }
-echo '<p class="adm-ajuda adm-mt">O código da requisição liga o registro às linhas de logs/app.log e logs/seguranca.log. '
+echo '<p class="adm-ajuda adm-mt">O código da requisição liga o registro às linhas de logs/site/app.log e logs/seguranca/seguranca.log. '
    . 'O histórico guarda identificadores, códigos, nomes de campos e a justificativa escrita pelo administrador '
    . '(e-mails e números longos são mascarados) — nunca o conteúdo dos campos alterados.</p>';
 jc_admin_fim();

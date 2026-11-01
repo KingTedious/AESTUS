@@ -6,7 +6,7 @@ rem  Roda os testes das correcoes de seguranca num BANCO NOVO de teste e numa
 rem  COPIA temporaria do projeto (seu banco e esta pasta nao sao alterados).
 rem  Precisa do MySQL do XAMPP ligado. O banco e a copia de teste sao apagados
 rem  no fim (para guardar: regressao_isolada.bat --manter).
-rem  Relatorio: logs\regressao_isolada-AAAAMMDDHHMMSS.log
+rem  Relatorio: logs\testes\regressao_isolada-AAAAMMDDHHMMSS.log
 rem ======================================================================
 set "RAIZ=%~dp0..\.."
 for %%I in ("%RAIZ%") do set "RAIZ=%%~fI"

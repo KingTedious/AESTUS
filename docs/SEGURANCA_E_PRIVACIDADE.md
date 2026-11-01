@@ -184,7 +184,7 @@ Gravidade: **Crítica** (exploração simples com dano grave) · **Alta** · **M
    Desde a v4.60: `scripts\seguranca\verificar_protecao.bat` faz esse teste (e dezenas de outros) e mostra
    APROVADO/REPROVADO; o `iniciar_jovemconnect.bat` faz uma versão curta a cada início.
 2. Se `AllowOverride` permite os `.htaccess` de `logs/` e `uploads/curriculos/` (SEG-10): abrir
-   `http://localhost/JovemConnect/logs/app.log` — o esperado é **403**.
+   `http://localhost/JovemConnect/logs/site/app.log` — o esperado é **403**.
 3. `display_errors` desligado em produção (para que warnings não apareçam na página). Desde a v4.60 o próprio
    projeto desliga a exibição (SEG-31), salvo com `JC_EXIBIR_ERROS=1` no `.env`.
 4. `session.gc_maxlifetime` (tempo real de sessão ociosa).

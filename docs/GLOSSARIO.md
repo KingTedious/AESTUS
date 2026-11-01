@@ -44,5 +44,5 @@
 | **Seed de demonstração** | `database/seed_demo.sql`: dados fictícios para apresentação. | [SEED_DEMO.md](SEED_DEMO.md) |
 | **Stage** | Etapa de evolução do projeto (Stage 3, 4, 5, 5.1, 6), citada em comentários e migrações. | código |
 | **Réplica** | Cópia do projeto em ambiente de desenvolvimento isolado onde os testes desta auditoria rodaram. | [TESTES.md](TESTES.md) |
-| **Evento de log** | Linha JSON `area.acao` em `logs/app.log`, `logs/seguranca.log` ou `logs/ia.log`. | [LOGS.md](LOGS.md) |
+| **Evento de log** | Linha JSON `area.acao` em `logs/site/app.log`, `logs/seguranca/seguranca.log` ou `logs/ia/ia.log`. | [LOGS.md](LOGS.md) |
 | **`req`** | Identificador da requisição, repassado do PHP ao Flask em `X-Request-Id` para correlacionar logs. | `jc_req_id()` |

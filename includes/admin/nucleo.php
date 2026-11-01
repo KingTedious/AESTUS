@@ -34,7 +34,7 @@ require_once __DIR__ . '/layout.php';
 // Erro inesperado numa página da Central: a transação já foi desfeita por
 // jc_admin_transacao() (nada gravado, nem a ação nem o histórico). O
 // administrador vê uma mensagem clara com o código da requisição, que
-// localiza o erro em logs/app.log — sem detalhes técnicos na tela.
+// localiza o erro em logs/site/app.log — sem detalhes técnicos na tela.
 if (PHP_SAPI !== 'cli') {
     set_exception_handler(function (Throwable $e): void {
         if (function_exists('jc_log_excecao')) {

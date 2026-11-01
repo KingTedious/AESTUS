@@ -81,6 +81,19 @@ Chave de sessão nova: `jc_senha_ref` (gravada por `jc_sessao_entrar`, conferida
 | `assets/css/admin.css` | avisos de licença completos dos ícones (Lucide/Feather) |
 | `.gitignore`, `.gitattributes`, `.env.example`, `requirements.txt` | `repomix-output.*`, `geminiAPI.env`, `*.bundle`; `pre-commit` sempre com LF; variáveis `JC_EXIBIR_ERROS`, `JC_TENTATIVAS_DIR`, `JC_AMBIENTE`; comentário do flask-cors |
 
+## Atualização v4.62 — logs organizados
+
+| Arquivo | O que mudou |
+|---|---|
+| `includes/logger.php` | `jc_log_subpasta($tipo)` (app→`site`, seguranca, ia, sistema, testes), `jc_log_pasta($tipo)` (cria a subpasta) e `jc_log_arquivo($tipo)`; `jc_log()` grava em `logs/site/app.log` ou `logs/seguranca/seguranca.log` (rotação e retenção iguais) |
+| `includes/admin/servicos.php`, `includes/admin/auditoria.php` | a Central lê `logs/seguranca/` (e ainda a raiz, para arquivos não organizados) |
+| `IA/recomendar.py` | `ia.log` em `logs/ia/`; `ia_porta.json` e `ia.lock` continuam na raiz de `logs/` |
+| `iniciar_ia.bat`/`.sh`, `iniciar_jovemconnect.bat`/`.sh` | logs de início em `logs/ia/` e `logs/sistema/`; o `iniciar_jovemconnect` roda `organizar-logs` |
+| `scripts/jovemconnect.php` | comando `organizar-logs` (move os antigos da raiz; nunca apaga nem sobrescreve); `protecao` testa também os caminhos novos |
+| `scripts/seguranca/*` | relatórios em `logs/testes/` |
+| `logs/LEIAME.txt` (novo) | explica as subpastas |
+| `admin/seguranca.php`, `admin/auditoria.php` | só os textos com o caminho do log |
+
 ## Módulo A — Autenticação, sessão, segurança base e contas
 
 Chaves de sessão do módulo (confirmadas):
@@ -1237,7 +1250,7 @@ Dependências comuns a quase todos os arquivos (não repetidas em cada seção):
 ### `IA/recomendar.py`
 
 - **Tipo:** servidor HTTP Flask (Python), processo separado do Apache/PHP, escuta só em `127.0.0.1`. **Porta (v4.55):** tenta `JC_IA_PORTA` (padrão 5000) e, se outro programa estiver nela, a primeira livre de `JC_IA_PORTAS_EXTRAS` (padrão 5001–5010, no máximo 50 portas). A porta escolhida é gravada em `logs/ia_porta.json`, que o PHP lê (`includes/ia_endereco.php`) [C, bloco principal, l. 1038–1090].
-- **Responsabilidade:** (1) calcular a nota de compatibilidade jovem↔vaga por regras (`/avaliar`); (2) gerar sugestões de melhoria de currículo por regras (+ opcional SDK antigo) (`/curriculo`); (3) chamar a API REST do Gemini para a análise contextual do Match (`/analise_contextual`) e para o Assistente (`/assistente`), validando/limpando a resposta; (4) health check (`/ping`); (5) log estruturado em `logs/ia.log`.
+- **Responsabilidade:** (1) calcular a nota de compatibilidade jovem↔vaga por regras (`/avaliar`); (2) gerar sugestões de melhoria de currículo por regras (+ opcional SDK antigo) (`/curriculo`); (3) chamar a API REST do Gemini para a análise contextual do Match (`/analise_contextual`) e para o Assistente (`/assistente`), validando/limpando a resposta; (4) health check (`/ping`); (5) log estruturado em `logs/ia/ia.log`.
 - **Quando executa / quem usa:** iniciado por `iniciar_ia.bat` (janela "JovemConnect - IA", sempre com `venv\Scripts\python.exe`) ou manualmente (`venv\Scripts\python.exe IA\recomendar.py`). Chamado por PHP via cURL, sempre no endereço devolvido por `jc_ia_url()`:
   - `/avaliar` ← `includes/match.php` → `jc_flask_post('/avaliar', …, 6)` usado em `IA/avaliar_ajax.php` action `match` (par novo).
   - `/curriculo` ← `IA/avaliar_ajax.php` action `curriculo` (cURL próprio, timeout 6 s) e `Vagas/curriculoIA.php` (cURL próprio, timeout 10 s).
@@ -1267,7 +1280,7 @@ Dependências comuns a quase todos os arquivos (não repetidas em cada seção):
 | `Host` local (v4.60) | `@app.before_request _somente_local`: só `127.0.0.1`, `localhost` ou `::1` (com qualquer porta); outro → 403 JSON (protege contra *DNS rebinding*) | início do arquivo |
 | `MAX_CONTENT_LENGTH` (v4.60) | 512 KB; corpo maior → 413 | início do arquivo |
 
-#### Logs (`logs/ia.log`)
+#### Logs (`logs/ia/ia.log`)
 - Logger `jovemconnect.ia`, `TimedRotatingFileHandler(when="midnight", backupCount=_dias, encoding="utf-8", delay=True)`, formato = só a mensagem (uma linha JSON). Sem permissão de escrita → `NullHandler` (servidor segue) [C, l. 358–373].
 - `log_ia(evento, nivel, **dados)`: linha `{"ts","nivel"(debug|info|aviso|erro),"componente":"flask","evento"(sanitizado [a-z0-9_.-]),"req","dados"}`; `dados`: até 15 chaves, nome sanitizado (máx. 30), valores não numéricos cortados em 120 caracteres e sem caracteres de controle. Exceções no log são engolidas [C, l. 376–393].
 - `@before_request _inicio_requisicao`: aceita `X-Request-Id` se casar `^[0-9a-f]{8,32}$`, senão gera `uuid4().hex[:16]`; guarda `g.t0` [C].
@@ -1329,7 +1342,7 @@ Dependências comuns a quase todos os arquivos (não repetidas em cada seção):
   - `jc_match_carregar`: `SELECT cidade, estado, area_interesse, escolaridade_tipo, escolaridade_curso, escolaridade_status, formacao FROM jovens WHERE id=?`; `SELECT titulo, area, tipo_contrato, carga_horaria, descricao FROM vagas WHERE id=?`; + `jc_local_efetivo` (SELECT em `vagas` JOIN `empresas` LEFT JOIN `empresa_locais`, ver módulo de locais).
   - `jc_match_payload_ia`: `SELECT habilidade FROM habilidades_jovem WHERE jovem_id=? ORDER BY id`; `SELECT titulo, periodo FROM experiencias_jovem WHERE jovem_id=? ORDER BY id`; `SELECT titulo, conclusao FROM formacao_jovem WHERE jovem_id=? ORDER BY id`; `SELECT requisito FROM requisitos_vaga WHERE vaga_id=? ORDER BY id`.
 - **Permissões:** nenhuma — quem chama deve autorizar (feito em `avaliar_ajax.php`).
-- **Erros:** `jc_flask_post` devolve `null` em qualquer falha (sem cURL, JSON não codificável, erro de transporte, HTTP ≠ 200, corpo não-JSON) e registra `flask.falha` em `logs/app.log` com `rota`, `motivo` (`timeout` | `conexao` | `http_<código>`), `ms`.
+- **Erros:** `jc_flask_post` devolve `null` em qualquer falha (sem cURL, JSON não codificável, erro de transporte, HTTP ≠ 200, corpo não-JSON) e registra `flask.falha` em `logs/site/app.log` com `rota`, `motivo` (`timeout` | `conexao` | `http_<código>`), `ms`.
 
 **Funções**
 
@@ -1542,7 +1555,7 @@ Dependências comuns a quase todos os arquivos (não repetidas em cada seção):
 - **Por que mudou:** a versão antiga criava `venv-%COMPUTERNAME%` em cada computador porque o `venv` do projeto aponta para o Python do computador em que foi criado, que não existe nos PCs da escola. Era a origem da pasta "venv SPXX-XXX".
 - **Passo a passo [C]:**
   1. Caminhos absolutos a partir da pasta do `.bat` (`RAIZ`, `VENV`, `PY=venv\Scripts\python.exe`, `IA\recomendar.py`, `IA\verificar_ambiente.py`, `IA\requirements-ia.txt`). Limpa `PYTHONHOME`, `PYTHONPATH` e `VIRTUAL_ENV` e liga `PYTHONNOUSERSITE=1`, para o Python não herdar configurações do computador.
-  2. **[1/5] Diagnóstico:** computador, pastas e ambiente oficial, na tela e em `logs\iniciar_ia.log` (sem senhas ou dados pessoais). Ambientes não oficiais encontrados (`venv-*`, `.venv`) só são avisados e ignorados.
+  2. **[1/5] Diagnóstico:** computador, pastas e ambiente oficial, na tela e em `logs\ia\iniciar_ia.log` (sem senhas ou dados pessoais). Ambientes não oficiais encontrados (`venv-*`, `.venv`) só são avisados e ignorados.
   3. **[2/5] Arquivos do projeto:** os três arquivos acima precisam existir.
   4. **[3/5] Ambiente oficial:** `verificar_ambiente.py verificar` confere se o `venv` pertence a esta pasta, se o Python é 3.10+ e se as versões fixas de `IA\requirements-ia.txt` estão instaladas.
   5. Se o `venv` estiver ausente ou inválido (por exemplo, copiado de outro PC), o `.bat` **para e explica o motivo**. Só com a confirmação **S** ele reconstrói o `venv` neste computador: renomeia o anterior para `venv.antigo-<data>`, cria um novo com o Python do computador (`py -3` ou `python`, validado por `verificar_ambiente.py base`) e instala `IA\requirements-ia.txt` (precisa de internet uma vez). Com **N**, nada é alterado.
@@ -1569,7 +1582,7 @@ Dependências comuns a quase todos os arquivos (não repetidas em cada seção):
 | `ping` | Lê a faixa do `.env` e `logs/ia_porta.json` e consulta o `/ping` | 0 a IA do JovemConnect já responde (reaproveitar); 1 porta preferida livre (iniciar); 2 outro programa na porta preferida (a IA vai para a faixa extra) |
 | `esperar <s>` | Espera até `<s>` segundos a IA confirmar a porta (arquivo + mesma `instancia` no `/ping`) | 0 confirmada; 1 sem resposta |
 
-- **Funções:** `log` (40, grava em `logs/iniciar_ia.log` sem dados sensíveis), `norm` (52), `fixadas` (56, lê as versões fixas), `verificar` (76), `base` (110), `_config` (127, lê `JC_IA_*` do ambiente ou do `.env`), `portas` (145, mesmas regras de `ia_endereco.php`), `consultar` (156), `estado` (176), `ping` (193), `esperar` (210), `main` (221).
+- **Funções:** `log` (40, grava em `logs/ia/iniciar_ia.log` sem dados sensíveis), `norm` (52), `fixadas` (56, lê as versões fixas), `verificar` (76), `base` (110), `_config` (127, lê `JC_IA_*` do ambiente ou do `.env`), `portas` (145, mesmas regras de `ia_endereco.php`), `consultar` (156), `estado` (176), `ping` (193), `esperar` (210), `main` (221).
 
 ---
 
@@ -1589,7 +1602,7 @@ Dependências comuns a quase todos os arquivos (não repetidas em cada seção):
 
 ### `iniciar_jovemconnect.bat` (novo na v4.56)
 
-- **Tipo:** script Windows (batch, ASCII, CRLF) na raiz do projeto. Diagnóstico na tela e em `logs\iniciar_jovemconnect.log`.
+- **Tipo:** script Windows (batch, ASCII, CRLF) na raiz do projeto. Diagnóstico na tela e em `logs\sistema\iniciar_jovemconnect.log`.
 - **Responsabilidade:** subir tudo num computador com XAMPP, na ordem certa, perguntando antes de criar qualquer coisa:
   1. Procura o XAMPP duas pastas acima (`..\..`, o esperado em `C:\xampp\htdocs\<pasta>`) e usa o `php.exe` dele com `scripts/jovemconnect.php`.
   2. `checar`: versão do PHP, extensões, pastas graváveis e se a pasta está dentro do `htdocs`. **Desde a v4.58, nada disso bloqueia sozinho:** se alguma verificação não bater, o `.bat` mostra o motivo e pergunta "Continuar mesmo assim? [S/N]" (N para com o diagnóstico). PHP 7.4 e 8.0 já passam como "modo de compatibilidade"; abaixo do 7.4 a checagem avisa que é antigo demais. Sem `.env`, oferece criá-lo a partir do `.env.example` (`criar-env`, que nunca sobrescreve).
@@ -1646,8 +1659,8 @@ Mesmo papel e mesmas regras dos `.bat`, para um computador Linux. Rode com `bash
 
 | Arquivo | Equivale a | O que faz [C] |
 |---|---|---|
-| `iniciar_jovemconnect.sh` | `iniciar_jovemconnect.bat` | 6 etapas: (1) `checar` do PHP, com "Continuar mesmo assim?" se algo não bater, e criação do `.env`; (2) oferece liberar a escrita do Apache em `logs/` e `uploads/curriculos/` (`chmod -R a+rwX`; o Apache roda com outro usuário); (3) Apache na porta 80 — se já responde, aceita um Apache ou um servidor que já mostra o JovemConnect; senão liga; (4) MySQL na 3306; (5) banco: instalar `schema.sql` e dados de demonstração só com S, e explica como criar um usuário quando o `root` do MariaDB do sistema não entra sem `sudo`; (6) confere o site e a proteção das pastas (`protecao`); depois chama o `iniciar_ia.sh`. Diagnóstico em `logs/iniciar_jovemconnect.log` |
-| `iniciar_ia.sh` | `iniciar_ia.bat` | Só o `venv` oficial (`venv/bin/python`), validado por `IA/verificar_ambiente.py`; venv ausente, de outro PC ou **criado no Windows** (tem `venv/Scripts`) → para, explica e só reconstrói com S, guardando o antigo como `venv.antigo-<data>`. Reaproveita a IA que já está no ar; senão inicia a IA **em segundo plano** (`setsid nohup`, saída em `logs/ia_console.log`, pasta de trabalho fora do projeto) e espera até 20 s a confirmação da porta. Abre o navegador com `xdg-open` se houver interface gráfica (`JC_NAO_ABRIR=1` desliga). Diagnóstico em `logs/iniciar_ia.log` |
+| `iniciar_jovemconnect.sh` | `iniciar_jovemconnect.bat` | 6 etapas: (1) `checar` do PHP, com "Continuar mesmo assim?" se algo não bater, e criação do `.env`; (2) oferece liberar a escrita do Apache em `logs/` e `uploads/curriculos/` (`chmod -R a+rwX`; o Apache roda com outro usuário); (3) Apache na porta 80 — se já responde, aceita um Apache ou um servidor que já mostra o JovemConnect; senão liga; (4) MySQL na 3306; (5) banco: instalar `schema.sql` e dados de demonstração só com S, e explica como criar um usuário quando o `root` do MariaDB do sistema não entra sem `sudo`; (6) confere o site e a proteção das pastas (`protecao`); depois chama o `iniciar_ia.sh`. Diagnóstico em `logs/sistema/iniciar_jovemconnect.log` |
+| `iniciar_ia.sh` | `iniciar_ia.bat` | Só o `venv` oficial (`venv/bin/python`), validado por `IA/verificar_ambiente.py`; venv ausente, de outro PC ou **criado no Windows** (tem `venv/Scripts`) → para, explica e só reconstrói com S, guardando o antigo como `venv.antigo-<data>`. Reaproveita a IA que já está no ar; senão inicia a IA **em segundo plano** (`setsid nohup`, saída em `logs/ia/ia_console.log`, pasta de trabalho fora do projeto) e espera até 20 s a confirmação da porta. Abre o navegador com `xdg-open` se houver interface gráfica (`JC_NAO_ABRIR=1` desliga). Diagnóstico em `logs/ia/iniciar_ia.log` |
 | `parar_jovemconnect.sh` | `parar_jovemconnect.bat` + `scripts/excluir_pasta.bat` | Fecha só a IA desta pasta; pergunta se apaga o banco (digitando o nome), se desliga Apache e MySQL (avisa que, nos serviços do sistema, outros sites também param) e se exclui a pasta: só dentro de `htdocs` ou `/var/www`, com os arquivos do JovemConnect, aviso do Git e nome digitado (maiúsculas tanto faz). Todo o código fica em funções, então o script pode apagar a própria pasta; até 3 tentativas e, se sobrar algo (arquivos criados pelo Apache), oferece repetir com `sudo` |
 | `scripts/linux_comum.sh` | — | Funções comuns (`log`, `perguntar`, `ajuda`, `servico`), carregadas com `source`. Reconhece o ambiente: **XAMPP para Linux** em `/opt/lampp` (`sudo /opt/lampp/lampp startapache|startmysql|stopapache|stopmysql`, PHP em `/opt/lampp/bin/php`), **serviços do sistema** com systemd (`apache2`/`httpd`; `mariadb`/`mysql`/`mysqld`) ou **manual** (só confere). Variáveis opcionais: `JC_PHP`, `JC_LAMPP` |
 

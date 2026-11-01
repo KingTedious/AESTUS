@@ -17,7 +17,7 @@
 
   Mostra so: caminho, codigo HTTP, esperado, observado e APROVADO/REPROVADO.
   NUNCA mostra nem grava o conteudo dos arquivos (podem conter senhas).
-  O relatorio vai para logs\verificacao_protecao-AAAAMMDD-HHMMSS.log (fora do Git).
+  O relatorio vai para logs\testes\verificacao_protecao-AAAAMMDD-HHMMSS.log (fora do Git).
 
   Uso (na pasta do projeto):
     scripts\seguranca\verificar_protecao.bat
@@ -38,7 +38,7 @@ $Pasta = Split-Path -Leaf $Raiz
 if (-not $Base) { $Base = "http://127.0.0.1/$Pasta" }
 $Base = $Base.TrimEnd('/')
 if (-not $Saida) {
-    $Saida = Join-Path $Raiz ("logs\verificacao_protecao-" + (Get-Date -Format 'yyyyMMdd-HHmmss') + ".log")
+    $Saida = Join-Path $Raiz ("logs\testes\verificacao_protecao-" + (Get-Date -Format 'yyyyMMdd-HHmmss') + ".log")
 }
 New-Item -ItemType Directory -Force -Path (Split-Path -Parent $Saida) | Out-Null
 
@@ -131,7 +131,8 @@ $internos = @(
     'migrations/2026-10-11_stage7_admin_moderacao.sql', 'includes/config.php', 'includes/env.php',
     'includes/match.php', 'scripts/admin.php', 'scripts/jovemconnect.php',
     'scripts/seguranca/verificar_protecao.ps1', 'IA/recomendar.py', 'IA/verificar_ambiente.py',
-    'IA/requirements-ia.txt', 'venv/pyvenv.cfg', 'logs/app.log', 'logs/seguranca.log',
+    'IA/requirements-ia.txt', 'venv/pyvenv.cfg', 'logs/app.log', 'logs/seguranca.log', 'logs/site/app.log',
+    'logs/seguranca/seguranca.log', 'logs/ia/ia.log', 'logs/testes/',
     'logs/ia_porta.json', 'uploads/curriculos/.htaccess'
 )
 foreach ($rel in $internos) {

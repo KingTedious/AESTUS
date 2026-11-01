@@ -244,7 +244,7 @@ vê o candidato quando:
    v4.60 toda conta nova nasce com `0` (privada) [C]; até a v4.59 o padrão era `1`.
 
 Sem relação: resposta "Perfil indisponível" (HTTP 404, igual para "não existe"), registrada como
-`acesso.negado` em `logs/seguranca.log` [C][T].
+`acesso.negado` em `logs/seguranca/seguranca.log` [C][T].
 
 A empresa nunca recebe CPF, CEP, endereço, telefone ou data de nascimento (só a idade). O **e-mail** só
 aparece no caso 1. A consulta SQL da visão da empresa já seleciona apenas essas colunas [C][T].

@@ -11,11 +11,11 @@
 #   - se o venv estiver ausente ou invalido (ex.: copiado de outro PC ou criado
 #     no Windows), PARA e explica. Com a sua confirmacao (S), reconstroi o venv
 #     neste computador, guardando o anterior como venv.antigo-<data>.
-#  A IA roda em segundo plano (saida em logs/ia_console.log). Para desligar:
+#  A IA roda em segundo plano (saida em logs/ia/ia_console.log). Para desligar:
 #  bash parar_jovemconnect.sh (ou kill <pid gravado em logs/ia_porta.json>).
 #  Porta: a IA tenta a 5000 (JC_IA_PORTA) e, se outro programa estiver nela,
 #  a faixa JC_IA_PORTAS_EXTRAS (padrao 5001-5010). Nenhum processo e encerrado.
-#  Diagnostico: na tela e em logs/iniciar_ia.log (sem senhas ou dados pessoais).
+#  Diagnostico: na tela e em logs/ia/iniciar_ia.log (sem senhas ou dados pessoais).
 # ======================================================================
 
 RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
@@ -25,8 +25,8 @@ PY="$VENV/bin/python"
 APP="$RAIZ/IA/recomendar.py"
 CHK="$RAIZ/IA/verificar_ambiente.py"
 REQ="$RAIZ/IA/requirements-ia.txt"
-LOG="$RAIZ/logs/iniciar_ia.log"
-CONSOLE="$RAIZ/logs/ia_console.log"
+LOG="$RAIZ/logs/ia/iniciar_ia.log"
+CONSOLE="$RAIZ/logs/ia/ia_console.log"
 
 # Isola o Python de configuracoes do computador
 unset PYTHONHOME PYTHONPATH VIRTUAL_ENV
@@ -42,7 +42,7 @@ perguntar() {
 }
 falhou() {
     echo
-    echo "  Diagnostico salvo em logs/iniciar_ia.log"
+    echo "  Diagnostico salvo em logs/ia/iniciar_ia.log"
     exit 1
 }
 
@@ -115,7 +115,7 @@ reconstruir() {
 
 main() {
     cd "$RAIZ" || { echo "ERRO: nao consegui entrar na pasta do projeto."; exit 1; }
-    mkdir -p "$RAIZ/logs" 2>/dev/null
+    mkdir -p "$RAIZ/logs/ia" 2>/dev/null
     echo "--------------------------------------------------"
     echo "  A iniciar o servidor de IA do JovemConnect..."
     echo "--------------------------------------------------"
@@ -179,7 +179,7 @@ main() {
         log "  Nao abro outra: a IA que ja esta no ar sera usada."
     else
         [ "$rc" = "1" ] && log "  Nao: a porta preferida esta livre."
-        log "[5/5] Iniciando a IA em segundo plano (saida em logs/ia_console.log)"
+        log "[5/5] Iniciando a IA em segundo plano (saida em logs/ia/ia_console.log)"
         # Pasta de trabalho FORA do projeto (a IA usa caminhos absolutos), como no Windows
         # (o subshell vira a propria IA com "exec": nada fica preso a este terminal)
         if command -v setsid >/dev/null 2>&1; then
@@ -189,7 +189,7 @@ main() {
         fi
         if ! "$PY" "$CHK" esperar 20; then
             log "ERRO: a IA nao confirmou a porta em 20 segundos."
-            log "  Veja o final de logs/ia_console.log (ex.: nenhuma porta livre na faixa)."
+            log "  Veja o final de logs/ia/ia_console.log (ex.: nenhuma porta livre na faixa)."
             log "  Nenhum processo foi encerrado."
             falhou
         fi

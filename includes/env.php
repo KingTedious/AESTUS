@@ -63,7 +63,7 @@ carregarEnv();
  * O php.ini do XAMPP vem com display_errors ligado: um aviso do PHP mostraria
  * na tela caminhos do servidor, nomes de arquivo e trechos de SQL a qualquer
  * visitante. Por padrão os erros vão só para o log do PHP (no XAMPP:
- * C:\xampp\php\logs\php_error_log); as exceções continuam no logs/app.log.
+ * C:\xampp\php\logs\php_error_log); as exceções continuam no logs/site/app.log.
  * Para VER os erros na tela enquanto desenvolve: JC_EXIBIR_ERROS=1 no .env.
  * A linha de comando (scripts/*.php) não muda.
  */

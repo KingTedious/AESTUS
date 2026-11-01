@@ -8,10 +8,15 @@ require_once __DIR__ . '/compat.php';   // PHP 7.4/8.0: str_contains etc. (inclu
       "evento":"login.sucesso","req":"a1b2c3d4e5f60718","usuario":"jovem:12",...}
 
    Arquivos (pasta definida por JC_LOG_DIR no .env; padrão: logs/ do projeto,
-   bloqueada para o navegador pelo logs/.htaccess):
-     app.log        → funcionamento: erros, Match, IA, Flask, vagas, candidaturas
-     seguranca.log  → auditoria: login, cadastro, conta, CSRF, acesso negado
-   O Flask grava ia.log na mesma pasta (IA/recomendar.py).
+   bloqueada para o navegador pelo logs/.htaccess). Desde a v4.62, uma subpasta
+   por assunto (ver logs/LEIAME.txt):
+     site/app.log              → ações do site: erros, Match, vagas, candidaturas
+     seguranca/seguranca.log   → logins, cadastros, verificações, conta, CSRF,
+                                  acesso negado e espelho da auditoria da Central
+     ia/ia.log                 → servidor de IA (Flask, IA/recomendar.py)
+     sistema/, testes/         → início do projeto e roteiros de verificação
+   Arquivos antigos na raiz de logs/ são movidos por
+   "php scripts/jovemconnect.php organizar-logs" (o iniciar_jovemconnect faz isso).
 
    Proteções:
    - Campos sensíveis (senha, token, CPF, telefone, e-mail, CEP, chave...)
@@ -45,6 +50,27 @@ if (!function_exists('jc_log')) {
                 : bin2hex(random_bytes(8));
         }
         return $id;
+    }
+
+    /** Subpasta de cada tipo de log (v4.62). */
+    function jc_log_subpasta(string $tipo): string {
+        $mapa = ['app' => 'site', 'seguranca' => 'seguranca', 'ia' => 'ia', 'sistema' => 'sistema', 'testes' => 'testes'];
+        return $mapa[$tipo] ?? 'site';
+    }
+
+    /** Pasta de um tipo de log (criada se não existir), ex.: logs/seguranca. */
+    function jc_log_pasta(string $tipo): string {
+        $dir = jc_log_dir() . '/' . jc_log_subpasta($tipo);
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0750, true);
+        }
+        return $dir;
+    }
+
+    /** Arquivo atual de um tipo: 'app' → logs/site/app.log; 'seguranca' → logs/seguranca/seguranca.log. */
+    function jc_log_arquivo(string $tipo): string {
+        $nome = $tipo === 'seguranca' ? 'seguranca' : 'app';
+        return jc_log_pasta($tipo === 'seguranca' ? 'seguranca' : 'app') . '/' . $nome . '.log';
     }
 
     /** Lê uma configuração do ambiente (.env já carregado por includes/env.php). */
@@ -181,7 +207,7 @@ if (!function_exists('jc_log')) {
                 $linha['dados'] = jc_log_limpar($dados);
             }
             $json = json_encode($linha, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
-            $destino = jc_log_dir() . '/' . ($arquivo === 'seguranca' ? 'seguranca' : 'app') . '.log';
+            $destino = jc_log_arquivo($arquivo === 'seguranca' ? 'seguranca' : 'app');
             jc_log_rotacionar($destino);
             if (@file_put_contents($destino, $json . PHP_EOL, FILE_APPEND | LOCK_EX) === false) {
                 error_log('[JovemConnect] não foi possível gravar o log em ' . basename($destino));

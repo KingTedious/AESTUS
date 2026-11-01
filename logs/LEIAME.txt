@@ -1,0 +1,31 @@
+Pasta logs/ do JovemConnect (organizada na v4.62)
+==================================================
+
+Bloqueada para o navegador (logs/.htaccess). Os arquivos .log ficam fora do Git
+(.gitignore). Nenhum log grava senha, CPF, e-mail, telefone, texto digitado ou
+chave de API; o IP aparece só nos eventos de segurança, anonimizado.
+
+  site/        ações do site: erros, Match, vagas, candidaturas, locais
+               app.log (atual) e app-AAAAMMDD-HHMMSS.log (dias anteriores)
+
+  seguranca/   logins, cadastros, verificações de e-mail/telefone, recuperação de
+               senha, logout, conta excluída, acesso negado, CSRF, denúncias e o
+               espelho da auditoria da Central administrativa
+               seguranca.log e seguranca-AAAAMMDD-HHMMSS.log
+
+  ia/          servidor de IA (Flask): ia.log e ia.log.AAAA-MM-DD;
+               início da IA: iniciar_ia.log (no Linux, também ia_console.log)
+
+  sistema/     início do projeto: iniciar_jovemconnect.log
+
+  testes/      roteiros de verificação e segurança (scripts\seguranca\):
+               verificacao_protecao-*.log, regressao_isolada-*.log,
+               diagnostico_seguranca-*.log
+
+Na raiz desta pasta ficam só ia_porta.json e ia.lock: são o "estado" da IA
+(porta em uso e trava de instância única), não são logs. Não apague com a IA ligada.
+
+Retenção: site/ e seguranca/ guardam 30 dias (JC_LOG_DIAS no .env); ia/ também.
+Arquivos antigos na raiz são movidos para as subpastas por
+  php scripts/jovemconnect.php organizar-logs
+(o iniciar_jovemconnect faz isso sozinho). Detalhes: docs/LOGS.md.

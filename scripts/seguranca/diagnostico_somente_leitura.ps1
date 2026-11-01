@@ -2,7 +2,7 @@
   scripts\seguranca\diagnostico_somente_leitura.ps1 - diagnostico de seguranca (JovemConnect)
 
   SOMENTE LEITURA. Nao altera configuracao, arquivos do projeto, banco nem Git.
-  Grava apenas o proprio relatorio: logs\diagnostico_seguranca-AAAAMMDD-HHMMSS.log (fora do Git).
+  Grava apenas o proprio relatorio: logs\testes\diagnostico_seguranca-AAAAMMDD-HHMMSS.log (fora do Git).
 
   O que confere:
     A. XAMPP: versoes do Apache, PHP e MariaDB
@@ -30,7 +30,7 @@ $Pasta = Split-Path -Leaf $Raiz
 $Xampp = (Resolve-Path (Join-Path $Raiz '..\..') -ErrorAction SilentlyContinue).Path
 if (-not $Xampp -or -not (Test-Path (Join-Path $Xampp 'apache'))) { $Xampp = 'C:\xampp' }
 if (-not $Saida) {
-    $Saida = Join-Path $Raiz ("logs\diagnostico_seguranca-" + (Get-Date -Format 'yyyyMMdd-HHmmss') + ".log")
+    $Saida = Join-Path $Raiz ("logs\testes\diagnostico_seguranca-" + (Get-Date -Format 'yyyyMMdd-HHmmss') + ".log")
 }
 New-Item -ItemType Directory -Force -Path (Split-Path -Parent $Saida) | Out-Null
 # Nome longo de proposito: o PowerShell nao diferencia maiusculas, e um "foreach ($l ...)" no nivel do
@@ -226,7 +226,7 @@ if (-not $git) {
     W "  grafia de candidaturas/ no indice (Linux diferencia maiusculas):"
     foreach ($l in (git ls-files 2>$null | Where-Object { $_ -match '(?i)^candidaturas/' })) { W ("    " + $l) }
     W "  ignorados pelo .gitignore (esperado: todos ignorados):"
-    foreach ($f in @('.env', 'geminiAPI.env', 'repomix-output.xml', 'logs/app.log', 'venv/pyvenv.cfg')) {
+    foreach ($f in @('.env', 'geminiAPI.env', 'repomix-output.xml', 'logs/site/app.log', 'venv/pyvenv.cfg')) {
         $r = (git check-ignore -- $f 2>$null) -join ''
         W ("    {0,-22} {1}" -f $f, $(if ($r) { 'ignorado' } else { 'NAO ignorado' }))
     }

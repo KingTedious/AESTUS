@@ -45,6 +45,12 @@ O `README.md` da raiz do projeto continua sendo o guia rápido de instalação.
 > sem limite. Motivada pelo teste de estresse
 > ([RELATORIO_TESTE_DE_ESTRESSE.md](RELATORIO_TESTE_DE_ESTRESSE.md)). Só `Vagas/listar.php` mudou; testes em
 > [TESTES_RESULTADOS.md](TESTES_RESULTADOS.md#v461--paginação-da-lista-de-vagas).
+>
+> **Atualização v4.62 (01/11/2026) — logs organizados.** Cada tipo de log tem a sua subpasta em `logs/`:
+> `site/` (ações do site), `seguranca/` (logins, cadastros, verificações), `ia/` (servidor de IA), `sistema/`
+> (início do projeto) e `testes/` (roteiros de segurança). Os arquivos antigos da raiz são movidos sozinhos pelo
+> `iniciar_jovemconnect` (`organizar-logs`). O formato dos registros e o que é gravado não mudaram. Detalhes em
+> [LOGS.md](LOGS.md); testes em [TESTES_RESULTADOS.md](TESTES_RESULTADOS.md#v462--logs-organizados-em-subpastas).
 
 ## O projeto em poucas linhas
 

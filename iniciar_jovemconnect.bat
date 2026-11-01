@@ -17,7 +17,7 @@ rem      o schema.sql (so em banco vazio; nunca importa por cima, nunca apaga)
 rem   4. inicia a IA (iniciar_ia.bat) e abre o site
 rem  Nada e apagado. Nenhum programa de terceiros e encerrado.
 rem  Para desligar (e, se quiser, limpar este computador): parar_jovemconnect.bat
-rem  Diagnostico: na tela e em logs\iniciar_jovemconnect.log
+rem  Diagnostico: na tela e em logs\sistema\iniciar_jovemconnect.log
 rem ======================================================================
 
 set "RAIZ=%~dp0"
@@ -26,10 +26,10 @@ for %%I in ("%RAIZ%") do set "PASTA=%%~nxI"
 for %%I in ("%RAIZ%\..\..") do set "XAMPP=%%~fI"
 set "PHP=%XAMPP%\php\php.exe"
 set "AJUDA=%RAIZ%\scripts\jovemconnect.php"
-set "LOG=%RAIZ%\logs\iniciar_jovemconnect.log"
+set "LOG=%RAIZ%\logs\sistema\iniciar_jovemconnect.log"
 
 cd /d "%RAIZ%" || goto falha_raiz
-if not exist "%RAIZ%\logs\" mkdir "%RAIZ%\logs" 2>nul
+if not exist "%RAIZ%\logs\sistema\" mkdir "%RAIZ%\logs\sistema" 2>nul
 
 echo --------------------------------------------------
 echo   JovemConnect - preparando tudo...
@@ -43,6 +43,8 @@ call :log "  XAMPP  : %XAMPP%"
 if not exist "%PHP%" goto sem_xampp
 if not exist "%XAMPP%\apache_start.bat" goto sem_xampp
 if not exist "%AJUDA%" goto falta_arquivo
+rem v4.62: logs antigos da raiz de logs\ vao para as subpastas (site, seguranca, ia, sistema, testes)
+"%PHP%" "%AJUDA%" organizar-logs >nul 2>&1
 "%PHP%" "%AJUDA%" checar
 set "RC=%ERRORLEVEL%"
 rem 0 = ok, 20 = ok sem .env; qualquer outro codigo (1, ou erro do proprio PHP) = aviso
@@ -186,7 +188,7 @@ goto falhou
 
 :falhou
 echo.
-echo   Diagnostico salvo em logs\iniciar_jovemconnect.log
+echo   Diagnostico salvo em logs\sistema\iniciar_jovemconnect.log
 pause
 exit /b 1
 

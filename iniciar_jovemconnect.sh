@@ -16,24 +16,24 @@
 #   6. inicia a IA (iniciar_ia.sh) e mostra o endereco do site
 #  Nada e apagado. Nenhum programa de terceiros e encerrado.
 #  Para desligar (e, se quiser, limpar este computador): parar_jovemconnect.sh
-#  Diagnostico: na tela e em logs/iniciar_jovemconnect.log
+#  Diagnostico: na tela e em logs/sistema/iniciar_jovemconnect.log
 # ======================================================================
 
 RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 PASTA="$(basename "$RAIZ")"
-LOG="$RAIZ/logs/iniciar_jovemconnect.log"
+LOG="$RAIZ/logs/sistema/iniciar_jovemconnect.log"
 # shellcheck source=scripts/linux_comum.sh
 . "$RAIZ/scripts/linux_comum.sh" || { echo "ERRO: falta scripts/linux_comum.sh"; exit 1; }
 
 falhou() {
     echo
-    echo "  Diagnostico salvo em logs/iniciar_jovemconnect.log"
+    echo "  Diagnostico salvo em logs/sistema/iniciar_jovemconnect.log"
     exit 1
 }
 
 main() {
     cd "$RAIZ" || { echo "ERRO: nao consegui entrar na pasta do projeto."; exit 1; }
-    mkdir -p "$RAIZ/logs" 2>/dev/null
+    mkdir -p "$RAIZ/logs/sistema" 2>/dev/null
     echo "--------------------------------------------------"
     echo "  JovemConnect - preparando tudo..."
     echo "--------------------------------------------------"
@@ -53,6 +53,8 @@ main() {
         log "ERRO: falta scripts/jovemconnect.php. Confira se a pasta do projeto foi copiada inteira."
         falhou
     fi
+    # v4.62: logs antigos da raiz de logs/ vao para as subpastas (site, seguranca, ia, sistema, testes)
+    ajuda organizar-logs >/dev/null 2>&1
     ajuda checar
     local rc=$?
     if [ "$rc" != "0" ] && [ "$rc" != "20" ]; then

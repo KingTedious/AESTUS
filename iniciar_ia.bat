@@ -15,7 +15,7 @@ rem  Cada computador deve ter o SEU venv: nao copie a pasta venv entre PCs.
 rem  Porta: a IA tenta a 5000 (JC_IA_PORTA) e, se outro programa estiver nela,
 rem  a faixa JC_IA_PORTAS_EXTRAS (padrao 5001-5010). Ela grava a porta escolhida
 rem  em logs\ia_porta.json, que o PHP le. Nenhum processo e encerrado.
-rem  Diagnostico: na tela e em logs\iniciar_ia.log (sem senhas ou dados pessoais).
+rem  Diagnostico: na tela e em logs\ia\iniciar_ia.log (sem senhas ou dados pessoais).
 rem ======================================================================
 
 rem --- Caminhos absolutos, a partir da pasta deste arquivo ----------------
@@ -26,8 +26,8 @@ set "PY=%VENV%\Scripts\python.exe"
 set "APP=%RAIZ%\IA\recomendar.py"
 set "CHK=%RAIZ%\IA\verificar_ambiente.py"
 set "REQ=%RAIZ%\IA\requirements-ia.txt"
-set "LOGDIR=%RAIZ%\logs"
-set "LOG=%RAIZ%\logs\iniciar_ia.log"
+set "LOGDIR=%RAIZ%\logs\ia"
+set "LOG=%RAIZ%\logs\ia\iniciar_ia.log"
 for %%I in ("%RAIZ%") do set "PASTA=%%~nxI"
 rem Pasta de trabalho da janela da IA: FORA do projeto (htdocs). Uma janela aberta
 rem "dentro" da pasta impedia o parar_jovemconnect.bat de exclui-la. A IA usa
@@ -213,7 +213,7 @@ goto falhou
 
 :falhou
 echo.
-echo   Diagnostico salvo em logs\iniciar_ia.log
+echo   Diagnostico salvo em logs\ia\iniciar_ia.log
 pause
 exit /b 1
 
