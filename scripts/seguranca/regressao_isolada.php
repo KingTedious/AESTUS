@@ -96,18 +96,35 @@ function importar(mysqli $c, string $arquivo): ?string {
     if ($sql === false) {
         return 'arquivo não encontrado: ' . basename($arquivo);
     }
+    // Mensagem do MySQL (sem dados: o schema.sql não tem nenhum) e o comando em que parou
+    $falha = function () use ($c): string {
+        $msg = trim((string) $c->error);
+        return 'erro no SQL (' . $c->errno . ($msg !== '' ? ': ' . mb_substr($msg, 0, 300) : '') . ')';
+    };
+    $n = 1;
     if (!$c->multi_query($sql)) {
-        return 'erro no SQL (' . $c->errno . ')';
+        return $falha() . ' no comando 1';
     }
     do {
         if ($r = $c->store_result()) {
             $r->free();
         }
         if ($c->errno) {
-            return 'erro no SQL (' . $c->errno . ')';
+            return $falha() . ' no comando ' . $n;
         }
+        $n++;
     } while ($c->more_results() && $c->next_result());
-    return $c->errno ? 'erro no SQL (' . $c->errno . ')' : null;
+    return $c->errno ? $falha() . ' no comando ' . $n : null;
+}
+
+/** O MySQL continua de pé? (2006/2013 = conexão perdida; pode ser queda do servidor) */
+function mysql_vivo(array $DB): bool {
+    $t = @new mysqli($DB['host'], $DB['user'], $DB['pass']);
+    if ($t->connect_errno) {
+        return false;
+    }
+    $t->close();
+    return true;
 }
 
 function porta_livre(): int {
@@ -230,17 +247,27 @@ $COPIA = $TMP . DIRECTORY_SEPARATOR . basename($RAIZ);
 $servidor = null;
 $pipes = [];
 
-$fim = function (int $codigo) use (&$servidor, &$pipes, $c, $BANCO, $TMP, $MANTER, $RAIZ, $CARIMBO, $INICIO) {
+$fim = function (int $codigo) use (&$servidor, &$pipes, $c, $BANCO, $TMP, $MANTER, $RAIZ, $CARIMBO, $INICIO, $DB) {
     global $SAIDA;
     parar_servidor($servidor, $pipes);
     if ($MANTER) {
         diz('');
         diz('--manter: banco ' . $BANCO . ' e copia em ' . $TMP . ' foram GUARDADOS (apague quando terminar).');
     } else {
-        $c->query('DROP DATABASE IF EXISTS `' . $BANCO . '`');
+        $apagou = @$c->query('DROP DATABASE IF EXISTS `' . $BANCO . '`');
+        if (!$apagou) {
+            // conexão perdida (ex.: erro 2006): tenta de novo com uma conexão nova
+            $c2 = @new mysqli($DB['host'], $DB['user'], $DB['pass']);
+            $apagou = !$c2->connect_errno && $c2->query('DROP DATABASE IF EXISTS `' . $BANCO . '`');
+        }
         apagar_arvore($TMP);
         diz('');
-        diz('Ambiente de teste apagado: banco ' . $BANCO . ' e a copia temporaria.');
+        if ($apagou) {
+            diz('Ambiente de teste apagado: banco ' . $BANCO . ' e a copia temporaria.');
+        } else {
+            diz('Copia temporaria apagada. O banco de teste ' . $BANCO . ' NAO pode ser apagado (MySQL inacessivel):');
+            diz('apague-o depois no phpMyAdmin (so ele; o banco do .env nao e usado por este teste).');
+        }
     }
     diz(sprintf('Tempo: %.1f s', microtime(true) - $INICIO));
     @mkdir($RAIZ . '/logs', 0775, true);
@@ -253,6 +280,11 @@ $c->select_db($BANCO);
 $erro = importar($c, $RAIZ . '/schema.sql');
 if ($erro !== null) {
     diz('ERRO ao instalar o schema.sql no banco de teste: ' . $erro);
+    if (preg_match('/\((2006|2013)\b/', $erro)) {
+        diz(mysql_vivo($DB)
+            ? 'O MySQL continua ligado: ele fechou esta conexao no meio da importacao (veja max_allowed_packet no my.ini).'
+            : 'O MySQL CAIU durante a importacao. Veja as ultimas linhas de C:\\xampp\\mysql\\data\\mysql_error.log e ligue o MySQL de novo.');
+    }
     $fim(2);
 }
 $c = new mysqli($DB['host'], $DB['user'], $DB['pass'], $BANCO);   // conexão limpa depois do multi_query

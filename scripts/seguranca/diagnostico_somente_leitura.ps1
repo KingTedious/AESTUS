@@ -33,9 +33,11 @@ if (-not $Saida) {
     $Saida = Join-Path $Raiz ("logs\diagnostico_seguranca-" + (Get-Date -Format 'yyyyMMdd-HHmmss') + ".log")
 }
 New-Item -ItemType Directory -Force -Path (Split-Path -Parent $Saida) | Out-Null
-$script:L = New-Object System.Collections.Generic.List[string]
+# Nome longo de proposito: o PowerShell nao diferencia maiusculas, e um "foreach ($l ...)" no nivel do
+# script sobrescrevia uma lista chamada $L (o relatorio saia so com a ultima linha do git grep).
+$script:Relatorio = New-Object System.Collections.Generic.List[string]
 
-function W([string]$t) { Write-Host $t; $script:L.Add($t) }
+function W([string]$t) { Write-Host $t; $script:Relatorio.Add($t) }
 function Titulo([string]$t) { W ""; W ("== " + $t + " " + ('=' * [Math]::Max(3, 70 - $t.Length))) }
 # Linhas de um arquivo de configuracao que casam com o padrao, sem comentarios
 function LinhasConf([string]$arq, [string]$padrao) {
@@ -412,5 +414,5 @@ if ($git) {
 
 W ""
 W "Fim do diagnostico. Relatorio: $Saida"
-$script:L | Set-Content -Path $Saida -Encoding UTF8
+$script:Relatorio | Set-Content -Path $Saida -Encoding UTF8
 exit 0

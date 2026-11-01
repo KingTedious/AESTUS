@@ -72,7 +72,7 @@ com `.htaccess` (`logs/`, `uploads/curriculos/`, `scripts/`) e nenhum na raiz; `
 | Área | Antes (v4.59) | Depois (v4.60) |
 |---|---|---|
 | Apache | sem `.htaccess` na raiz: `.env`, `.git`, `docs/`, `.sql`, `.py`, repomix e `venv` servidos como arquivo | `.htaccess` na raiz + 4 pastas novas protegidas; apelidos do Windows barrados; verificador completo e verificação curta no início |
-| Rede | não verificada | `diagnostico_somente_leitura.bat` mostra `Listen`, `AllowOverride`, MariaDB, portas, firewall e pastas vizinhas; procedimento para `Listen 127.0.0.1` |
+| Rede | verificada em 01/11/2026: Apache e MariaDB abertos à rede, com o firewall liberando em redes Públicas (seção 9, item 10) | `diagnostico_somente_leitura.bat` mostra `Listen`, `AllowOverride`, MariaDB, portas, firewall e pastas vizinhas; procedimento para `Listen 127.0.0.1` |
 | Git | `geminiAPI.env` e repomix rastreados; `Candidaturas/` no índice; sem gancho | roteiro do Git pronto (não executado); `.gitignore` atualizado; gancho `pre-commit` opcional |
 | Autenticação | sem limite de tentativas; sessões sobreviviam à troca de senha; token CSRF fixo; duas identidades possíveis | limite por conta e IP; sessões encerradas; token renovado; identidade única |
 | Privacidade | perfil do jovem nascia público; currículo com nome previsível | perfil privado nas contas novas; nome aleatório |
@@ -127,19 +127,19 @@ e arquivos temporários.
 
 | ID | Gravidade original | Situação | O que foi feito | Evidência | Risco residual |
 |---|---|---|---|---|---|
-| PI-01 Apache serve arquivos internos | Crítica | **CORRIGIDO, VALIDAÇÃO PENDENTE** | `.htaccess` na raiz (pastas internas, ocultos, segredos, documentos, SQL, Python, scripts, backups, apelidos do Windows, `-Indexes`) e em 4 pastas; verificação no início; verificador completo | V460-005 (simulação, 0 falhas; as regras da 1ª passagem deixavam 9 variantes); V460-014 (a verificação acusa a exposição) | depende de `AllowOverride All`; o Apache continua acessível pela rede se escutar em todas as interfaces; pastas fora do projeto (SEG-35) |
+| PI-01 Apache serve arquivos internos | Crítica | **CORRIGIDO E VALIDADO** | `.htaccess` na raiz (pastas internas, ocultos, segredos, documentos, SQL, Python, scripts, backups, apelidos do Windows, `-Indexes`) e em 4 pastas; verificação no início; verificador completo; 01/11/2026, Apache real do PC: `verificar_protecao.bat` com 109 aprovados (internos, variantes do Windows, código-fonte, listagem, site e cabeçalhos); a única reprovação é o `.git` da raiz do `htdocs`, fora do projeto (SEG-35) | V460-005 (simulação, 0 falhas; as regras da 1ª passagem deixavam 9 variantes); V460-014 (a verificação acusa a exposição) | depende de `AllowOverride All`; o Apache continua acessível pela rede se escutar em todas as interfaces; pastas fora do projeto (SEG-35) |
 | PI-02 Repositório público | Alta | **PENDÊNCIA EXTERNA** | não tratado como vulnerabilidade confirmada (o responsável informa que o repositório é privado desde a criação); visibilidade não alterada; 29/10: contas do desenvolvedor principal e do secundário, 2FA nas duas, nenhum outro colaborador (dois convites expiraram) [Declarado]; vira NÃO REPRODUZIDO se o endereço dos dois remotos der 404 numa janela anônima | GitHub não acessado | **dúvida registrada:** a auditoria de 12/10 anotou como "confirmadamente público" o remoto `pessoal` (outra conta), que pode ser um repositório diferente do `origin`; confirmar os dois |
 | PI-03 Documentação revela a lógica | Alta | **CORRIGIDO, VALIDAÇÃO PENDENTE** | `CLASSIFICACAO.md` (6 categorias, documentos internos × confidenciais, versões resumidas para o TCC); avisos CONFIDENCIAL em 6 documentos; `docs/` bloqueada no Apache; repomix fora do Git; nada apagado nem movido | links 0 quebrados (V460-016); bloqueio de `docs/` na simulação | quem tem acesso ao repositório lê tudo; o texto público do TCC deve usar as versões resumidas; cópia antiga do código no Project |
 | PI-04 Autoria e cronologia frágeis | Alta | **PENDÊNCIA EXTERNA** | `PROCEDIMENTO_EVIDENCIAS.md`; `gerar_evidencias.bat` (zip, manifesto SHA-256, *bundle* verificado, hashes, fora do `htdocs`); roteiro do Git assina commit e tag se a chave existir; histórico preservado; 29/10: assinatura aceita antes da v4.60 (`configurar_assinatura.bat`); versões anteriores ao Git em pastas locais, com inventário só de leitura (`inventariar_versoes_antigas.bat`); evidências guardadas só no PC, por decisão | roteiro conferido no repositório sintético (V460-013) | a chave e a execução são suas; o passado não pode ser "consertado" |
 | PI-05 Contribuições e titularidade | Alta | **PENDÊNCIA EXTERNA** | `AUTORIA_E_ORIGEM.md` (linha do tempo, Claude e Cline, decisões do responsável, limitações) e `TITULARIDADE_E_LICENCA.md`; 29/10: papéis por função, ferramentas de IA (ChatGPT, Gemini/Cline, Claude) e regulamento registrados; nomes e titularidade dependem do contrato em preparação | — | equipe, regras da escola, Aestus, termos das ferramentas de IA |
 | PI-06 Dados de aparência pessoal, contas e chave no histórico | Alta | **PENDÊNCIA EXTERNA** | histórico preservado (sem reescrita); o diagnóstico procura no histórico, com saída redigida, chaves, CPFs válidos e `.env` não vazios; contas de demonstração recusadas em produção (SEG-34); 29/10: decisão de manter o histórico; vira ACEITO FORMALMENTE quando o responsável confirmar que o registro é dele | varredura do histórico pendente no PC | decisão com orientação em LGPD; a revogação da chave antiga é informação do responsável |
 | PI-07 Pesos do Match inferíveis pela interface | Média | **ACEITO FORMALMENTE** | análise do risco e 4 alternativas mínimas em `CLASSIFICACAO.md`; nada mudou na tela nem no cálculo; 29/10: opção D, temporária, até depois da apresentação | código: `IA/avaliar_ajax.php` (`analise` sem limite), `Vagas/avaliar.php` | pesos visíveis; LGPD, art. 20 (transparência × segredo) |
-| PI-08 `geminiAPI.env` rastreado | Média | **CORRIGIDO, VALIDAÇÃO PENDENTE** | `.gitignore` + `git rm --cached` no roteiro (arquivo mantido na pasta) | V460-013 | — |
-| PI-09 Repomix versionado e servido | Média | **CORRIGIDO, VALIDAÇÃO PENDENTE** | `.gitignore` (`repomix-output.*`) + `git rm --cached` no roteiro + bloqueio no Apache; continua sendo gerado localmente | V460-013, V460-005 | as versões antigas continuam no histórico |
+| PI-08 `geminiAPI.env` rastreado | Média | **CORRIGIDO E VALIDADO** | `.gitignore` + `git rm --cached` no roteiro (arquivo mantido na pasta); 01/11/2026: diagnóstico no PC — não rastreado e ignorado | V460-013 | — |
+| PI-09 Repomix versionado e servido | Média | **CORRIGIDO E VALIDADO** | `.gitignore` (`repomix-output.*`) + `git rm --cached` no roteiro + bloqueio no Apache; continua sendo gerado localmente; 01/11/2026: não rastreado, ignorado e 403 no Apache real | V460-013, V460-005 | as versões antigas continuam no histórico |
 | PI-10 Ativos sem origem; licenças | Média | **PENDÊNCIA EXTERNA** | `ORIGEM_DOS_ATIVOS.md` (metadados, hashes, licenças conferidas), `THIRD_PARTY_NOTICES.md`, aviso de licença completo em `admin.css`; correção: os 8 logotipos têm manifesto C2PA (o relatório PI dizia que só 2); 29/10: fotos copiadas do Google Imagens, sem licença, mantidas por enquanto; logotipos criados pela equipe (autor registrado) | metadados lidos dos arquivos | origem das 2 fotos e autoria dos logotipos |
 | PI-11 Cópias fora do controle | Média | **PENDÊNCIA EXTERNA** | inventário ampliado: repositório Git na **raiz do `htdocs`** e pastas extras (`cline_feats`, `usavel`) detectados; verificador e diagnóstico passam a apontá-los; 29/10: `cline_feats` e `usavel` eram testes (o responsável apaga); `.git` da raiz do `htdocs` de origem desconhecida; cópia no Project e *zip* na conta pessoal mantidos como registro datado | listagem (só nomes) da raiz do `htdocs` | o conteúdo dessas pastas não foi lido; cópia antiga do código no Project |
-| PI-12 `Candidaturas/` × `candidaturas/` | Alta (funcional) | **CORRIGIDO, VALIDAÇÃO PENDENTE** | renomeação só no índice, no roteiro do Git (o Git registra como renomeação R100); `TESTES_RESULTADOS.md` (V459) corrigido | clone Linux: `/candidaturas/minhas.php` → 302, `/Candidaturas/` → 404 (V460-013) | o roteiro confere o índice ao final; repetir num clone real (seção 11) |
-| PI-13 Listagem de pastas | Baixa | **CORRIGIDO, VALIDAÇÃO PENDENTE** | `Options -Indexes` | verificador (grupo "listagem") | — |
+| PI-12 `Candidaturas/` × `candidaturas/` | Alta (funcional) | **CORRIGIDO E VALIDADO** | renomeação só no índice, no roteiro do Git (o Git registra como renomeação R100); `TESTES_RESULTADOS.md` (V459) corrigido; 01/11/2026: o índice do PC tem só `candidaturas/minhas.php` (teste num clone Linux continua recomendado) | clone Linux: `/candidaturas/minhas.php` → 302, `/Candidaturas/` → 404 (V460-013) | o roteiro confere o índice ao final; repetir num clone real (seção 11) |
+| PI-13 Listagem de pastas | Baixa | **CORRIGIDO E VALIDADO** | `Options -Indexes`; 01/11/2026: grupo "listagem" aprovado no Apache real | verificador (grupo "listagem") | — |
 | PI-14 Extração das instruções da IA | Baixa | **ACEITO FORMALMENTE** | não testável sem o Gemini real (e sem requisições a terceiros); os controles do servidor não dependem do segredo do prompt; Flask sem CORS e só local; 29/10: temporário, até depois da apresentação | — | um usuário pode tentar extrair as instruções conversando |
 | PI-15 Sem controles de confidencialidade | Baixa | **PENDÊNCIA EXTERNA** | classificação criada (`CLASSIFICACAO.md`); 29/10: contrato particular entre os integrantes em preparação; `AUTORIA_E_ORIGEM.md` passou a Confidencial | — | acordos com colaboradores e política de acesso |
 | PI-16 Respostas prontas no navegador | Baixa | **ACEITO FORMALMENTE** | classificadas como "público por necessidade" (`CLASSIFICACAO.md`); aceitar formalmente é decisão sua; 29/10: temporário, até depois da apresentação | — | — |
@@ -151,22 +151,22 @@ e arquivos temporários.
 | ID | Situação | Resumo |
 |---|---|---|
 | SEG-01 recuperação de senha | **CORRIGIDO E VALIDADO** (Lote A, 12/10) | v4.60 acrescentou o limite de erros do código |
-| SEG-02 limite de tentativas | **CORRIGIDO, VALIDAÇÃO PENDENTE** | 5 falhas por conta e 30 por IP em 15 min; 5 erros cancelam o código; unidade 17/17 |
-| SEG-03 perfil público por padrão | **CORRIGIDO, VALIDAÇÃO PENDENTE** | SQL opcional em `BANCO_DE_DADOS.md`; 29/10: a demonstração usa banco novo (`schema.sql` + seed), sem contas antigas |
-| SEG-04 arquivos servidos | **CORRIGIDO, VALIDAÇÃO PENDENTE** | ver PI-01 |
+| SEG-02 limite de tentativas | **CORRIGIDO E VALIDADO** | 5 falhas por conta e 30 por IP em 15 min; 5 erros cancelam o código; unidade 17/17; regressão no PC (MariaDB 10.4 e PHP 8.2 reais), 01/11/2026: LIM-01 a LIM-04 e COD-01 |
+| SEG-03 perfil público por padrão | **CORRIGIDO E VALIDADO** | SQL opcional em `BANCO_DE_DADOS.md`; 29/10: a demonstração usa banco novo (`schema.sql` + seed), sem contas antigas; regressão no PC (MariaDB 10.4 e PHP 8.2 reais), 01/11/2026: CAD-01 a CAD-03 |
+| SEG-04 arquivos servidos | **CORRIGIDO E VALIDADO** | ver PI-01; 01/11/2026: verificador no Apache real (ver PI-01) |
 | SEG-05 IA Advisor `innerHTML` | **CORRIGIDO E VALIDADO** | Chromium 7/7 (antes × depois) |
 | SEG-06 Flask sem autenticação, com CORS | **CORRIGIDO E VALIDADO** (vetores do navegador e da rede) | Flask 12/12; risco residual: processo local |
 | SEG-07 envio ilimitado | **CORRIGIDO, VALIDAÇÃO PENDENTE** | 30 s, 5/h por conta, 20/h por IP; sem teto diário |
 | SEG-08 códigos em texto puro | **ACEITO FORMALMENTE** | exige migração do banco; mitigado pelo limite de erros; 29/10: temporário, até depois da apresentação |
-| SEG-09 sessões após troca de senha; token no login | **CORRIGIDO, VALIDAÇÃO PENDENTE** | unidade 7/7 |
-| SEG-10 currículo previsível | **CORRIGIDO, VALIDAÇÃO PENDENTE** | nome aleatório; arquivo antigo apagado |
-| SEG-13 duas identidades | **CORRIGIDO, VALIDAÇÃO PENDENTE** | — |
+| SEG-09 sessões após troca de senha; token no login | **CORRIGIDO E VALIDADO** | unidade 7/7; regressão no PC (MariaDB 10.4 e PHP 8.2 reais), 01/11/2026: LOGIN-02, LOGIN-03, SESS-01 e SESS-02 |
+| SEG-10 currículo previsível | **CORRIGIDO E VALIDADO** | nome aleatório; arquivo antigo apagado; regressão no PC (MariaDB 10.4 e PHP 8.2 reais), 01/11/2026: CV-01 a CV-06 |
+| SEG-13 duas identidades | **CORRIGIDO E VALIDADO** | —; regressão no PC (MariaDB 10.4 e PHP 8.2 reais), 01/11/2026: IDENT-01 |
 | SEG-15 telefone sem limite | **CORRIGIDO, VALIDAÇÃO PENDENTE** (tamanho) | — |
-| SEG-31 erros do PHP na tela (novo) | **CORRIGIDO, VALIDAÇÃO PENDENTE** | HTTP 41/41 na réplica; PHP-01 no PC |
+| SEG-31 erros do PHP na tela (novo) | **CORRIGIDO E VALIDADO** | HTTP 41/41 na réplica; PHP-01 no PC; regressão no PC (MariaDB 10.4 e PHP 8.2 reais), 01/11/2026: PHP-01 (nenhuma página mostrou aviso ou erro do PHP) |
 | SEG-32 cabeçalhos de segurança (novo) | **CORRIGIDO E VALIDADO** | HTTP 41/41 |
 | SEG-33 `session_start()` cru (novo) | **CORRIGIDO E VALIDADO** | `php -l` e regressão |
 | SEG-34 contas de demonstração em produção (novo) | **CORRIGIDO E VALIDADO** (com `JC_AMBIENTE=producao`) | 6/6 e código 3 |
-| SEG-35 Git e pastas extras na raiz do `htdocs` (novo) | **PENDÊNCIA EXTERNA** | fora do alcance do `.htaccess` do projeto; 29/10: pastas de teste serão apagadas pelo responsável; `.git` da raiz de origem desconhecida |
+| SEG-35 Git e pastas extras na raiz do `htdocs` (novo) | **PENDÊNCIA EXTERNA** | fora do alcance do `.htaccess` do projeto; 29/10: pastas de teste serão apagadas pelo responsável; `.git` da raiz de origem desconhecida; 01/11/2026: o verificador confirmou `../.git/HEAD` acessível (HTTP 200) pela raiz do `htdocs`; 01/11/2026: o `.git` da raiz do `htdocs` é um repositório **vazio** (0 arquivos, nenhum commit) — não expõe código; basta apagá-lo ou movê-lo |
 | SEG-36 inicial do nome sem escape (novo, 2ª passagem) | **CORRIGIDO E VALIDADO** | não explorável (1 caractere); `htmlspecialchars` em 6 telas |
 | TER-01 uso do Gemini fora dos termos da API (novo, 29/10) | **ACEITO FORMALMENTE** (temporário, até depois da apresentação) | público a partir de 14 anos e plano gratuito; os termos exigem 18 anos e proíbem público menor de idade; mitigação no estande em `APRESENTACAO.md`; caminhos em `ORIGEM_DOS_ATIVOS.md` |
 
@@ -241,6 +241,24 @@ Os scripts de teste da réplica ficaram fora do projeto. Os roteiros que valem n
   alterada: no Windows em português, `php scripts/jovemconnect.php quem-usa` procura a palavra "LISTENING" no
   `netstat`, que aparece como "ESCUTANDO"; o comando só deixa de identificar o programa que usa a porta.
 
+**Execução no PC (01/11/2026):**
+- `verificar_protecao.bat`: 109 aprovados, 1 reprovado (o `.git` da raiz do `htdocs`, fora do projeto: SEG-35).
+- `regressao_isolada.bat` (segunda execução, 10:40): **70 de 70 aprovados** no MariaDB 10.4.32 e PHP 8.2.12 reais —
+  cabeçalhos, páginas públicas e privadas, login, IDOR, privacidade do perfil, candidatura, cadastro, limite de
+  tentativas, sessões, currículo, código de verificação, logout, contas de demonstração e ausência de erros do PHP.
+- `diagnostico_somente_leitura.bat` (corrigido, 10:41): Apache com `AllowOverride All`; **`Listen 80` em todas as
+  interfaces e MariaDB sem `bind-address`, com regras do Firewall do Windows liberando `httpd.exe` e `mysqld.exe`
+  em redes Públicas** (risco em rede compartilhada; ver seção 9); assinatura ainda não configurada; histórico
+  como esperado (chave antiga revogada em `geminiAPI.env` e o registro do PI-06 no `schema.sql` até a v4.50).
+- `regressao_isolada.bat` (primeira execução, 10:22): parou na instalação do `schema.sql` no banco de teste com o erro 2006 (conexão com o
+  MySQL perdida). O roteiro só mostrava o número do erro e dizia ter apagado o banco de teste mesmo sem conexão.
+  **Corrigido:** agora mostra a mensagem do MySQL e o comando em que parou, diz se o MySQL caiu ou só fechou a
+  conexão, e tenta apagar o banco de teste com uma conexão nova (avisa se não conseguir). Causa ainda em análise.
+- `diagnostico_somente_leitura.bat`: o relatório saiu só com uma linha. **Causa:** o PowerShell não diferencia
+  maiúsculas e minúsculas; a lista do relatório se chamava `$L` e um laço `foreach ($l ...)` no nível do
+  script a sobrescrevia. A linha que restou era um marcador de exemplo de CPF (`000.000.000-00`, inválido) do
+  `jovem/cadastro.php`, não um dado real. **Corrigido:** a lista foi renomeada (`$script:Relatorio`).
+
 ## 8. Riscos residuais e limitações do ambiente
 
 - O `.htaccess` só vale com `AllowOverride All` (padrão do XAMPP). Com `None`, é ignorado em silêncio — por isso o
@@ -284,9 +302,16 @@ Em ordem sugerida (atualizada com as respostas de 29/10/2026):
    algum lugar, trocá-la lá.
 9. **Bancos antigos:** nos PCs onde o JovemConnect rodou com o banco antigo (inclusive os da escola), apagar o
    banco (pode ter dados reais) e, onde for apresentar, recriar com `schema.sql` + seed.
-10. **Apresentação:** seguir `docs/APRESENTACAO.md` (Tailscale **Serve**, não Funnel; `Listen 127.0.0.1:80` no
+10. **Rede (achado do diagnóstico de 01/11/2026):** o Apache escuta em todas as interfaces (`Listen 80`), o
+    MariaDB não tem `bind-address` e o Firewall do Windows tem regras que liberam `httpd.exe` e `mysqld.exe` em
+    redes **Públicas**. Em Wi-Fi compartilhado (escola, evento), outros aparelhos alcançam o site e a porta 3306
+    do banco. Correção (no PC, fora do projeto): `Listen 127.0.0.1:80` no `httpd.conf`, `bind-address=127.0.0.1`
+    na seção `[mysqld]` do `my.ini` e desativar as duas regras de entrada no Firewall (Painel de Controle →
+    Firewall do Windows Defender → Configurações avançadas → Regras de Entrada). O Tailscale Serve continua
+    funcionando (ele chega por 127.0.0.1).
+11. **Apresentação:** seguir `docs/APRESENTACAO.md` (Tailscale **Serve**, não Funnel; `Listen 127.0.0.1:80` no
     PC de casa; contas de demonstração; limpeza no fim).
-11. **Depois da apresentação:** TER-01 (Gemini), PI-07, PI-14, PI-16 e SEG-08 (aceitos só até lá); trocar as
+12. **Depois da apresentação:** TER-01 (Gemini), PI-07, PI-14, PI-16 e SEG-08 (aceitos só até lá); trocar as
     fotos antes de qualquer uso público; contrato entre os integrantes com advogado (seção 13).
 
 **Respostas e decisões do responsável (29/10/2026):**

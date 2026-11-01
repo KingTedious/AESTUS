@@ -36,6 +36,9 @@ No PC de casa:
 2. No `C:\xampp\apache\conf\httpd.conf`, trocar `Listen 80` por `Listen 127.0.0.1:80` e reiniciar o Apache:
    o Tailscale continua alcançando o site (ele chega por `127.0.0.1`), mas a rede de casa não
    ([INSTALACAO_E_EXECUCAO.md](INSTALACAO_E_EXECUCAO.md), seção 13).
+   No mesmo espírito: `bind-address=127.0.0.1` na seção `[mysqld]` do `C:\xampp\mysql\bin\my.ini` (reinicie o
+   MySQL) e desative as regras de entrada "Apache HTTP Server" e "mysqld" do Firewall do Windows, que hoje liberam
+   esses programas em redes Públicas (diagnóstico de 01/11/2026). Vale também para o notebook que for à escola.
 3. **Banco novo:** `parar_jovemconnect.bat` → responder **S** só na pergunta do banco (digitando o nome) →
    `iniciar_jovemconnect.bat` → aceitar criar o banco (`schema.sql`) e carregar a demonstração (seed). O banco
    antigo pode ter dados reais (PI-06); não use o antigo na apresentação. Faça o mesmo nos computadores onde o
